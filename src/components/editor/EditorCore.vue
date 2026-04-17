@@ -3,9 +3,10 @@ import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions } from '../../core/editor/WysiwygEditor'
 
 // 样式验证用的示例内容（覆盖所有 Markdown 元素）
-const demoContent = `
-# Heading 1
+const demoContent = `# Heading 1
+
 ## Heading 2
+
 ### Heading 3
 
 This is a paragraph with **bold**, *italic*, ~~strikethrough~~, and \`inline code\`.

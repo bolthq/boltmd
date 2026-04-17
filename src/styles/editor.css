@@ -3,7 +3,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-height: 0;
   background: var(--bg-editor);
 }
 
@@ -11,23 +11,19 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  height: 100%;
+  min-height: 0;
 }
 
-/* Tiptap 手动挂载时生成的容器 */
+/* Tiptap 生成的编辑区域（.tiptap 与 .ProseMirror 是同一元素） */
 .editor-mount > .tiptap {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  height: 100%;
+  min-height: 0;
 }
 
 /* ProseMirror editable area */
 .ProseMirror {
   flex: 1;
-  height: 100%;
+  min-height: 0;
   padding: 48px 64px;
   outline: none;
   caret-color: var(--accent-primary);
@@ -81,13 +77,18 @@
   padding: 1em;
   margin: 0.75em 0;
   overflow-x: auto;
+  max-height: calc(1.6em * 20 + 2em);
+  overflow-y: auto;
 }
 
 .ProseMirror pre code {
   background: none;
   padding: 0;
   color: var(--text-primary);
+  font-family: var(--font-mono);
   font-size: 0.9em;
+  display: block;
+  white-space: pre;
 }
 
 .ProseMirror blockquote {

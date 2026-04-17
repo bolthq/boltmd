@@ -34,7 +34,7 @@ export function createWysiwygExtensions(): Extensions {
     CodeBlockLowlight.configure({ lowlight }),
     Highlight.configure({ multicolor: true }),
     Markdown.configure({
-      html: false,
+      html: true,
       transformCopiedText: true,
       transformPastedText: true,
     }),
