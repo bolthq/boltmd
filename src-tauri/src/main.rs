@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    boltmd_tmp_lib::run()
+    boltmd_lib::run()
 }

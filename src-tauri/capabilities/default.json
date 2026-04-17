@@ -18,7 +18,7 @@
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
-    "fs:allow-create-dir",
+    "fs:allow-mkdir",
     "fs:allow-exists",
     "fs:allow-read-file",
     "fs:allow-write-file",
@@ -27,7 +27,6 @@
     "dialog:allow-save",
     "dialog:allow-message",
     "dialog:allow-ask",
-    "cli:default",
     "opener:default"
   ]
 }
