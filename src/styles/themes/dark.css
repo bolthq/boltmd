@@ -3,17 +3,21 @@
   --bg-primary: #1e1e1e;
   --bg-secondary: #252525;
   --bg-editor: #1e1e1e;
+  --bg-tertiary: #2d2d2d;
   --bg-hover: #2a2a2a;
   --bg-active: #333333;
 
   --text-primary: #e8e8e8;
   --text-secondary: #b0b0b0;
   --text-muted: #6b6b6b;
+  --text-placeholder: #555555;
 
   --border-color: #3a3a3a;
+  --border-primary: #3a3a3a;
   --border-active: #555555;
 
   --accent-color: #3b82f6;
+  --accent-primary: #3b82f6;
   --accent-hover: #60a5fa;
 
   --code-bg: #2d2d2d;

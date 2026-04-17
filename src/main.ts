@@ -5,5 +5,6 @@ import './styles/themes/variables.css'
 import './styles/themes/light.css'
 import './styles/themes/dark.css'
 import './styles/base.css'
+import './styles/editor.css'
 
 createApp(App).mount('#app')
