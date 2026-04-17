@@ -4,7 +4,7 @@ import { createWysiwygExtensions } from '../../core/editor/WysiwygEditor'
 
 const editor = useEditor({
   extensions: createWysiwygExtensions(),
-  content: '<p>开始写作...</p>',
+  content: '# Welcome to BoltMD\n\nStart writing **Markdown** here.\n\n- Item 1\n- Item 2\n\n> A blockquote\n\n```js\nconsole.log("hello")\n```\n',
 })
 </script>
 

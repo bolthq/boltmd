@@ -53,6 +53,9 @@ dependencies:
   lowlight:
     specifier: ^3.3.0
     version: 3.3.0
+  tiptap-markdown:
+    specifier: ^0.9.0
+    version: 0.9.0(@tiptap/core@3.22.3)
   vue:
     specifier: ^3.5.13
     version: 3.5.32(typescript@5.6.3)
@@ -1397,8 +1400,19 @@ packages:
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
     dev: true
 
+  /@types/linkify-it@3.0.5:
+    resolution: {integrity: sha512-yg6E+u0/+Zjva+buc3EIb+29XEg4wltq7cSmd4Uc2EE/1nUVmxyzpX6gUXD0V8jIrG0r7YeOGVIbYRkxeooCtw==}
+    dev: false
+
   /@types/linkify-it@5.0.0:
     resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
+    dev: false
+
+  /@types/markdown-it@13.0.9:
+    resolution: {integrity: sha512-1XPwR0+MgXLWfTn9gCsZ55AHOKW1WN+P9vr0PaQh5aerR9LLQXUbjfEAFhjmEmyoYFWAyuN2Mqkn40MZ4ukjBw==}
+    dependencies:
+      '@types/linkify-it': 3.0.5
+      '@types/mdurl': 1.0.5
     dev: false
 
   /@types/markdown-it@14.1.2:
@@ -1406,6 +1420,10 @@ packages:
     dependencies:
       '@types/linkify-it': 5.0.0
       '@types/mdurl': 2.0.0
+    dev: false
+
+  /@types/mdurl@1.0.5:
+    resolution: {integrity: sha512-6L6VymKTzYSrEf4Nev4Xa1LCHKrlTlYCBMTlQKFuddo1CvQcE52I0mwfOJayueUC7MJuXOeHTcIU683lzd0cUA==}
     dev: false
 
   /@types/mdurl@2.0.0:
@@ -2274,6 +2292,10 @@ packages:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  /markdown-it-task-lists@2.1.1:
+    resolution: {integrity: sha512-TxFAc76Jnhb2OUu+n3yz9RMu4CwGfaT788br6HhEDlvWfdeJcLUsxk1Hgw2yJio0OXsxv7pyIPmvECY7bMbluA==}
+    dev: false
+
   /markdown-it@14.1.1:
     resolution: {integrity: sha512-BuU2qnTti9YKgK5N+IeMubp14ZUKUUw7yeJbkjtosvHiP0AZ5c8IAgEMk79D0eC8F23r4Ac/q8cAIFdm2FtyoA==}
     hasBin: true
@@ -2636,6 +2658,18 @@ packages:
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
     dev: true
+
+  /tiptap-markdown@0.9.0(@tiptap/core@3.22.3):
+    resolution: {integrity: sha512-dKLQ9iiuGNgrlGVjrNauF/UBzWu4LYOx5pkD0jNkmQt/GOwfCJsBuzZTsf1jZ204ANHOm572mZ9PYvGh1S7tpQ==}
+    peerDependencies:
+      '@tiptap/core': ^3.0.1
+    dependencies:
+      '@tiptap/core': 3.22.3(@tiptap/pm@3.22.3)
+      '@types/markdown-it': 13.0.9
+      markdown-it: 14.1.1
+      markdown-it-task-lists: 2.1.1
+      prosemirror-markdown: 1.13.4
+    dev: false
 
   /ts-api-utils@2.5.0(typescript@5.6.3):
     resolution: {integrity: sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==}

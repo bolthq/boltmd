@@ -9,6 +9,7 @@ import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { Highlight } from '@tiptap/extension-highlight'
+import { Markdown } from 'tiptap-markdown'
 import { common, createLowlight } from 'lowlight'
 import type { Editor } from '@tiptap/core'
 import type { IEditor, CursorPosition, WordCount } from './types'
@@ -32,6 +33,11 @@ export function createWysiwygExtensions(): Extensions {
     TableHeader,
     CodeBlockLowlight.configure({ lowlight }),
     Highlight.configure({ multicolor: true }),
+    Markdown.configure({
+      html: false,
+      transformCopiedText: true,
+      transformPastedText: true,
+    }),
   ]
 }
 
@@ -43,13 +49,13 @@ export class WysiwygEditor implements IEditor {
   constructor(editor: Editor) {
     this.editor = editor
     this.editor.on('update', () => {
-      const text = this.editor.getText()
-      this.contentChangeCallbacks.forEach(cb => cb(text))
+      const md = this.editor.storage.markdown.getMarkdown()
+      this.contentChangeCallbacks.forEach(cb => cb(md))
     })
   }
 
   getContent(): string {
-    return this.editor.getText()
+    return this.editor.storage.markdown.getMarkdown()
   }
 
   setContent(markdown: string): void {
