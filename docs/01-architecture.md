@@ -722,6 +722,104 @@ EditorManager.switchMode(targetMode)
    targetEditor.focus()
 ```
 
+## 渲染引擎可替换设计（Architecture Note）
+
+> **背景：** MVP 阶段使用 Tiptap 作为 WYSIWYG 渲染引擎。但 Tiptap 在万行以上文档可能出现性能瓶颈，且社区可能出现更优方案，未来也可能自研 Rust 渲染引擎。因此从架构上确保渲染引擎可替换。
+
+### 当前约束（MVP 阶段必须遵守）
+
+**⚠️ Tiptap 的依赖必须收拢在 `WysiwygEditor.ts` 一个文件内，不泄漏到外部模块。**
+
+具体规则：
+1. `EditorManager`、`Toolbar`、`StatusBar` 等上层代码 **禁止** 直接 import tiptap 的任何模块
+2. 上层只依赖 `IEditor` 接口，不依赖 Tiptap 特定 API
+3. Tiptap 的 Extension 注册、配置、样式封装全部在 `WysiwygEditor.ts` 内部完成
+4. 如需暴露 Tiptap 特有能力（如 ProseMirror transaction），通过 `IEditor` 接口的方法包装后暴露，不暴露原始对象
+
+这样未来替换引擎时，只需改 `WysiwygEditor.ts` 一个文件。
+
+### 目标架构（v0.2+ 抽象接口）
+
+当需要支持多渲染引擎时，抽出 `IRenderingEngine` 接口和工厂模式：
+
+```
+当前（MVP）：
+  IEditor → WysiwygEditor → Tiptap（绑死在一个文件内）
+
+目标（v0.2+）：
+  IEditor → WysiwygEditor → IRenderingEngine（接口）
+                                    ├── TiptapEngine
+                                    ├── MilkdownEngine
+                                    └── RustWasmEngine（未来自研）
+```
+
+接口设计预览（MVP 不实现，仅作参考）：
+
+```typescript
+// core/editor/IRenderingEngine.ts（v0.2+ 实现）
+
+interface IRenderingEngine {
+  /** 挂载到 DOM */
+  mount(container: HTMLElement): void
+
+  /** 从 Markdown 初始化内容 */
+  setContent(markdown: string): void
+
+  /** 获取当前 Markdown */
+  getContent(): string
+
+  /** 注册内容变更回调 */
+  onContentChange(cb: (markdown: string) => void): void
+
+  /** 注册命令/快捷键 */
+  registerCommands(commands: EditorCommand[]): void
+
+  /** 销毁 */
+  destroy(): void
+
+  // 光标、选区等操作...
+}
+
+interface RenderingEngineFactory {
+  readonly name: string        // 'tiptap' | 'milkdown' | 'rust-wasm'
+  readonly version: string
+  create(config: EngineConfig): IRenderingEngine
+}
+```
+
+WysiwygEditor 变成薄壳：
+
+```typescript
+class WysiwygEditor implements IEditor {
+  private engine: IRenderingEngine
+
+  constructor(engineFactory: RenderingEngineFactory) {
+    this.engine = engineFactory.create({ /* config */ })
+  }
+  // 所有 IEditor 方法委托给 engine
+}
+```
+
+### 自研 Rust 渲染引擎路线（长期愿景）
+
+| 阶段 | 内容 | 预期收益 | 时间 |
+|------|------|---------|------|
+| Phase 1 | Rust 侧用 `pulldown-cmark`/`comrak` 做 Markdown→AST，通过 IPC 传前端 | 大文件解析快 10-50x | 3-6 月 |
+| Phase 2 | Rust 侧生成渲染指令（类似 Flutter render object），前端只做薄 DOM 映射 | 跳过 ProseMirror JS 开销 | 6-12 月 |
+| Phase 3 | 纯 Rust GUI（iced/egui），干掉 WebView | 启动 50ms / 内存 20MB | 12 月+ |
+
+**务实建议：** Phase 1 ROI 最高值得做；Phase 2 看需求；Phase 3 等 Rust GUI 生态成熟。
+
+### 抽象时机
+
+**现在（MVP）：** 不实现 IRenderingEngine，只做依赖收拢。
+**何时抽出接口：** 满足以下任一条件时——
+- Tiptap 在大文件下出现实际性能瓶颈
+- 社区出现更好的 WYSIWYG 引擎
+- 准备自研 Rust 渲染引擎
+
+---
+
 ## 性能策略
 
 | 环节 | 策略 |

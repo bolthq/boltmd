@@ -51,6 +51,15 @@ BoltMD 是一个基于 Tauri 2.0 的轻量 Markdown 编辑器。
    - 组件通过 composable → store → service 间接调用
    - 方便测试和跨平台适配
 
+4. **⚠️ 渲染引擎可替换约束（重要！）**
+   - **Tiptap 的依赖必须收拢在 `WysiwygEditor.ts` 一个文件内，不泄漏到外部模块**
+   - `EditorManager`、`Toolbar`、`StatusBar` 等上层代码 **禁止** 直接 import tiptap 的任何模块
+   - 上层只依赖 `IEditor` 接口，不依赖 Tiptap 特定 API
+   - Tiptap 的 Extension 注册、配置、样式封装全部在 `WysiwygEditor.ts` 内部完成
+   - 如需暴露 Tiptap 特有能力（如 ProseMirror transaction），通过 `IEditor` 接口的方法包装后暴露，不暴露原始对象
+   - **原因：** 未来可能替换渲染引擎（Milkdown、自研 Rust 渲染引擎等），依赖收拢到一处可以最小化替换成本
+   - 详见 `docs/01-architecture.md` 的"渲染引擎可替换设计"章节
+
 ### 编码规范
 
 1. **TypeScript 严格模式**
