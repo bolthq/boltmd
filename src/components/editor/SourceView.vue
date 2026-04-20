@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { SourceEditor } from '../../core/editor/SourceEditor'
+import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
 
 const props = defineProps<{
   content?: string
+  /** 为 true 时不注册到 EditorManager（SplitView 内嵌时使用） */
+  noRegister?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -28,15 +31,25 @@ onMounted(() => {
   // CodeMirror 的滚动容器是 .cm-scroller
   scrollEl = containerRef.value.querySelector('.cm-scroller') as HTMLElement | null
   scrollEl?.addEventListener('scroll', handleScroll, { passive: true })
+
+  // 注册到 EditorManager（SplitView 内嵌时由 SplitView 负责注册）
+  if (!props.noRegister) {
+    registerEditor(editor)
+  }
 })
 
 onUnmounted(() => {
   scrollEl?.removeEventListener('scroll', handleScroll)
-  editor?.destroy()
-  editor = null
+  if (editor) {
+    if (!props.noRegister) {
+      unregisterEditor(editor)
+    }
+    editor.destroy()
+    editor = null
+  }
 })
 
-// 暴露 editor 实例给父组件（EditorManager 阶段使用）
+// 暴露 editor 实例给父组件
 defineExpose({ editor: () => editor })
 </script>
 
