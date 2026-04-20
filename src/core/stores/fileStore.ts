@@ -2,6 +2,8 @@ import { ref, readonly } from 'vue'
 import { fileService } from '../services/FileService'
 import { errorService } from '../services/ErrorService'
 import { ErrorLevel } from '../services/ErrorService'
+import { getContent } from '../editor/EditorManager'
+import { openTab as tabOpenTab, markSaved as tabMarkSaved, activeTabId, activeTab } from './tabStore'
 
 // ── 状态 ────────────────────────────────────────────────────────────────────
 
@@ -40,12 +42,15 @@ export function markDirty(content: string): void {
   _dirty.value = true
 }
 
-/** 弹出打开对话框，加载文件 */
+/** 弹出打开对话框，加载文件到新标签 */
 export async function openFile(): Promise<boolean> {
   try {
     const info = await fileService.openFile()
     if (!info) return false
     applyFileInfo(info)
+    if (info.path) {
+      tabOpenTab(info.path, info.content)
+    }
     return true
   } catch (e) {
     errorService.report({
@@ -58,11 +63,12 @@ export async function openFile(): Promise<boolean> {
   }
 }
 
-/** 直接按路径打开文件 */
+/** 直接按路径打开文件到新标签 */
 export async function openFilePath(path: string): Promise<boolean> {
   try {
     const info = await fileService.openFilePath(path)
     applyFileInfo(info)
+    tabOpenTab(path, info.content)
     return true
   } catch (e) {
     errorService.report({
@@ -77,11 +83,18 @@ export async function openFilePath(path: string): Promise<boolean> {
 
 /** 保存到当前路径；若无路径则触发另存为 */
 export async function saveFile(): Promise<boolean> {
-  if (_path.value) {
+  const tab = activeTab.value
+  const tabId = activeTabId.value
+  // 从编辑器获取最新内容
+  const content = getContent()
+
+  const path = tab?.filePath ?? _path.value
+  if (path && tabId) {
     try {
-      await fileService.saveFile(_path.value, _content.value)
+      await fileService.saveFile(path, content)
       _dirty.value = false
       _lastSaved.value = Date.now()
+      tabMarkSaved(tabId, path)
       return true
     } catch (e) {
       errorService.report({
@@ -98,14 +111,19 @@ export async function saveFile(): Promise<boolean> {
 
 /** 弹出另存为对话框 */
 export async function saveFileAs(): Promise<boolean> {
+  const tabId = activeTabId.value
+  const content = getContent()
   try {
-    const newPath = await fileService.saveFileAs(_content.value)
+    const newPath = await fileService.saveFileAs(content)
     if (!newPath) return false
     const name = newPath.split(/[\\/]/).pop() ?? 'untitled.md'
     _path.value = newPath
     _name.value = name
     _dirty.value = false
     _lastSaved.value = Date.now()
+    if (tabId) {
+      tabMarkSaved(tabId, newPath)
+    }
     return true
   } catch (e) {
     errorService.report({
