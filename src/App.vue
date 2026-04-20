@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { ask } from '@tauri-apps/plugin-dialog'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
-import { fileName, isDirty } from './core/stores/fileStore'
+import { fileName, isDirty, saveFile } from './core/stores/fileStore'
 
 const { mode, cycleMode, setContent } = useEditorManager()
 
@@ -76,6 +77,20 @@ function handleKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+
+  // 关窗拦截：有未保存内容时弹确认框
+  getCurrentWindow().onCloseRequested(async (event) => {
+    if (!isDirty.value) return
+    event.preventDefault()
+    const confirmed = await ask(
+      `"${fileName.value}" has unsaved changes. Save before closing?`,
+      { title: 'Unsaved Changes', kind: 'warning', okLabel: 'Save', cancelLabel: 'Discard' },
+    )
+    if (confirmed) {
+      await saveFile()
+    }
+    await getCurrentWindow().destroy()
+  })
 })
 
 onUnmounted(() => {
