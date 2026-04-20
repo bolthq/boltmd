@@ -95,6 +95,16 @@ function handleGlobalClick() {
   closeContextMenu()
 }
 
+// ── 溢出滚动 ─────────────────────────────────────────────────────────────────
+
+const tabListRef = ref<HTMLElement | null>(null)
+
+function handleWheel(e: WheelEvent) {
+  if (tabListRef.value) {
+    tabListRef.value.scrollLeft += e.deltaY
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick)
 })
@@ -106,7 +116,7 @@ onUnmounted(() => {
 
 <template>
   <div class="tab-bar">
-    <div class="tab-list">
+    <div class="tab-list" ref="tabListRef" @wheel.prevent="handleWheel">
       <div
         v-for="(tab, index) in tabs"
         :key="tab.id"
@@ -161,6 +171,13 @@ onUnmounted(() => {
   align-items: stretch;
   min-width: 0;
   flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+}
+
+.tab-list::-webkit-scrollbar {
+  display: none; /* Chrome/Edge */
 }
 
 .tab-item {
@@ -176,6 +193,7 @@ onUnmounted(() => {
   white-space: nowrap;
   max-width: 180px;
   min-width: 80px;
+  flex-shrink: 0;
 }
 
 .tab-item:hover {
