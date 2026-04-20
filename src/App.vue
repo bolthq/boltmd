@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import SplitView from './components/editor/SplitView.vue'
+import { onMounted, onUnmounted } from 'vue'
+import EditorContainer from './components/editor/EditorContainer.vue'
+import { useEditorManager } from './core/editor/EditorManager'
+
+const { mode, cycleMode, setContent } = useEditorManager()
 
 const demoContent = `# Heading 1
 
@@ -38,10 +42,65 @@ function hello() {
 | Cell 4   | Cell 5   | Cell 6   |
 | Cell 7   | Cell 8   | Cell 9   |
 `
+
+// 初始化内容
+setContent(demoContent)
+
+// 模式名称映射（显示用）
+const modeLabels: Record<string, string> = {
+  wysiwyg: 'WYSIWYG',
+  source: 'Source',
+  split: 'Split',
+}
+
+// 全局快捷键
+function handleKeydown(e: KeyboardEvent) {
+  // Ctrl+/ 或 Cmd+/ 循环切换模式
+  if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+    e.preventDefault()
+    cycleMode()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <template>
   <div class="app-shell" style="height: 100vh; display: flex; flex-direction: column;">
-    <SplitView :content="demoContent" />
+    <!-- 临时模式指示器（Phase 8 会替换为正式状态栏） -->
+    <div class="mode-indicator">
+      <span class="mode-label">{{ modeLabels[mode] }}</span>
+      <span class="mode-hint">Ctrl+/ to switch</span>
+    </div>
+    <EditorContainer />
   </div>
 </template>
+
+<style scoped>
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.mode-label {
+  color: var(--accent-primary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.mode-hint {
+  color: var(--text-muted);
+}
+</style>
