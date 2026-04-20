@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { tabs, activeTabId, switchTab, closeTab } from '../../core/stores/tabStore'
+import { ref } from 'vue'
+import { tabs, activeTabId, switchTab, closeTab, moveTab } from '../../core/stores/tabStore'
 
 function handleClose(e: MouseEvent, tabId: string) {
   e.stopPropagation()
@@ -13,18 +14,62 @@ function handleMouseDown(e: MouseEvent, tabId: string) {
     closeTab(tabId)
   }
 }
+
+// ── 拖拽排序 ─────────────────────────────────────────────────────────────────
+
+const dragIndex = ref<number | null>(null)
+const dropIndex = ref<number | null>(null)
+
+function handleDragStart(e: DragEvent, index: number) {
+  dragIndex.value = index
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+function handleDragOver(e: DragEvent, index: number) {
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+  dropIndex.value = index
+}
+
+function handleDragLeave() {
+  dropIndex.value = null
+}
+
+function handleDrop(e: DragEvent, index: number) {
+  e.preventDefault()
+  if (dragIndex.value !== null && dragIndex.value !== index) {
+    moveTab(dragIndex.value, index)
+  }
+  dragIndex.value = null
+  dropIndex.value = null
+}
+
+function handleDragEnd() {
+  dragIndex.value = null
+  dropIndex.value = null
+}
 </script>
 
 <template>
   <div class="tab-bar">
     <div class="tab-list">
       <div
-        v-for="tab in tabs"
+        v-for="(tab, index) in tabs"
         :key="tab.id"
         class="tab-item"
-        :class="{ active: tab.id === activeTabId }"
+        :class="{ active: tab.id === activeTabId, 'drop-target': dropIndex === index }"
+        draggable="true"
         @click="switchTab(tab.id)"
         @mousedown="handleMouseDown($event, tab.id)"
+        @dragstart="handleDragStart($event, index)"
+        @dragover="handleDragOver($event, index)"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop($event, index)"
+        @dragend="handleDragEnd"
       >
         <span class="tab-name">{{ tab.fileName }}</span>
         <span v-if="tab.dirty" class="tab-dirty">●</span>
@@ -104,5 +149,9 @@ function handleMouseDown(e: MouseEvent, tabId: string) {
 .tab-close:hover {
   background: var(--border-primary);
   color: var(--text-primary);
+}
+
+.tab-item.drop-target {
+  border-left: 2px solid var(--accent-primary);
 }
 </style>
