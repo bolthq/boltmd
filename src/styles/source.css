@@ -1,3 +1,11 @@
+/* Editor container (mode switching) */
+.editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* Source editor layout */
 .source-view {
   flex: 1;
