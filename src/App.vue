@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { ask } from '@tauri-apps/plugin-dialog'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
-import { fileName, isDirty, saveFile } from './core/stores/fileStore'
+import { fileName, isDirty, saveFile, openFilePath } from './core/stores/fileStore'
 
 const { mode, cycleMode, setContent } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
@@ -77,8 +78,14 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
+
+  // CLI 参数：启动时若传入文件路径则打开
+  const cliFile = await invoke<string | null>('get_cli_file')
+  if (cliFile) {
+    await openFilePath(cliFile)
+  }
 
   // 关窗拦截：有未保存内容时弹确认框
   getCurrentWindow().onCloseRequested(async (event) => {
