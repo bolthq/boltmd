@@ -8,8 +8,8 @@ import TabBar from './components/tabs/TabBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
-import { activeTab, initTabs } from './core/stores/tabStore'
-import { saveFile, openFilePath } from './core/stores/fileStore'
+import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab } from './core/stores/tabStore'
+import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
 
 const { mode, cycleMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
@@ -39,10 +39,66 @@ const modeLabels: Record<string, string> = {
 
 // 全局快捷键
 function handleKeydown(e: KeyboardEvent) {
-  // Ctrl+/ 或 Cmd+/ 循环切换模式
-  if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+  const ctrl = e.ctrlKey || e.metaKey
+
+  // Ctrl+/ 循环切换编辑模式
+  if (ctrl && e.key === '/') {
     e.preventDefault()
     cycleMode()
+    return
+  }
+
+  // Ctrl+N 新建标签
+  if (ctrl && e.key === 'n') {
+    e.preventDefault()
+    createTab()
+    return
+  }
+
+  // Ctrl+O 打开文件到新标签
+  if (ctrl && e.key === 'o') {
+    e.preventDefault()
+    openFile()
+    return
+  }
+
+  // Ctrl+W 关闭当前标签
+  if (ctrl && e.key === 'w') {
+    e.preventDefault()
+    if (activeTabId.value) {
+      closeTab(activeTabId.value)
+    }
+    return
+  }
+
+  // Ctrl+S 保存当前文件
+  if (ctrl && e.key === 's') {
+    e.preventDefault()
+    saveFile()
+    return
+  }
+
+  // Ctrl+Tab / Ctrl+Shift+Tab 切换标签
+  if (ctrl && e.key === 'Tab') {
+    e.preventDefault()
+    const list = tabs.value
+    if (list.length <= 1) return
+    const currentIndex = list.findIndex((t) => t.id === activeTabId.value)
+    const delta = e.shiftKey ? -1 : 1
+    const nextIndex = (currentIndex + delta + list.length) % list.length
+    switchTab(list[nextIndex].id)
+    return
+  }
+
+  // Ctrl+1~9 跳转到第N个标签
+  if (ctrl && e.key >= '1' && e.key <= '9') {
+    e.preventDefault()
+    const index = parseInt(e.key) - 1
+    const list = tabs.value
+    if (index < list.length) {
+      switchTab(list[index].id)
+    }
+    return
   }
 }
 
