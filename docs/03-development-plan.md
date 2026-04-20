@@ -475,6 +475,40 @@ P10-6: README.md
 
 ---
 
+### Phase 11: CLI 终端渲染（Phase 10 之后）
+
+**目标：** 独立 CLI 工具，在无桌面环境的终端中渲染 Markdown（类似 `glow`/`bat`）
+
+**说明：** 与 GUI 完全正交，不依赖 Tauri/WebView。复用 `read_file` 的编码检测逻辑，重构为 Cargo workspace 后抽出共享 crate。
+
+**任务：**
+```
+P11-1: 重构为 Cargo workspace
+       - 创建顶层 Cargo.toml (workspace)
+       - 现有 src-tauri → workspace member
+       - 新建 boltmd-core crate（共享库）
+
+P11-2: boltmd-core — 文件读取 + Markdown AST
+       - 从 src-tauri 迁移 read_file 编码检测逻辑
+       - 集成 pulldown-cmark 解析 Markdown
+       - 返回 AST 供上层渲染
+
+P11-3: boltmd-cli — 终端渲染
+       - clap 参数解析: boltmd <file> [--no-color] [--width N]
+       - termimad 终端 ANSI 渲染（标题/加粗/代码块/表格/链接）
+       - stdin 支持: cat file.md | boltmd
+       - 无桌面/headless 环境下正常运行
+
+P11-4: 发布 CLI 二进制
+       - cargo install boltmd-cli
+       - GitHub Release 附带预编译二进制（Linux/macOS/Windows）
+       - 独立于 GUI 版本号管理
+```
+
+**验收：** `boltmd file.md` 在终端中输出带 ANSI 颜色的 Markdown 渲染结果，无需桌面环境。
+
+---
+
 ## 开发时间表
 
 | 阶段 | 天数 | 累计 | 里程碑 |
@@ -490,8 +524,9 @@ P10-6: README.md
 | Phase 8: UI | 4天 | 28天 | **完整界面 (可展示里程碑)** |
 | Phase 9: 配置对接 | 1天 | 29天 | 设置持久化 |
 | Phase 10: 打包发布 | 4天 | 33天 | **可发布 MVP** |
+| Phase 11: CLI 终端渲染 | 3天 | 36天 | CLI 工具独立发布 |
 
-**总计：33 个工作日（约 7 周）**
+**总计：33 个工作日（约 7 周）+ Phase 11 CLI（3天，MVP 后独立推进）**
 
 ## 里程碑可视化
 
@@ -501,4 +536,5 @@ Phase 0-3 (11天) → 三种编辑模式可切换，像个编辑器了
 Phase 0-4 (16天) → 能打开/保存真实文件，可以日常使用 ★ 内部可用
 Phase 0-8 (28天) → 标题栏+状态栏+工具栏+标签页，看起来像正式产品 ★ 可展示
 Phase 0-10(33天) → 安装包+文件关联，可以发布 ★ 正式发布
+Phase 11  (36天) → CLI 终端渲染工具，无桌面环境可用 ★ CLI 发布
 ```
