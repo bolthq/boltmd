@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { tabs, activeTabId, switchTab, closeTab, moveTab } from '../../core/stores/tabStore'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { tabs, activeTabId, switchTab, closeTab, moveTab, closeOtherTabs, closeTabsToRight } from '../../core/stores/tabStore'
 
 function handleClose(e: MouseEvent, tabId: string) {
   e.stopPropagation()
@@ -52,6 +52,56 @@ function handleDragEnd() {
   dragIndex.value = null
   dropIndex.value = null
 }
+
+// ── 右键菜单 ─────────────────────────────────────────────────────────────────
+
+const contextMenu = ref<{ x: number; y: number; tabId: string } | null>(null)
+
+function handleContextMenu(e: MouseEvent, tabId: string) {
+  e.preventDefault()
+  contextMenu.value = { x: e.clientX, y: e.clientY, tabId }
+}
+
+function closeContextMenu() {
+  contextMenu.value = null
+}
+
+function ctxClose() {
+  if (contextMenu.value) closeTab(contextMenu.value.tabId)
+  closeContextMenu()
+}
+
+function ctxCloseOthers() {
+  if (contextMenu.value) closeOtherTabs(contextMenu.value.tabId)
+  closeContextMenu()
+}
+
+function ctxCloseRight() {
+  if (contextMenu.value) closeTabsToRight(contextMenu.value.tabId)
+  closeContextMenu()
+}
+
+function ctxCopyPath() {
+  if (!contextMenu.value) return
+  const tab = tabs.value.find((t) => t.id === contextMenu.value!.tabId)
+  if (tab?.filePath) {
+    navigator.clipboard.writeText(tab.filePath)
+  }
+  closeContextMenu()
+}
+
+// 点击其他区域关闭右键菜单
+function handleGlobalClick() {
+  closeContextMenu()
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleGlobalClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleGlobalClick)
+})
 </script>
 
 <template>
@@ -70,12 +120,29 @@ function handleDragEnd() {
         @dragleave="handleDragLeave"
         @drop="handleDrop($event, index)"
         @dragend="handleDragEnd"
+        @contextmenu="handleContextMenu($event, tab.id)"
       >
         <span class="tab-name">{{ tab.fileName }}</span>
         <span v-if="tab.dirty" class="tab-dirty">●</span>
         <button class="tab-close" @click="handleClose($event, tab.id)">&times;</button>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenu"
+        class="tab-context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        @click.stop
+      >
+        <div class="ctx-item" @click="ctxClose">Close</div>
+        <div class="ctx-item" @click="ctxCloseOthers">Close Others</div>
+        <div class="ctx-item" @click="ctxCloseRight">Close to the Right</div>
+        <div class="ctx-divider"></div>
+        <div class="ctx-item" @click="ctxCopyPath">Copy Path</div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -153,5 +220,36 @@ function handleDragEnd() {
 
 .tab-item.drop-target {
   border-left: 2px solid var(--accent-primary);
+}
+</style>
+
+<style>
+.tab-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ctx-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.ctx-item:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.ctx-divider {
+  height: 1px;
+  background: var(--border-primary);
+  margin: 4px 0;
 }
 </style>
