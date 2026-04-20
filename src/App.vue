@@ -4,9 +4,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { ask } from '@tauri-apps/plugin-dialog'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
+import { useAutoSave } from './core/editor/useAutoSave'
 import { fileName, isDirty, saveFile } from './core/stores/fileStore'
 
 const { mode, cycleMode, setContent } = useEditorManager()
+const { stop: stopAutoSave } = useAutoSave()
 
 // 标题栏：「文件名 [*] — BoltMD」
 watch(
@@ -95,6 +97,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  stopAutoSave()
 })
 </script>
 
