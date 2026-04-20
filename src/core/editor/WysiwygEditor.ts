@@ -49,13 +49,13 @@ export class WysiwygEditor implements IEditor {
   constructor(editor: Editor) {
     this.editor = editor
     this.editor.on('update', () => {
-      const md = this.editor.storage.markdown.getMarkdown()
+      const md = (this.editor.storage as any).markdown.getMarkdown()
       this.contentChangeCallbacks.forEach(cb => cb(md))
     })
   }
 
   getContent(): string {
-    return this.editor.storage.markdown.getMarkdown()
+    return (this.editor.storage as any).markdown.getMarkdown()
   }
 
   setContent(markdown: string): void {
