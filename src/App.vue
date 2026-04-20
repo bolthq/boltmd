@@ -1,9 +1,21 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { watch, onMounted, onUnmounted } from 'vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
+import { fileName, isDirty } from './core/stores/fileStore'
 
 const { mode, cycleMode, setContent } = useEditorManager()
+
+// 标题栏：「文件名 [*] — BoltMD」
+watch(
+  [fileName, isDirty],
+  ([name, dirty]) => {
+    const title = `${name}${dirty ? ' *' : ''} — BoltMD`
+    getCurrentWindow().setTitle(title)
+  },
+  { immediate: true },
+)
 
 const demoContent = `# Heading 1
 
