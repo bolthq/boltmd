@@ -4,66 +4,31 @@ import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { ask } from '@tauri-apps/plugin-dialog'
+import TabBar from './components/tabs/TabBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
-import { fileName, isDirty, saveFile, openFilePath } from './core/stores/fileStore'
+import { activeTab, initTabs } from './core/stores/tabStore'
+import { saveFile, openFilePath } from './core/stores/fileStore'
 
-const { mode, cycleMode, setContent } = useEditorManager()
+const { mode, cycleMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 
 let unlistenDragDrop: (() => void) | null = null
 
+// 初始化标签页（创建第一个空白标签）
+initTabs()
+
 // 标题栏：「文件名 [*] — BoltMD」
 watch(
-  [fileName, isDirty],
-  ([name, dirty]) => {
-    const title = `${name}${dirty ? ' *' : ''} — BoltMD`
+  activeTab,
+  (tab) => {
+    if (!tab) return
+    const title = `${tab.fileName}${tab.dirty ? ' *' : ''} — BoltMD`
     getCurrentWindow().setTitle(title)
   },
   { immediate: true },
 )
-
-const demoContent = `# Heading 1
-
-## Heading 2
-
-### Heading 3
-
-This is a paragraph with **bold**, *italic*, ~~strikethrough~~, and \`inline code\`.
-
-- Unordered item 1
-- Unordered item 2
-
-1. Ordered item 1
-2. Ordered item 2
-
-- [ ] Task unchecked
-- [x] Task checked
-
-> This is a blockquote
-
----
-
-[Link example](https://example.com)
-
-\`\`\`js
-function hello() {
-  const name = "BoltMD";
-  console.log(name);
-  return 42;
-}
-\`\`\`
-
-| Header 1 | Header 2 | Header 3 |
-|----------|----------|----------|
-| Cell 1   | Cell 2   | Cell 3   |
-| Cell 4   | Cell 5   | Cell 6   |
-| Cell 7   | Cell 8   | Cell 9   |
-`
-
-// 初始化内容
-setContent(demoContent)
 
 // 模式名称映射（显示用）
 const modeLabels: Record<string, string> = {
@@ -99,10 +64,11 @@ onMounted(async () => {
 
   // 关窗拦截：有未保存内容时弹确认框
   getCurrentWindow().onCloseRequested(async (event) => {
-    if (!isDirty.value) return
+    const tab = activeTab.value
+    if (!tab?.dirty) return
     event.preventDefault()
     const confirmed = await ask(
-      `"${fileName.value}" has unsaved changes. Save before closing?`,
+      `"${tab.fileName}" has unsaved changes. Save before closing?`,
       { title: 'Unsaved Changes', kind: 'warning', okLabel: 'Save', cancelLabel: 'Discard' },
     )
     if (confirmed) {
@@ -121,6 +87,8 @@ onUnmounted(() => {
 
 <template>
   <div class="app-shell" style="height: 100vh; display: flex; flex-direction: column;">
+    <!-- 标签栏 -->
+    <TabBar />
     <!-- 临时模式指示器（Phase 8 会替换为正式状态栏） -->
     <div class="mode-indicator">
       <span class="mode-label">{{ modeLabels[mode] }}</span>
