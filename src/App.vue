@@ -2,6 +2,7 @@
 import { watch, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { ask } from '@tauri-apps/plugin-dialog'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
@@ -10,6 +11,8 @@ import { fileName, isDirty, saveFile, openFilePath } from './core/stores/fileSto
 
 const { mode, cycleMode, setContent } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
+
+let unlistenDragDrop: (() => void) | null = null
 
 // 标题栏：「文件名 [*] — BoltMD」
 watch(
@@ -87,6 +90,13 @@ onMounted(async () => {
     await openFilePath(cliFile)
   }
 
+  // 拖拽打开：取第一个拖入的文件路径
+  unlistenDragDrop = await getCurrentWebview().onDragDropEvent(async (event) => {
+    if (event.payload.type === 'drop' && event.payload.paths.length > 0) {
+      await openFilePath(event.payload.paths[0])
+    }
+  })
+
   // 关窗拦截：有未保存内容时弹确认框
   getCurrentWindow().onCloseRequested(async (event) => {
     if (!isDirty.value) return
@@ -105,6 +115,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   stopAutoSave()
+  unlistenDragDrop?.()
 })
 </script>
 
