@@ -6,6 +6,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { ask } from '@tauri-apps/plugin-dialog'
 import TabBar from './components/tabs/TabBar.vue'
 import TitleBar from './components/layout/TitleBar.vue'
+import StatusBar from './components/layout/StatusBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
@@ -13,7 +14,7 @@ import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab,
 import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
 import { themeService } from './core/services/ThemeService'
 
-const { mode, cycleMode } = useEditorManager()
+const { cycleMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 
 let unlistenDragDrop: (() => void) | null = null
@@ -27,13 +28,6 @@ watch(
   },
   { immediate: true },
 )
-
-// 模式名称映射（显示用）
-const modeLabels: Record<string, string> = {
-  wysiwyg: 'WYSIWYG',
-  source: 'Source',
-  split: 'Split',
-}
 
 // 全局快捷键
 function handleKeydown(e: KeyboardEvent) {
@@ -155,34 +149,11 @@ onUnmounted(() => {
     <TitleBar />
     <!-- 标签栏 -->
     <TabBar />
-    <!-- 临时模式指示器（Phase 8 会替换为正式状态栏） -->
-    <div class="mode-indicator">
-      <span class="mode-label">{{ modeLabels[mode] }}</span>
-      <span class="mode-hint">Ctrl+/ to switch</span>
-    </div>
     <EditorContainer />
+    <!-- 状态栏 -->
+    <StatusBar />
   </div>
 </template>
 
 <style scoped>
-.mode-indicator {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 16px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-primary);
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.mode-label {
-  color: var(--accent-primary);
-  font-weight: 600;
-  font-family: var(--font-mono);
-}
-
-.mode-hint {
-  color: var(--text-muted);
-}
 </style>
