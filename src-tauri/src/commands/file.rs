@@ -1,4 +1,5 @@
 use encoding_rs::Encoding;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::UNIX_EPOCH;
@@ -94,4 +95,32 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
         encoding: "UTF-8".to_string(),
         last_modified,
     })
+}
+
+/// 保存图片（base64 → 二进制文件）
+/// dir: 目标目录路径
+/// filename: 文件名（如 boltmd-1234567890.png）
+/// data: base64 编码的图片数据
+#[tauri::command]
+pub fn save_image(dir: String, filename: String, data: String) -> Result<String, String> {
+    let dir_path = Path::new(&dir);
+
+    // 确保目录存在
+    if !dir_path.exists() {
+        std::fs::create_dir_all(dir_path)
+            .map_err(|e| format!("Failed to create directory: {e}"))?;
+    }
+
+    // 解码 base64
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&data)
+        .map_err(|e| format!("Failed to decode base64: {e}"))?;
+
+    // 写入文件
+    let file_path = dir_path.join(&filename);
+    std::fs::write(&file_path, &bytes)
+        .map_err(|e| format!("Failed to save image: {e}"))?;
+
+    // 返回完整路径
+    Ok(file_path.to_string_lossy().to_string())
 }
