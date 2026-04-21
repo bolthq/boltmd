@@ -10,6 +10,7 @@ import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
 import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
+import { themeService } from './core/services/ThemeService'
 
 const { mode, cycleMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
@@ -101,6 +102,9 @@ function handleKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
+
+  // 初始化主题
+  themeService.init()
 
   // 恢复上次的标签会话；若无会话则创建空白标签
   const restored = await restoreSession()
