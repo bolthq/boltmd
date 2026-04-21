@@ -8,16 +8,13 @@ import TabBar from './components/tabs/TabBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
-import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab } from './core/stores/tabStore'
+import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
 import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
 
 const { mode, cycleMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 
 let unlistenDragDrop: (() => void) | null = null
-
-// 初始化标签页（创建第一个空白标签）
-initTabs()
 
 // 标题栏：「文件名 [*] — BoltMD」
 watch(
@@ -105,6 +102,12 @@ function handleKeydown(e: KeyboardEvent) {
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
 
+  // 恢复上次的标签会话；若无会话则创建空白标签
+  const restored = await restoreSession()
+  if (!restored) {
+    initTabs()
+  }
+
   // CLI 参数：启动时若传入文件路径则打开
   const cliFile = await invoke<string | null>('get_cli_file')
   if (cliFile) {
@@ -118,8 +121,9 @@ onMounted(async () => {
     }
   })
 
-  // 关窗拦截：有未保存内容时弹确认框
+  // 关窗拦截：保存会话，有未保存内容时弹确认框
   getCurrentWindow().onCloseRequested(async (event) => {
+    await saveSession()
     const tab = activeTab.value
     if (!tab?.dirty) return
     event.preventDefault()
