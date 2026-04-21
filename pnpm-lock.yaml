@@ -26,6 +26,9 @@ dependencies:
   '@codemirror/view':
     specifier: ^6.41.0
     version: 6.41.0
+  '@lezer/highlight':
+    specifier: ^1.2.3
+    version: 1.2.3
   '@tauri-apps/api':
     specifier: ^2
     version: 2.10.1
