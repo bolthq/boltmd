@@ -2,6 +2,17 @@ import type { EditorMode } from '../editor/types'
 
 export type ThemeName = 'light' | 'dark' | 'system'
 
+/** 标签会话持久化数据（只保存路径和模式，内容从文件重新读取） */
+export interface TabSessionItem {
+  filePath: string | null
+  editorMode: EditorMode
+}
+
+export interface TabSession {
+  tabs: TabSessionItem[]
+  activeIndex: number
+}
+
 export interface AppConfig {
   theme: ThemeName
   fontSize: number
@@ -16,6 +27,7 @@ export interface AppConfig {
   showToolbar: boolean
   imageStorePath: 'relative' | 'absolute'
   language: string
+  tabSession: TabSession | null
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -32,4 +44,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   showToolbar: true,
   imageStorePath: 'relative',
   language: 'zh-CN',
+  tabSession: null,
 }
