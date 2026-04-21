@@ -9,6 +9,7 @@ import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { Highlight } from '@tiptap/extension-highlight'
+import { Image } from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
 import { common, createLowlight } from 'lowlight'
 import type { Editor } from '@tiptap/core'
@@ -33,6 +34,7 @@ export function createWysiwygExtensions(): Extensions {
     TableHeader,
     CodeBlockLowlight.configure({ lowlight }),
     Highlight.configure({ multicolor: true }),
+    Image.configure({ inline: true, allowBase64: true }),
     Markdown.configure({
       html: true,
       transformCopiedText: true,
