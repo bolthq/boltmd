@@ -90,3 +90,18 @@ class ImageServiceImpl implements IImageService {
 }
 
 export const imageService = new ImageServiceImpl()
+
+/** 常见图片扩展名 */
+const IMAGE_EXTS = /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?.*)?$/i
+
+/** 判断文本是否为图片 URL */
+export function isImageUrl(text: string): boolean {
+  const trimmed = text.trim()
+  if (!/^https?:\/\//i.test(trimmed)) return false
+  try {
+    const url = new URL(trimmed)
+    return IMAGE_EXTS.test(url.pathname)
+  } catch {
+    return false
+  }
+}

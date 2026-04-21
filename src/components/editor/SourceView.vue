@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { SourceEditor } from '../../core/editor/SourceEditor'
 import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
-import { imageService } from '../../core/services/ImageService'
+import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { activeTab } from '../../core/stores/tabStore'
 
 const props = defineProps<{
@@ -29,6 +29,7 @@ function handlePaste(event: ClipboardEvent) {
   const items = event.clipboardData?.items
   if (!items) return
 
+  // 优先处理图片 blob（截图粘贴）
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       event.preventDefault()
@@ -42,6 +43,13 @@ function handlePaste(event: ClipboardEvent) {
       })
       return
     }
+  }
+
+  // 检测粘贴的纯文本是否为图片 URL
+  const text = event.clipboardData?.getData('text/plain') ?? ''
+  if (isImageUrl(text)) {
+    event.preventDefault()
+    editor?.insertText(`![](${text.trim()})`)
   }
 }
 

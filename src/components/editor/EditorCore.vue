@@ -3,7 +3,7 @@ import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor } from '../../core/editor/WysiwygEditor'
 import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
-import { imageService } from '../../core/services/ImageService'
+import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { activeTab } from '../../core/stores/tabStore'
 import type { IEditor } from '../../core/editor/types'
 
@@ -31,6 +31,7 @@ const tiptapEditor = useEditor({
       const items = event.clipboardData?.items
       if (!items) return false
 
+      // 优先处理图片 blob（截图粘贴）
       for (const item of items) {
         if (item.type.startsWith('image/')) {
           event.preventDefault()
@@ -45,6 +46,15 @@ const tiptapEditor = useEditor({
           return true
         }
       }
+
+      // 检测粘贴的纯文本是否为图片 URL
+      const text = event.clipboardData?.getData('text/plain') ?? ''
+      if (isImageUrl(text)) {
+        event.preventDefault()
+        tiptapEditor.value?.chain().focus().setImage({ src: text.trim() }).run()
+        return true
+      }
+
       return false
     },
     handleDrop(_view, event) {
