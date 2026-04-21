@@ -1,16 +1,43 @@
-import { EditorState } from '@codemirror/state'
+import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
 import { defaultKeymap, historyKeymap, history, indentWithTab, undo, redo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
-import { indentOnInput, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
+import { indentOnInput, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
+import { eventBus } from '../events/EventBus'
+import { AppEvent } from '../events/events'
+import { themeService } from '../services/ThemeService'
 import type { IEditor, CursorPosition, WordCount } from './types'
+
+/** 暗色语法高亮样式 */
+const darkHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#c678dd' },
+  { tag: [tags.name, tags.deleted, tags.character, tags.macroName], color: '#e06c75' },
+  { tag: [tags.propertyName], color: '#e06c75' },
+  { tag: [tags.function(tags.variableName), tags.labelName], color: '#61afef' },
+  { tag: [tags.color, tags.constant(tags.name), tags.standard(tags.name)], color: '#d19a66' },
+  { tag: [tags.definition(tags.name), tags.separator], color: '#abb2bf' },
+  { tag: [tags.typeName, tags.className, tags.number, tags.changed, tags.annotation, tags.modifier, tags.self, tags.namespace], color: '#e5c07b' },
+  { tag: [tags.operator, tags.operatorKeyword, tags.url, tags.escape, tags.regexp, tags.link, tags.special(tags.string)], color: '#56b6c2' },
+  { tag: [tags.meta, tags.comment], color: '#7f848e' },
+  { tag: tags.strong, fontWeight: 'bold' },
+  { tag: tags.emphasis, fontStyle: 'italic' },
+  { tag: tags.strikethrough, textDecoration: 'line-through' },
+  { tag: tags.link, color: '#61afef', textDecoration: 'underline' },
+  { tag: tags.heading, fontWeight: 'bold', color: '#e06c75' },
+  { tag: [tags.atom, tags.bool, tags.special(tags.variableName)], color: '#d19a66' },
+  { tag: [tags.processingInstruction, tags.string, tags.inserted], color: '#98c379' },
+  { tag: tags.invalid, color: '#ffffff', backgroundColor: '#e06c75' },
+])
 
 // 源码编辑器（CodeMirror 6）实现 IEditor 接口
 export class SourceEditor implements IEditor {
   private view: EditorView
   private contentChangeCallbacks: ((markdown: string) => void)[] = []
+  private highlightCompartment = new Compartment()
+  private themeHandler: ((...args: unknown[]) => void) | null = null
 
   constructor(container: HTMLElement, initialContent = '') {
 
@@ -21,6 +48,8 @@ export class SourceEditor implements IEditor {
       }
     })
 
+    const isDark = themeService.getResolvedTheme() === 'dark'
+
     const extensions = [
       lineNumbers(),
       highlightActiveLineGutter(),
@@ -29,7 +58,9 @@ export class SourceEditor implements IEditor {
       history(),
       foldGutter(),
       indentOnInput(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      this.highlightCompartment.of(
+        syntaxHighlighting(isDark ? darkHighlightStyle : defaultHighlightStyle, { fallback: true })
+      ),
       markdown({
         base: markdownLanguage,
         codeLanguages: languages,
@@ -53,6 +84,18 @@ export class SourceEditor implements IEditor {
       }),
       parent: container,
     })
+
+    // 监听主题切换，reconfigure 语法高亮
+    this.themeHandler = (...args: unknown[]) => {
+      const resolved = args[0] as 'light' | 'dark'
+      const style = resolved === 'dark' ? darkHighlightStyle : defaultHighlightStyle
+      this.view.dispatch({
+        effects: this.highlightCompartment.reconfigure(
+          syntaxHighlighting(style, { fallback: true })
+        ),
+      })
+    }
+    eventBus.on(AppEvent.ThemeChange, this.themeHandler)
   }
 
   // 基础 CM6 主题变量桥接（颜色走 CSS 变量，在 source.css 里定义）
@@ -170,6 +213,10 @@ export class SourceEditor implements IEditor {
   }
 
   destroy(): void {
+    if (this.themeHandler) {
+      eventBus.off(AppEvent.ThemeChange, this.themeHandler)
+      this.themeHandler = null
+    }
     this.view.destroy()
   }
 
