@@ -47,6 +47,22 @@ const tiptapEditor = useEditor({
       }
       return false
     },
+    handleDrop(_view, event) {
+      const files = event.dataTransfer?.files
+      if (!files || files.length === 0) return false
+
+      const imageFile = Array.from(files).find((f) => f.type.startsWith('image/'))
+      if (!imageFile) return false
+
+      event.preventDefault()
+      const filePath = activeTab.value?.filePath ?? null
+      imageService.handleDropImage(imageFile, filePath).then((src) => {
+        if (src && tiptapEditor.value) {
+          tiptapEditor.value.chain().focus().setImage({ src }).run()
+        }
+      })
+      return true
+    },
   },
 })
 
