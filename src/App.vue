@@ -5,6 +5,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { ask } from '@tauri-apps/plugin-dialog'
 import TabBar from './components/tabs/TabBar.vue'
+import TitleBar from './components/layout/TitleBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
@@ -17,12 +18,11 @@ const { stop: stopAutoSave } = useAutoSave()
 
 let unlistenDragDrop: (() => void) | null = null
 
-// 标题栏：「文件名 [*] — BoltMD」
+// 标题栏：设置原生窗口标题（任务栏显示用）
 watch(
   activeTab,
   (tab) => {
-    if (!tab) return
-    const title = `${tab.fileName}${tab.dirty ? ' *' : ''} — BoltMD`
+    const title = tab ? `${tab.fileName}${tab.dirty ? ' *' : ''} — BoltMD` : 'BoltMD'
     getCurrentWindow().setTitle(title)
   },
   { immediate: true },
@@ -151,6 +151,8 @@ onUnmounted(() => {
 
 <template>
   <div class="app-shell" style="height: 100vh; display: flex; flex-direction: column;">
+    <!-- 自定义标题栏 -->
+    <TitleBar />
     <!-- 标签栏 -->
     <TabBar />
     <!-- 临时模式指示器（Phase 8 会替换为正式状态栏） -->
