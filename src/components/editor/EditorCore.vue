@@ -3,6 +3,8 @@ import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor } from '../../core/editor/WysiwygEditor'
 import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
+import { imageService } from '../../core/services/ImageService'
+import { activeTab } from '../../core/stores/tabStore'
 import type { IEditor } from '../../core/editor/types'
 
 const props = defineProps<{
@@ -23,6 +25,28 @@ const tiptapEditor = useEditor({
     editorWrapper = new WysiwygEditor(editor)
     editorWrapper.onContentChange((md) => emit('change', md))
     registerEditor(editorWrapper)
+  },
+  editorProps: {
+    handlePaste(_view, event) {
+      const items = event.clipboardData?.items
+      if (!items) return false
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          event.preventDefault()
+          const blob = item.getAsFile()
+          if (!blob) return true
+          const filePath = activeTab.value?.filePath ?? null
+          imageService.handlePasteImage(blob, filePath).then((src) => {
+            if (src && tiptapEditor.value) {
+              tiptapEditor.value.chain().focus().setImage({ src }).run()
+            }
+          })
+          return true
+        }
+      }
+      return false
+    },
   },
 })
 
