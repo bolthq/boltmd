@@ -16,6 +16,8 @@ import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
 import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
 import { themeService } from './core/services/ThemeService'
+import { configService } from './core/services/ConfigService'
+import type { WindowState } from './core/types/config'
 import type { Command } from './components/common/CommandPalette.vue'
 
 const { mode, cycleMode, switchMode } = useEditorManager()
@@ -43,6 +45,53 @@ const commands: Command[] = [
 ]
 
 let unlistenDragDrop: (() => void) | null = null
+
+// 保存当前窗口状态到 ConfigService
+async function saveWindowState(): Promise<void> {
+  const win = getCurrentWindow()
+  const maximized = await win.isMaximized()
+  // 最大化时不保存位置/大小，恢复时先还原位置再最大化
+  if (!maximized) {
+    const size = await win.innerSize()
+    const pos = await win.outerPosition()
+    const state: WindowState = {
+      width: size.width,
+      height: size.height,
+      x: pos.x,
+      y: pos.y,
+      maximized: false,
+    }
+    await configService.set('windowState', state)
+  } else {
+    // 保留之前的位置/大小，只标记最大化
+    const prev = configService.get('windowState')
+    const state: WindowState = {
+      width: prev?.width ?? 1200,
+      height: prev?.height ?? 800,
+      x: prev?.x ?? 100,
+      y: prev?.y ?? 100,
+      maximized: true,
+    }
+    await configService.set('windowState', state)
+  }
+}
+
+// 恢复窗口状态
+async function restoreWindowState(): Promise<void> {
+  const state = configService.get('windowState')
+  if (!state) return
+  const win = getCurrentWindow()
+  try {
+    const { LogicalSize, LogicalPosition } = await import('@tauri-apps/api/dpi')
+    await win.setSize(new LogicalSize(state.width, state.height))
+    await win.setPosition(new LogicalPosition(state.x, state.y))
+    if (state.maximized) {
+      await win.maximize()
+    }
+  } catch {
+    // 忽略恢复失败（如坐标超出屏幕范围）
+  }
+}
 
 // 标题栏：设置原生窗口标题（任务栏显示用）
 watch(
@@ -159,6 +208,9 @@ onMounted(async () => {
   // 初始化主题
   themeService.init()
 
+  // 恢复窗口状态（大小/位置）
+  await restoreWindowState()
+
   // 恢复上次的标签会话；若无会话则创建空白标签
   const restored = await restoreSession()
   if (!restored) {
@@ -178,9 +230,10 @@ onMounted(async () => {
     }
   })
 
-  // 关窗拦截：保存会话，有未保存内容时弹确认框
+  // 关窗拦截：保存会话和窗口状态，有未保存内容时弹确认框
   getCurrentWindow().onCloseRequested(async (event) => {
     await saveSession()
+    await saveWindowState()
     const tab = activeTab.value
     if (!tab?.dirty) return
     event.preventDefault()
