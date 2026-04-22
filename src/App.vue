@@ -9,6 +9,7 @@ import TitleBar from './components/layout/TitleBar.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
+const SettingsPanel = defineAsyncComponent(() => import('./components/settings/SettingsPanel.vue'))
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
@@ -19,6 +20,7 @@ const { mode, cycleMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 
 const showToolbar = ref(true)
+const showSettings = ref(false)
 
 let unlistenDragDrop: (() => void) | null = null
 
@@ -47,6 +49,20 @@ function handleKeydown(e: KeyboardEvent) {
   if (ctrl && e.shiftKey && e.key === 'T') {
     e.preventDefault()
     showToolbar.value = !showToolbar.value
+    return
+  }
+
+  // Ctrl+, 打开/关闭设置面板
+  if (ctrl && e.key === ',') {
+    e.preventDefault()
+    showSettings.value = !showSettings.value
+    return
+  }
+
+  // Escape 关闭设置面板
+  if (e.key === 'Escape' && showSettings.value) {
+    e.preventDefault()
+    showSettings.value = false
     return
   }
 
@@ -164,6 +180,8 @@ onUnmounted(() => {
     <EditorContainer />
     <!-- 状态栏 -->
     <StatusBar />
+    <!-- 设置面板 -->
+    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
   </div>
 </template>
 
