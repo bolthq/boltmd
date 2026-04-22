@@ -10,17 +10,37 @@ import StatusBar from './components/layout/StatusBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
 const SettingsPanel = defineAsyncComponent(() => import('./components/settings/SettingsPanel.vue'))
+const CommandPalette = defineAsyncComponent(() => import('./components/common/CommandPalette.vue'))
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
 import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
 import { themeService } from './core/services/ThemeService'
+import type { Command } from './components/common/CommandPalette.vue'
 
-const { mode, cycleMode } = useEditorManager()
+const { mode, cycleMode, switchMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 
 const showToolbar = ref(true)
 const showSettings = ref(false)
+const showCommandPalette = ref(false)
+
+// 命令面板命令列表
+const commands: Command[] = [
+  { id: 'new-tab', label: 'New Tab', shortcut: 'Ctrl+N', action: () => createTab() },
+  { id: 'open-file', label: 'Open File', shortcut: 'Ctrl+O', action: () => openFile() },
+  { id: 'save-file', label: 'Save File', shortcut: 'Ctrl+S', action: () => saveFile() },
+  { id: 'close-tab', label: 'Close Tab', shortcut: 'Ctrl+W', action: () => { if (activeTabId.value) closeTab(activeTabId.value) } },
+  { id: 'cycle-mode', label: 'Cycle Editor Mode', shortcut: 'Ctrl+/', action: () => cycleMode() },
+  { id: 'mode-wysiwyg', label: 'Switch to WYSIWYG Mode', action: () => switchMode('wysiwyg') },
+  { id: 'mode-source', label: 'Switch to Source Mode', action: () => switchMode('source') },
+  { id: 'mode-split', label: 'Switch to Split Mode', action: () => switchMode('split') },
+  { id: 'toggle-toolbar', label: 'Toggle Toolbar', shortcut: 'Ctrl+Shift+T', action: () => { showToolbar.value = !showToolbar.value } },
+  { id: 'settings', label: 'Open Settings', shortcut: 'Ctrl+,', action: () => { showSettings.value = true } },
+  { id: 'theme-light', label: 'Theme: Light', action: () => themeService.setTheme('light') },
+  { id: 'theme-dark', label: 'Theme: Dark', action: () => themeService.setTheme('dark') },
+  { id: 'theme-system', label: 'Theme: Follow System', action: () => themeService.setTheme('system') },
+]
 
 let unlistenDragDrop: (() => void) | null = null
 
@@ -45,6 +65,13 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
+  // Ctrl+Shift+P 打开命令面板
+  if (ctrl && e.shiftKey && e.key === 'P') {
+    e.preventDefault()
+    showCommandPalette.value = !showCommandPalette.value
+    return
+  }
+
   // Ctrl+Shift+T 显示/隐藏工具栏
   if (ctrl && e.shiftKey && e.key === 'T') {
     e.preventDefault()
@@ -59,11 +86,17 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
-  // Escape 关闭设置面板
-  if (e.key === 'Escape' && showSettings.value) {
-    e.preventDefault()
-    showSettings.value = false
-    return
+  // Escape 关闭浮层面板
+  if (e.key === 'Escape') {
+    if (showCommandPalette.value) {
+      // CommandPalette 内部处理 Escape，这里是后备
+      return
+    }
+    if (showSettings.value) {
+      e.preventDefault()
+      showSettings.value = false
+      return
+    }
   }
 
   // Ctrl+N 新建标签
@@ -182,6 +215,8 @@ onUnmounted(() => {
     <StatusBar />
     <!-- 设置面板 -->
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+    <!-- 命令面板 -->
+    <CommandPalette v-if="showCommandPalette" :commands="commands" @close="showCommandPalette = false" />
   </div>
 </template>
 
