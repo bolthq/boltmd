@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
@@ -8,14 +8,17 @@ import TabBar from './components/tabs/TabBar.vue'
 import TitleBar from './components/layout/TitleBar.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
+const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
 import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
 import { themeService } from './core/services/ThemeService'
 
-const { cycleMode } = useEditorManager()
+const { mode, cycleMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
+
+const showToolbar = ref(true)
 
 let unlistenDragDrop: (() => void) | null = null
 
@@ -37,6 +40,13 @@ function handleKeydown(e: KeyboardEvent) {
   if (ctrl && e.key === '/') {
     e.preventDefault()
     cycleMode()
+    return
+  }
+
+  // Ctrl+Shift+T 显示/隐藏工具栏
+  if (ctrl && e.shiftKey && e.key === 'T') {
+    e.preventDefault()
+    showToolbar.value = !showToolbar.value
     return
   }
 
@@ -149,6 +159,8 @@ onUnmounted(() => {
     <TitleBar />
     <!-- 标签栏 -->
     <TabBar />
+    <!-- 工具栏（仅 WYSIWYG 模式 + 用户开启时显示） -->
+    <Toolbar v-if="showToolbar && mode === 'wysiwyg'" />
     <EditorContainer />
     <!-- 状态栏 -->
     <StatusBar />
