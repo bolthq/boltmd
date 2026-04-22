@@ -2,7 +2,7 @@
 import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor } from '../../core/editor/WysiwygEditor'
-import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
+import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor } from '../../core/editor/EditorManager'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { activeTab } from '../../core/stores/tabStore'
 import type { IEditor } from '../../core/editor/types'
@@ -25,6 +25,7 @@ const tiptapEditor = useEditor({
     editorWrapper = new WysiwygEditor(editor)
     editorWrapper.onContentChange((md) => emit('change', md))
     registerEditor(editorWrapper)
+    registerTiptapEditor(editor)
   },
   editorProps: {
     handlePaste(_view, event) {
@@ -91,6 +92,7 @@ onUnmounted(() => {
     unregisterEditor(editorWrapper)
     editorWrapper = null
   }
+  unregisterTiptapEditor()
   tiptapEditor.value?.destroy()
 })
 </script>

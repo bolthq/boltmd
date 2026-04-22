@@ -1,4 +1,5 @@
 import { ref, readonly, type Ref, type DeepReadonly } from 'vue'
+import type { Editor } from '@tiptap/core'
 import type { EditorMode, EditorSnapshot, IEditor, CursorPosition } from './types'
 
 // 模式循环顺序
@@ -20,6 +21,9 @@ const MODE_CYCLE: EditorMode[] = ['wysiwyg', 'source', 'split']
 
 // 当前活跃的编辑器实例引用（由组件注册）
 let activeEditor: IEditor | null = null
+
+// Tiptap 原始 Editor 引用（仅 WYSIWYG 模式，供 Toolbar 使用）
+let tiptapEditor: Editor | null = null
 
 // 切换前保存的光标和滚动位置（用于恢复）
 let pendingCursor: CursorPosition | null = null
@@ -167,6 +171,28 @@ export function getActiveEditor(): IEditor | null {
 }
 
 /**
+ * 注册 Tiptap 原始 Editor 实例（仅 WYSIWYG 模式）
+ * 供 Toolbar 调用格式化命令
+ */
+export function registerTiptapEditor(editor: Editor): void {
+  tiptapEditor = editor
+}
+
+/**
+ * 注销 Tiptap Editor 实例
+ */
+export function unregisterTiptapEditor(): void {
+  tiptapEditor = null
+}
+
+/**
+ * 获取 Tiptap 原始 Editor 实例（可能为 null）
+ */
+export function getTiptapEditor(): Editor | null {
+  return tiptapEditor
+}
+
+/**
  * 组合式函数 — 在组件中使用
  * 返回响应式的 mode 和 content
  */
@@ -183,5 +209,8 @@ export function useEditorManager() {
     getActiveEditor,
     registerEditor,
     unregisterEditor,
+    registerTiptapEditor,
+    unregisterTiptapEditor,
+    getTiptapEditor,
   }
 }
