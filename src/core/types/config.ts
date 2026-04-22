@@ -2,6 +2,15 @@ import type { EditorMode } from '../editor/types'
 
 export type ThemeName = 'light' | 'dark' | 'system'
 
+/** 窗口状态持久化数据 */
+export interface WindowState {
+  width: number
+  height: number
+  x: number
+  y: number
+  maximized: boolean
+}
+
 /** 标签会话持久化数据（只保存路径和模式，内容从文件重新读取） */
 export interface TabSessionItem {
   filePath: string | null
@@ -28,6 +37,7 @@ export interface AppConfig {
   imageStorePath: 'relative' | 'absolute'
   language: string
   tabSession: TabSession | null
+  windowState: WindowState | null
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -45,4 +55,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   imageStorePath: 'relative',
   language: 'zh-CN',
   tabSession: null,
+  windowState: null,
 }
