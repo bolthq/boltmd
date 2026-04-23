@@ -12,6 +12,34 @@ export default {
     edit: 'Edit',
     view: 'View',
     help: 'Help',
+    // File menu
+    newTab: 'New Tab',
+    openFile: 'Open File...',
+    save: 'Save',
+    saveAs: 'Save As...',
+    closeTab: 'Close Tab',
+    // Edit menu
+    undo: 'Undo',
+    redo: 'Redo',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    selectAll: 'Select All',
+    // View menu
+    toggleToolbar: 'Toolbar',
+    modeWysiwyg: 'WYSIWYG Mode',
+    modeSource: 'Source Mode',
+    modeSplit: 'Split Mode',
+    themeLight: 'Light Theme',
+    themeDark: 'Dark Theme',
+    themeSystem: 'System Theme',
+    // Help menu
+    commandPalette: 'Command Palette...',
+    settings: 'Settings...',
+    checkUpdate: 'Check for Updates...',
+    about: 'About BoltMD',
+    // Language submenu
+    language: 'Language',
   },
 
   titlebar: {
