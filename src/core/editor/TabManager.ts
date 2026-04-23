@@ -38,10 +38,16 @@ export class TabManager implements ITabManager {
   private tabs: TabState[] = []
   private activeTabId: string | null = null
   private onChangeCallback: (() => void) | null = null
+  private onLastTabClosedCallback: (() => void) | null = null
 
   /** 注册状态变更回调（tabStore 使用） */
   onChange(callback: () => void): void {
     this.onChangeCallback = callback
+  }
+
+  /** 注册最后一个标签关闭回调（用于退出应用） */
+  onLastTabClosed(callback: () => void): void {
+    this.onLastTabClosedCallback = callback
   }
 
   private notify(): void {
@@ -106,8 +112,9 @@ export class TabManager implements ITabManager {
 
     if (wasActive) {
       if (this.tabs.length === 0) {
-        // 关闭最后一个标签：新建空白标签
-        this.createTab()
+        // 关闭最后一个标签：通知外部（退出应用）
+        this.notify()
+        this.onLastTabClosedCallback?.()
         return true
       }
       // 跳转到相邻标签

@@ -4,6 +4,7 @@ import type { TabSession, TabSessionItem } from '../types/config'
 import { tabManager } from '../editor/TabManager'
 import { configService } from '../services/ConfigService'
 import { fileService } from '../services/FileService'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 // ── 响应式状态 ───────────────────────────────────────────────────────────────
 
@@ -19,6 +20,11 @@ function sync(): void {
 
 // 注册回调，TabManager 每次变更都同步到 ref
 tabManager.onChange(sync)
+
+// 最后一个标签关闭时，关闭窗口（触发 onCloseRequested 流程）
+tabManager.onLastTabClosed(() => {
+  getCurrentWindow().close()
+})
 
 // ── 只读导出 ─────────────────────────────────────────────────────────────────
 
