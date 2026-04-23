@@ -10,16 +10,20 @@ import { getTiptapEditor } from '../../core/editor/EditorManager'
 
 const { t } = useI18n()
 
-// 强制刷新计数（Tiptap selectionUpdate 时递增）
+// 强制刷新计数（Tiptap selectionUpdate 时递增，防抖）
 const tick = ref(0)
 let selectionHandler: (() => void) | null = null
 let lastEditorId: unknown = null
+let tickTimer: ReturnType<typeof setTimeout> | null = null
 
 function ensureSelectionListener() {
   const editor = getTiptapEditor()
   if (editor && editor !== lastEditorId) {
     lastEditorId = editor
-    selectionHandler = () => { tick.value++ }
+    selectionHandler = () => {
+      if (tickTimer) clearTimeout(tickTimer)
+      tickTimer = setTimeout(() => { tick.value++ }, 50)
+    }
     editor.on('selectionUpdate', selectionHandler)
     editor.on('update', selectionHandler)
   }
@@ -35,6 +39,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (tickTimer) clearTimeout(tickTimer)
   // 不需要手动 off，编辑器销毁时自动清理
   lastEditorId = null
   selectionHandler = null

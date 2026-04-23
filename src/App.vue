@@ -115,12 +115,16 @@ async function restoreWindowState(): Promise<void> {
   }
 }
 
-// 标题栏：设置原生窗口标题（任务栏显示用）
+// 标题栏：设置原生窗口标题（任务栏显示用），防抖避免高频 IPC
+let titleTimer: ReturnType<typeof setTimeout> | null = null
 watch(
   activeTab,
   (tab) => {
     const title = tab ? `${tab.fileName}${tab.dirty ? ' *' : ''} — BoltMD` : 'BoltMD'
-    getCurrentWindow().setTitle(title)
+    if (titleTimer) clearTimeout(titleTimer)
+    titleTimer = setTimeout(() => {
+      getCurrentWindow().setTitle(title)
+    }, 300)
   },
   { immediate: true },
 )

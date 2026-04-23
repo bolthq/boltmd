@@ -11,12 +11,26 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { Highlight } from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
-import { common, createLowlight } from 'lowlight'
 import type { Editor } from '@tiptap/core'
 import type { IEditor, CursorPosition, WordCount } from './types'
 import { t } from '../../i18n'
 
-const lowlight = createLowlight(common)
+// 懒初始化 lowlight，避免模块加载时同步解析所有语言语法
+let _lowlight: any = null
+async function getLowlight() {
+  if (!_lowlight) {
+    const { common, createLowlight } = await import('lowlight')
+    _lowlight = createLowlight(common)
+  }
+  return _lowlight
+}
+
+// 预热：在空闲时异步加载 lowlight，不阻塞首次渲染
+if (typeof requestIdleCallback !== 'undefined') {
+  requestIdleCallback(() => getLowlight())
+} else {
+  setTimeout(() => getLowlight(), 100)
+}
 
 // 返回编辑器扩展列表，供 useEditor() 使用
 export function createWysiwygExtensions(): Extensions {
@@ -33,7 +47,19 @@ export function createWysiwygExtensions(): Extensions {
     TableRow,
     TableCell,
     TableHeader,
-    CodeBlockLowlight.configure({ lowlight }),
+    // CodeBlockLowlight 会在 lowlight 预热完成后正常工作；
+    // 若预热未完成（极端情况），高亮会延迟但不阻塞输入
+    CodeBlockLowlight.configure({
+      lowlight: {
+        // 代理对象：同步返回，内部转发到懒加载的实例
+        listLanguages: () => _lowlight?.listLanguages() ?? [],
+        highlight: (lang: string, code: string) =>
+          _lowlight?.highlight(lang, code) ?? { type: 'root', children: [{ type: 'text', value: code }] } as any,
+        highlightAuto: (code: string) =>
+          _lowlight?.highlightAuto(code) ?? { type: 'root', children: [{ type: 'text', value: code }] } as any,
+        registered: (lang: string) => _lowlight?.registered(lang) ?? false,
+      } as any,
+    }),
     Highlight.configure({ multicolor: true }),
     Image.configure({ inline: true, allowBase64: true }),
     Markdown.configure({
@@ -48,12 +74,17 @@ export function createWysiwygExtensions(): Extensions {
 export class WysiwygEditor implements IEditor {
   private editor: Editor
   private contentChangeCallbacks: ((markdown: string) => void)[] = []
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(editor: Editor) {
     this.editor = editor
+    // 防抖 getMarkdown()：避免每次按键都遍历整棵 AST
     this.editor.on('update', () => {
-      const md = (this.editor.storage as any).markdown.getMarkdown()
-      this.contentChangeCallbacks.forEach(cb => cb(md))
+      if (this.debounceTimer) clearTimeout(this.debounceTimer)
+      this.debounceTimer = setTimeout(() => {
+        const md = (this.editor.storage as any).markdown.getMarkdown()
+        this.contentChangeCallbacks.forEach(cb => cb(md))
+      }, 150)
     })
   }
 

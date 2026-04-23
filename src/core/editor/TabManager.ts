@@ -54,6 +54,15 @@ export class TabManager implements ITabManager {
     this.onChangeCallback?.()
   }
 
+  /** 延迟通知（用于高频内容更新，减少 Vue 响应式开销） */
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null
+  private notifyLazy(): void {
+    if (this.notifyTimer) clearTimeout(this.notifyTimer)
+    this.notifyTimer = setTimeout(() => {
+      this.onChangeCallback?.()
+    }, 100)
+  }
+
   getTabs(): TabState[] {
     return [...this.tabs]
   }
@@ -164,7 +173,7 @@ export class TabManager implements ITabManager {
     tab.content = content
     tab.dirty = true
     tab.lastModified = Date.now()
-    this.notify()
+    this.notifyLazy()
   }
 
   /** 标记标签已保存 */

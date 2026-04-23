@@ -26,8 +26,19 @@ const tiptapEditor = useEditor({
     editorWrapper.onContentChange((md) => emit('change', md))
     registerEditor(editorWrapper)
     registerTiptapEditor(editor)
+
+    // 预热 markdown 序列化器：首次 getMarkdown() 需要构建 nodes/marks 映射表，
+    // 提前触发让 V8 JIT 优化这条代码路径，避免用户第一次按键时卡顿
+    setTimeout(() => {
+      try { (editor.storage as any).markdown?.getMarkdown() } catch { /* ignore */ }
+    }, 0)
   },
   editorProps: {
+    attributes: {
+      spellcheck: 'false',
+      autocorrect: 'off',
+      autocapitalize: 'off',
+    },
     handlePaste(_view, event) {
       const items = event.clipboardData?.items
       if (!items) return false
