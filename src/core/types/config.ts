@@ -55,9 +55,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   autoSaveDelay: 3000,
   defaultMode: 'wysiwyg',
   showLineNumbers: true,
-  showToolbar: true,
+  showToolbar: false,
   imageStorePath: 'relative',
-  language: 'zh-CN',
+  language: 'en',
   tabSession: null,
   windowState: null,
 }
