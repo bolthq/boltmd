@@ -35,6 +35,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlGRkNCRTEzNUY2QzBBRDYKUldUV0NteGZFNzc4bjZCUnpXcXJVQ2RZVkdwd1prblZydWtuZmdhY3c3cDVLajdSQ3EyQm5PMkYK",
+      "endpoints": [
+        "https://github.com/bolthq/boltmd/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
