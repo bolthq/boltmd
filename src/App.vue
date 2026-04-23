@@ -7,6 +7,7 @@ import { ask } from '@tauri-apps/plugin-dialog'
 import { useI18n } from 'vue-i18n'
 import TabBar from './components/tabs/TabBar.vue'
 import TitleBar from './components/layout/TitleBar.vue'
+import MenuBar from './components/layout/MenuBar.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
@@ -15,7 +16,7 @@ const CommandPalette = defineAsyncComponent(() => import('./components/common/Co
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
-import { saveFile, openFile, openFilePath } from './core/stores/fileStore'
+import { saveFile, saveFileAs, openFile, openFilePath } from './core/stores/fileStore'
 import { themeService } from './core/services/ThemeService'
 import { configService } from './core/services/ConfigService'
 import type { WindowState } from './core/types/config'
@@ -285,6 +286,19 @@ onUnmounted(() => {
   <div class="app-shell" style="height: 100vh; display: flex; flex-direction: column;">
     <!-- 自定义标题栏 -->
     <TitleBar />
+    <!-- 菜单栏 -->
+    <MenuBar
+      :show-toolbar="showToolbar"
+      @new-tab="createTab()"
+      @open-file="openFile()"
+      @save="saveFile()"
+      @save-as="saveFileAs()"
+      @close-tab="activeTabId && closeTab(activeTabId)"
+      @toggle-toolbar="showToolbar = !showToolbar"
+      @open-settings="showSettings = true"
+      @open-command-palette="showCommandPalette = true"
+      @check-update="() => {}"
+    />
     <!-- 标签栏 -->
     <TabBar />
     <!-- 工具栏（仅 WYSIWYG 模式 + 用户开启时显示） -->
