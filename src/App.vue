@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { ask } from '@tauri-apps/plugin-dialog'
+import { useI18n } from 'vue-i18n'
 import TabBar from './components/tabs/TabBar.vue'
 import TitleBar from './components/layout/TitleBar.vue'
 import StatusBar from './components/layout/StatusBar.vue'
@@ -22,6 +23,7 @@ import type { Command } from './components/common/CommandPalette.vue'
 
 const { mode, cycleMode, switchMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
+const { t } = useI18n()
 
 const showToolbar = ref(configService.get('showToolbar'))
 const showSettings = ref(false)
@@ -30,22 +32,22 @@ const showCommandPalette = ref(false)
 // showToolbar 变化时持久化
 watch(showToolbar, (val) => { configService.set('showToolbar', val) })
 
-// 命令面板命令列表
-const commands: Command[] = [
-  { id: 'new-tab', label: 'New Tab', shortcut: 'Ctrl+N', action: () => createTab() },
-  { id: 'open-file', label: 'Open File', shortcut: 'Ctrl+O', action: () => openFile() },
-  { id: 'save-file', label: 'Save File', shortcut: 'Ctrl+S', action: () => saveFile() },
-  { id: 'close-tab', label: 'Close Tab', shortcut: 'Ctrl+W', action: () => { if (activeTabId.value) closeTab(activeTabId.value) } },
-  { id: 'cycle-mode', label: 'Cycle Editor Mode', shortcut: 'Ctrl+/', action: () => cycleMode() },
-  { id: 'mode-wysiwyg', label: 'Switch to WYSIWYG Mode', action: () => switchMode('wysiwyg') },
-  { id: 'mode-source', label: 'Switch to Source Mode', action: () => switchMode('source') },
-  { id: 'mode-split', label: 'Switch to Split Mode', action: () => switchMode('split') },
-  { id: 'toggle-toolbar', label: 'Toggle Toolbar', shortcut: 'Ctrl+Shift+T', action: () => { showToolbar.value = !showToolbar.value } },
-  { id: 'settings', label: 'Open Settings', shortcut: 'Ctrl+,', action: () => { showSettings.value = true } },
-  { id: 'theme-light', label: 'Theme: Light', action: () => themeService.setTheme('light') },
-  { id: 'theme-dark', label: 'Theme: Dark', action: () => themeService.setTheme('dark') },
-  { id: 'theme-system', label: 'Theme: Follow System', action: () => themeService.setTheme('system') },
-]
+// 命令面板命令列表（computed 以支持语言切换）
+const commands = computed<Command[]>(() => [
+  { id: 'new-tab', label: t('commands.newTab'), shortcut: 'Ctrl+N', action: () => createTab() },
+  { id: 'open-file', label: t('commands.openFile'), shortcut: 'Ctrl+O', action: () => openFile() },
+  { id: 'save-file', label: t('commands.saveFile'), shortcut: 'Ctrl+S', action: () => saveFile() },
+  { id: 'close-tab', label: t('commands.closeTab'), shortcut: 'Ctrl+W', action: () => { if (activeTabId.value) closeTab(activeTabId.value) } },
+  { id: 'cycle-mode', label: t('commands.cycleMode'), shortcut: 'Ctrl+/', action: () => cycleMode() },
+  { id: 'mode-wysiwyg', label: t('commands.modeWysiwyg'), action: () => switchMode('wysiwyg') },
+  { id: 'mode-source', label: t('commands.modeSource'), action: () => switchMode('source') },
+  { id: 'mode-split', label: t('commands.modeSplit'), action: () => switchMode('split') },
+  { id: 'toggle-toolbar', label: t('commands.toggleToolbar'), shortcut: 'Ctrl+Shift+T', action: () => { showToolbar.value = !showToolbar.value } },
+  { id: 'settings', label: t('commands.openSettings'), shortcut: 'Ctrl+,', action: () => { showSettings.value = true } },
+  { id: 'theme-light', label: t('commands.themeLight'), action: () => themeService.setTheme('light') },
+  { id: 'theme-dark', label: t('commands.themeDark'), action: () => themeService.setTheme('dark') },
+  { id: 'theme-system', label: t('commands.themeSystem'), action: () => themeService.setTheme('system') },
+])
 
 let unlistenDragDrop: (() => void) | null = null
 
@@ -262,8 +264,8 @@ onMounted(async () => {
     if (!tab?.dirty) return
     event.preventDefault()
     const confirmed = await ask(
-      `"${tab.fileName}" has unsaved changes. Save before closing?`,
-      { title: 'Unsaved Changes', kind: 'warning', okLabel: 'Save', cancelLabel: 'Discard' },
+      t('app.unsavedMessage', { name: tab.fileName }),
+      { title: t('app.unsavedTitle'), kind: 'warning', okLabel: t('app.save'), cancelLabel: t('app.discard') },
     )
     if (confirmed) {
       await saveFile()

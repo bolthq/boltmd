@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { fileEncoding } from '../../core/stores/fileStore'
 import { themeService } from '../../core/services/ThemeService'
 import type { ThemeName } from '../../core/types/config'
 import type { CursorPosition, WordCount } from '../../core/editor/types'
 
+const { t } = useI18n()
 const { mode, switchMode, getActiveEditor } = useEditorManager()
 
 // 模式名称映射
@@ -13,6 +15,12 @@ const modeLabels: Record<string, string> = {
   wysiwyg: 'WYSIWYG',
   source: 'Source',
   split: 'Split',
+}
+
+const themeLabels: Record<string, string> = {
+  light: 'Light',
+  dark: 'Dark',
+  system: 'System',
 }
 
 // 状态数据（通过定时器刷新）
@@ -61,12 +69,6 @@ function handleThemeClick() {
   currentTheme.value = next
 }
 
-const themeLabels: Record<string, string> = {
-  light: 'Light',
-  dark: 'Dark',
-  system: 'System',
-}
-
 onMounted(() => {
   scheduleRefresh()
 })
@@ -81,18 +83,18 @@ onUnmounted(() => {
     <div class="statusbar-left">
       <span class="statusbar-item">{{ fileEncoding }}</span>
       <span class="statusbar-sep">|</span>
-      <span class="statusbar-item">{{ wordCount.lines }} lines</span>
+      <span class="statusbar-item">{{ wordCount.lines }} {{ t('statusbar.lines') }}</span>
       <span class="statusbar-sep">|</span>
-      <span class="statusbar-item">{{ wordCount.words }} words</span>
+      <span class="statusbar-item">{{ wordCount.words }} {{ t('statusbar.words') }}</span>
     </div>
     <div class="statusbar-right">
-      <span class="statusbar-item">Ln {{ cursor.line + 1 }}, Col {{ cursor.column + 1 }}</span>
+      <span class="statusbar-item">{{ t('statusbar.ln') }} {{ cursor.line + 1 }}, {{ t('statusbar.col') }} {{ cursor.column + 1 }}</span>
       <span class="statusbar-sep">|</span>
-      <span class="statusbar-item statusbar-clickable" @click="handleModeClick" title="Click to switch mode">
+      <span class="statusbar-item statusbar-clickable" @click="handleModeClick" :title="t('statusbar.switchMode')">
         {{ modeLabels[mode] }}
       </span>
       <span class="statusbar-sep">|</span>
-      <span class="statusbar-item statusbar-clickable" @click="handleThemeClick" title="Click to switch theme">
+      <span class="statusbar-item statusbar-clickable" @click="handleThemeClick" :title="t('statusbar.switchTheme')">
         {{ themeLabels[currentTheme] }}
       </span>
     </div>

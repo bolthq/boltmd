@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3,
   List, ListOrdered, ListChecks, Quote, Minus, CodeSquare,
   Undo2, Redo2, RemoveFormatting, TableIcon, ImageIcon, Link,
 } from 'lucide-vue-next'
 import { getTiptapEditor } from '../../core/editor/EditorManager'
+
+const { t } = useI18n()
 
 // 强制刷新计数（Tiptap selectionUpdate 时递增）
 const tick = ref(0)
@@ -70,7 +73,7 @@ function insertTable() {
 }
 
 function insertImage() {
-  const url = window.prompt('Image URL:')
+  const url = window.prompt(t('toolbar.imageUrl'))
   if (url) {
     exec(() => getTiptapEditor()?.chain().focus().setImage({ src: url }).run())
   }
@@ -80,7 +83,7 @@ function insertLink() {
   const editor = getTiptapEditor()
   if (!editor) return
   const previousUrl = editor.getAttributes('link').href ?? ''
-  const url = window.prompt('Link URL:', previousUrl)
+  const url = window.prompt(t('toolbar.linkUrl'), previousUrl)
   if (url === null) return
   if (url === '') {
     editor.chain().focus().extendMarkRange('link').unsetLink().run()
@@ -93,49 +96,49 @@ function insertLink() {
 const groups = [
   {
     items: [
-      { icon: Undo2, action: undoAction, title: 'Undo', active: () => false },
-      { icon: Redo2, action: redoAction, title: 'Redo', active: () => false },
+      { icon: Undo2, action: undoAction, title: () => t('toolbar.undo'), active: () => false },
+      { icon: Redo2, action: redoAction, title: () => t('toolbar.redo'), active: () => false },
     ],
   },
   {
     items: [
-      { icon: Bold, action: toggleBold, title: 'Bold', active: () => isActive('bold') },
-      { icon: Italic, action: toggleItalic, title: 'Italic', active: () => isActive('italic') },
-      { icon: Strikethrough, action: toggleStrike, title: 'Strikethrough', active: () => isActive('strike') },
-      { icon: Code, action: toggleCode, title: 'Inline Code', active: () => isActive('code') },
+      { icon: Bold, action: toggleBold, title: () => t('toolbar.bold'), active: () => isActive('bold') },
+      { icon: Italic, action: toggleItalic, title: () => t('toolbar.italic'), active: () => isActive('italic') },
+      { icon: Strikethrough, action: toggleStrike, title: () => t('toolbar.strikethrough'), active: () => isActive('strike') },
+      { icon: Code, action: toggleCode, title: () => t('toolbar.inlineCode'), active: () => isActive('code') },
     ],
   },
   {
     items: [
-      { icon: Heading1, action: () => toggleHeading(1), title: 'Heading 1', active: () => isActive('heading', { level: 1 }) },
-      { icon: Heading2, action: () => toggleHeading(2), title: 'Heading 2', active: () => isActive('heading', { level: 2 }) },
-      { icon: Heading3, action: () => toggleHeading(3), title: 'Heading 3', active: () => isActive('heading', { level: 3 }) },
+      { icon: Heading1, action: () => toggleHeading(1), title: () => t('toolbar.heading1'), active: () => isActive('heading', { level: 1 }) },
+      { icon: Heading2, action: () => toggleHeading(2), title: () => t('toolbar.heading2'), active: () => isActive('heading', { level: 2 }) },
+      { icon: Heading3, action: () => toggleHeading(3), title: () => t('toolbar.heading3'), active: () => isActive('heading', { level: 3 }) },
     ],
   },
   {
     items: [
-      { icon: List, action: toggleBulletList, title: 'Bullet List', active: () => isActive('bulletList') },
-      { icon: ListOrdered, action: toggleOrderedList, title: 'Ordered List', active: () => isActive('orderedList') },
-      { icon: ListChecks, action: toggleTaskList, title: 'Task List', active: () => isActive('taskList') },
+      { icon: List, action: toggleBulletList, title: () => t('toolbar.bulletList'), active: () => isActive('bulletList') },
+      { icon: ListOrdered, action: toggleOrderedList, title: () => t('toolbar.orderedList'), active: () => isActive('orderedList') },
+      { icon: ListChecks, action: toggleTaskList, title: () => t('toolbar.taskList'), active: () => isActive('taskList') },
     ],
   },
   {
     items: [
-      { icon: Quote, action: toggleBlockquote, title: 'Blockquote', active: () => isActive('blockquote') },
-      { icon: CodeSquare, action: toggleCodeBlock, title: 'Code Block', active: () => isActive('codeBlock') },
-      { icon: Minus, action: setHorizontalRule, title: 'Horizontal Rule', active: () => false },
+      { icon: Quote, action: toggleBlockquote, title: () => t('toolbar.blockquote'), active: () => isActive('blockquote') },
+      { icon: CodeSquare, action: toggleCodeBlock, title: () => t('toolbar.codeBlock'), active: () => isActive('codeBlock') },
+      { icon: Minus, action: setHorizontalRule, title: () => t('toolbar.horizontalRule'), active: () => false },
     ],
   },
   {
     items: [
-      { icon: TableIcon, action: insertTable, title: 'Insert Table', active: () => false },
-      { icon: ImageIcon, action: insertImage, title: 'Insert Image', active: () => false },
-      { icon: Link, action: insertLink, title: 'Insert Link', active: () => isActive('link') },
+      { icon: TableIcon, action: insertTable, title: () => t('toolbar.insertTable'), active: () => false },
+      { icon: ImageIcon, action: insertImage, title: () => t('toolbar.insertImage'), active: () => false },
+      { icon: Link, action: insertLink, title: () => t('toolbar.insertLink'), active: () => isActive('link') },
     ],
   },
   {
     items: [
-      { icon: RemoveFormatting, action: clearFormatting, title: 'Clear Formatting', active: () => false },
+      { icon: RemoveFormatting, action: clearFormatting, title: () => t('toolbar.clearFormatting'), active: () => false },
     ],
   },
 ]
@@ -150,7 +153,7 @@ const groups = [
           :key="bi"
           class="toolbar-btn"
           :class="{ 'toolbar-btn-active': btn.active() }"
-          :title="btn.title"
+          :title="btn.title()"
           @click="btn.action"
         >
           <component :is="btn.icon" :size="16" :stroke-width="1.8" />

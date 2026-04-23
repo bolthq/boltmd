@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import type { FileInfo } from '../types/file'
+import { t } from '../../i18n'
 
 export interface IFileService {
   openFile(): Promise<FileInfo | null>
@@ -35,8 +36,8 @@ class FileServiceImpl implements IFileService {
     const selected = await open({
       multiple: false,
       filters: [
-        { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
-        { name: 'All Files', extensions: ['*'] },
+        { name: t('fileDialog.markdown'), extensions: ['md', 'markdown', 'txt'] },
+        { name: t('fileDialog.allFiles'), extensions: ['*'] },
       ],
     })
     if (!selected) return null
@@ -58,10 +59,10 @@ class FileServiceImpl implements IFileService {
   async saveFileAs(content: string): Promise<string | null> {
     const path = await save({
       filters: [
-        { name: 'Markdown', extensions: ['md'] },
-        { name: 'All Files', extensions: ['*'] },
+        { name: t('fileDialog.markdown'), extensions: ['md'] },
+        { name: t('fileDialog.allFiles'), extensions: ['*'] },
       ],
-      defaultPath: 'untitled.md',
+      defaultPath: t('tabs.untitled'),
     })
     if (!path) return null
     await this.saveFile(path, content)
@@ -72,7 +73,7 @@ class FileServiceImpl implements IFileService {
   newFile(): FileInfo {
     return {
       path: null,
-      name: 'untitled.md',
+      name: t('tabs.untitled'),
       content: '',
       encoding: 'UTF-8',
       lastModified: Date.now(),

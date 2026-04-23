@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { X } from 'lucide-vue-next'
 import { configService } from '../../core/services/ConfigService'
 import { themeService } from '../../core/services/ThemeService'
@@ -9,6 +10,8 @@ import type { EditorMode } from '../../core/editor/types'
 const emit = defineEmits<{
   close: []
 }>()
+
+const { t } = useI18n()
 
 // 本地状态（从 ConfigService 读取初始值）
 const theme = ref<ThemeName>(configService.get('theme'))
@@ -75,16 +78,16 @@ async function updateShowLineNumbers(value: boolean) {
 
 // 快捷键列表
 const shortcuts = [
-  { keys: 'Ctrl+N', desc: 'New tab' },
-  { keys: 'Ctrl+O', desc: 'Open file' },
-  { keys: 'Ctrl+S', desc: 'Save file' },
-  { keys: 'Ctrl+W', desc: 'Close tab' },
-  { keys: 'Ctrl+/', desc: 'Cycle editor mode' },
-  { keys: 'Ctrl+Shift+T', desc: 'Toggle toolbar' },
-  { keys: 'Ctrl+,', desc: 'Settings' },
-  { keys: 'Ctrl+Tab', desc: 'Next tab' },
-  { keys: 'Ctrl+Shift+Tab', desc: 'Previous tab' },
-  { keys: 'Ctrl+1~9', desc: 'Jump to tab' },
+  { keys: 'Ctrl+N', descKey: 'settings.shortcutNewTab' },
+  { keys: 'Ctrl+O', descKey: 'settings.shortcutOpenFile' },
+  { keys: 'Ctrl+S', descKey: 'settings.shortcutSaveFile' },
+  { keys: 'Ctrl+W', descKey: 'settings.shortcutCloseTab' },
+  { keys: 'Ctrl+/', descKey: 'settings.shortcutCycleMode' },
+  { keys: 'Ctrl+Shift+T', descKey: 'settings.shortcutToggleToolbar' },
+  { keys: 'Ctrl+,', descKey: 'settings.shortcutSettings' },
+  { keys: 'Ctrl+Tab', descKey: 'settings.shortcutNextTab' },
+  { keys: 'Ctrl+Shift+Tab', descKey: 'settings.shortcutPrevTab' },
+  { keys: 'Ctrl+1~9', descKey: 'settings.shortcutJumpTab' },
 ]
 
 // 点击遮罩关闭
@@ -100,8 +103,8 @@ function handleOverlayClick(e: MouseEvent) {
     <div class="settings-panel">
       <!-- 头部 -->
       <div class="settings-header">
-        <h2 class="settings-title">Settings</h2>
-        <button class="settings-close" @click="emit('close')" title="Close">
+        <h2 class="settings-title">{{ t('settings.title') }}</h2>
+        <button class="settings-close" @click="emit('close')" :title="t('settings.close')">
           <X :size="16" />
         </button>
       </div>
@@ -110,87 +113,87 @@ function handleOverlayClick(e: MouseEvent) {
       <div class="settings-body">
         <!-- 外观 -->
         <section class="settings-section">
-          <h3 class="settings-section-title">Appearance</h3>
+          <h3 class="settings-section-title">{{ t('settings.appearance') }}</h3>
 
           <div class="settings-row">
-            <label class="settings-label">Theme</label>
+            <label class="settings-label">{{ t('settings.theme') }}</label>
             <select class="settings-select" :value="theme" @change="updateTheme(($event.target as HTMLSelectElement).value as ThemeName)">
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="system">System</option>
+              <option value="light">{{ t('settings.themeLight') }}</option>
+              <option value="dark">{{ t('settings.themeDark') }}</option>
+              <option value="system">{{ t('settings.themeSystem') }}</option>
             </select>
           </div>
 
           <div class="settings-row">
-            <label class="settings-label">Default Mode</label>
+            <label class="settings-label">{{ t('settings.defaultMode') }}</label>
             <select class="settings-select" :value="defaultMode" @change="updateDefaultMode(($event.target as HTMLSelectElement).value as EditorMode)">
-              <option value="wysiwyg">WYSIWYG</option>
-              <option value="source">Source</option>
-              <option value="split">Split</option>
+              <option value="wysiwyg">{{ t('settings.modeWysiwyg') }}</option>
+              <option value="source">{{ t('settings.modeSource') }}</option>
+              <option value="split">{{ t('settings.modeSplit') }}</option>
             </select>
           </div>
         </section>
 
         <!-- 编辑器 -->
         <section class="settings-section">
-          <h3 class="settings-section-title">Editor</h3>
+          <h3 class="settings-section-title">{{ t('settings.editor') }}</h3>
 
           <div class="settings-row">
-            <label class="settings-label">Font Size</label>
+            <label class="settings-label">{{ t('settings.fontSize') }}</label>
             <input class="settings-input" type="number" :value="fontSize" min="10" max="32" @change="updateFontSize(Number(($event.target as HTMLInputElement).value))" />
           </div>
 
           <div class="settings-row">
-            <label class="settings-label">Font Family</label>
+            <label class="settings-label">{{ t('settings.fontFamily') }}</label>
             <input class="settings-input settings-input-wide" type="text" :value="fontFamily" @change="updateFontFamily(($event.target as HTMLInputElement).value)" />
           </div>
 
           <div class="settings-row">
-            <label class="settings-label">Line Height</label>
+            <label class="settings-label">{{ t('settings.lineHeight') }}</label>
             <input class="settings-input" type="number" :value="lineHeight" min="1.0" max="3.0" step="0.1" @change="updateLineHeight(Number(($event.target as HTMLInputElement).value))" />
           </div>
 
           <div class="settings-row">
-            <label class="settings-label">Tab Size</label>
+            <label class="settings-label">{{ t('settings.tabSize') }}</label>
             <input class="settings-input" type="number" :value="tabSize" min="1" max="8" @change="updateTabSize(Number(($event.target as HTMLInputElement).value))" />
           </div>
 
           <div class="settings-row">
-            <label class="settings-label">Word Wrap</label>
+            <label class="settings-label">{{ t('settings.wordWrap') }}</label>
             <input class="settings-checkbox" type="checkbox" :checked="wordWrap" @change="updateWordWrap(($event.target as HTMLInputElement).checked)" />
           </div>
 
           <div class="settings-row">
-            <label class="settings-label">Line Numbers</label>
+            <label class="settings-label">{{ t('settings.lineNumbers') }}</label>
             <input class="settings-checkbox" type="checkbox" :checked="showLineNumbers" @change="updateShowLineNumbers(($event.target as HTMLInputElement).checked)" />
           </div>
         </section>
 
         <!-- 文件 -->
         <section class="settings-section">
-          <h3 class="settings-section-title">File</h3>
+          <h3 class="settings-section-title">{{ t('settings.file') }}</h3>
 
           <div class="settings-row">
-            <label class="settings-label">Auto Save</label>
+            <label class="settings-label">{{ t('settings.autoSave') }}</label>
             <input class="settings-checkbox" type="checkbox" :checked="autoSave" @change="updateAutoSave(($event.target as HTMLInputElement).checked)" />
           </div>
 
           <div class="settings-row" v-if="autoSave">
-            <label class="settings-label">Auto Save Delay</label>
+            <label class="settings-label">{{ t('settings.autoSaveDelay') }}</label>
             <div class="settings-input-group">
               <input class="settings-input" type="number" :value="autoSaveDelay" min="500" max="30000" step="500" @change="updateAutoSaveDelay(Number(($event.target as HTMLInputElement).value))" />
-              <span class="settings-unit">ms</span>
+              <span class="settings-unit">{{ t('settings.ms') }}</span>
             </div>
           </div>
         </section>
 
         <!-- 快捷键 -->
         <section class="settings-section">
-          <h3 class="settings-section-title">Keyboard Shortcuts</h3>
+          <h3 class="settings-section-title">{{ t('settings.shortcuts') }}</h3>
           <div class="shortcuts-list">
             <div class="shortcut-row" v-for="s in shortcuts" :key="s.keys">
               <kbd class="shortcut-key">{{ s.keys }}</kbd>
-              <span class="shortcut-desc">{{ s.desc }}</span>
+              <span class="shortcut-desc">{{ t(s.descKey) }}</span>
             </div>
           </div>
         </section>

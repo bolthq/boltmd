@@ -1,5 +1,6 @@
 import type { TabState, ITabManager } from '../types/tab'
 import { saveSnapshot, restoreFromSnapshot } from './EditorManager'
+import { t } from '../../i18n'
 
 let tabIdCounter = 0
 function genId(): string {
@@ -10,7 +11,7 @@ function createDefaultTab(): TabState {
   return {
     id: genId(),
     filePath: null,
-    fileName: 'untitled.md',
+    fileName: t('tabs.untitled'),
     content: '',
     dirty: false,
     editorMode: 'wysiwyg',

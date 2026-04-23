@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { errorService, ErrorLevel } from './ErrorService'
+import { t } from '../../i18n'
 
 export interface IImageService {
   handlePasteImage(blob: Blob, currentFilePath: string | null): Promise<string | null>
@@ -37,7 +38,7 @@ class ImageServiceImpl implements IImageService {
     if (!assetsDir) {
       errorService.report({
         level: ErrorLevel.Warning,
-        message: 'Please save the file first before pasting images',
+        message: t('errors.saveImageFirst'),
         source: 'ImageService',
       })
       return null
@@ -51,7 +52,7 @@ class ImageServiceImpl implements IImageService {
     } catch (e) {
       errorService.report({
         level: ErrorLevel.Error,
-        message: 'Failed to save pasted image',
+        message: t('errors.saveImageFailed'),
         detail: String(e),
         source: 'ImageService',
       })
@@ -65,7 +66,7 @@ class ImageServiceImpl implements IImageService {
     if (!assetsDir) {
       errorService.report({
         level: ErrorLevel.Warning,
-        message: 'Please save the file first before dropping images',
+        message: t('errors.dropImageFirst'),
         source: 'ImageService',
       })
       return null
@@ -80,7 +81,7 @@ class ImageServiceImpl implements IImageService {
     } catch (e) {
       errorService.report({
         level: ErrorLevel.Error,
-        message: 'Failed to save dropped image',
+        message: t('errors.dropImageFailed'),
         detail: String(e),
         source: 'ImageService',
       })

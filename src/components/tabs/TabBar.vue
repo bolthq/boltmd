@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { tabs, activeTabId, switchTab, closeTab, moveTab, closeOtherTabs, closeTabsToRight } from '../../core/stores/tabStore'
+
+const { t } = useI18n()
 
 function handleClose(e: MouseEvent, tabId: string) {
   e.stopPropagation()
@@ -146,11 +149,11 @@ onUnmounted(() => {
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
         @click.stop
       >
-        <div class="ctx-item" @click="ctxClose">Close</div>
-        <div class="ctx-item" @click="ctxCloseOthers">Close Others</div>
-        <div class="ctx-item" @click="ctxCloseRight">Close to the Right</div>
+        <div class="ctx-item" @click="ctxClose">{{ t('tabs.close') }}</div>
+        <div class="ctx-item" @click="ctxCloseOthers">{{ t('tabs.closeOthers') }}</div>
+        <div class="ctx-item" @click="ctxCloseRight">{{ t('tabs.closeToRight') }}</div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" @click="ctxCopyPath">Copy Path</div>
+        <div class="ctx-item" @click="ctxCopyPath">{{ t('tabs.copyPath') }}</div>
       </div>
     </Teleport>
   </div>

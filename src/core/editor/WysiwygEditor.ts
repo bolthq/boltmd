@@ -14,6 +14,7 @@ import { Markdown } from 'tiptap-markdown'
 import { common, createLowlight } from 'lowlight'
 import type { Editor } from '@tiptap/core'
 import type { IEditor, CursorPosition, WordCount } from './types'
+import { t } from '../../i18n'
 
 const lowlight = createLowlight(common)
 
@@ -24,7 +25,7 @@ export function createWysiwygExtensions(): Extensions {
       codeBlock: false,
     }),
     Placeholder.configure({
-      placeholder: '开始写作...',
+      placeholder: () => t('editor.placeholder'),
     }),
     TaskList,
     TaskItem.configure({ nested: true }),

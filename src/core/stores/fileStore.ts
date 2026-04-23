@@ -4,6 +4,7 @@ import { errorService } from '../services/ErrorService'
 import { ErrorLevel } from '../services/ErrorService'
 import { getContent } from '../editor/EditorManager'
 import { openTab as tabOpenTab, markSaved as tabMarkSaved, activeTabId, activeTab } from './tabStore'
+import { t } from '../../i18n'
 
 // ── 状态 ────────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ export async function openFile(): Promise<boolean> {
   } catch (e) {
     errorService.report({
       level: ErrorLevel.Error,
-      message: 'Failed to open file',
+      message: t('errors.openFileFailed'),
       detail: String(e),
       source: 'fileStore',
     })
@@ -73,7 +74,7 @@ export async function openFilePath(path: string): Promise<boolean> {
   } catch (e) {
     errorService.report({
       level: ErrorLevel.Error,
-      message: `Failed to open file: ${path}`,
+      message: t('errors.openFilePathFailed', { path }),
       detail: String(e),
       source: 'fileStore',
     })
@@ -99,7 +100,7 @@ export async function saveFile(): Promise<boolean> {
     } catch (e) {
       errorService.report({
         level: ErrorLevel.Error,
-        message: 'Failed to save file',
+        message: t('errors.saveFileFailed'),
         detail: String(e),
         source: 'fileStore',
       })
@@ -116,7 +117,7 @@ export async function saveFileAs(): Promise<boolean> {
   try {
     const newPath = await fileService.saveFileAs(content)
     if (!newPath) return false
-    const name = newPath.split(/[\\/]/).pop() ?? 'untitled.md'
+    const name = newPath.split(/[\\/]/).pop() ?? t('tabs.untitled')
     _path.value = newPath
     _name.value = name
     _dirty.value = false
@@ -128,7 +129,7 @@ export async function saveFileAs(): Promise<boolean> {
   } catch (e) {
     errorService.report({
       level: ErrorLevel.Error,
-      message: 'Failed to save file',
+      message: t('errors.saveFileFailed'),
       detail: String(e),
       source: 'fileStore',
     })

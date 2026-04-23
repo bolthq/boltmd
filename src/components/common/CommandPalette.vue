@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export interface Command {
   id: string
@@ -15,6 +16,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
 }>()
+
+const { t } = useI18n()
 
 const query = ref('')
 const selectedIndex = ref(0)
@@ -98,7 +101,7 @@ onMounted(() => {
           ref="inputRef"
           v-model="query"
           class="palette-input"
-          placeholder="Type a command..."
+          :placeholder="t('commands.placeholder')"
           @input="handleInput"
         />
       </div>
@@ -118,7 +121,7 @@ onMounted(() => {
         </div>
       </div>
       <div class="palette-empty" v-else>
-        No matching commands
+        {{ t('commands.noMatch') }}
       </div>
     </div>
   </div>

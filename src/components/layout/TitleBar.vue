@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { activeTab } from '../../core/stores/tabStore'
+
+const { t } = useI18n()
 
 const isMaximized = ref(false)
 
@@ -47,10 +50,10 @@ async function handleDrag(e: MouseEvent) {
 
     <!-- 右侧：窗口控制按钮 -->
     <div class="titlebar-controls">
-      <button class="titlebar-btn" @click="handleMinimize" title="Minimize">
+      <button class="titlebar-btn" @click="handleMinimize" :title="t('titlebar.minimize')">
         <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
       </button>
-      <button class="titlebar-btn" @click="handleToggleMaximize" :title="isMaximized ? 'Restore' : 'Maximize'">
+      <button class="titlebar-btn" @click="handleToggleMaximize" :title="isMaximized ? t('titlebar.restore') : t('titlebar.maximize')">
         <svg v-if="!isMaximized" width="10" height="10" viewBox="0 0 10 10">
           <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/>
         </svg>
@@ -59,7 +62,7 @@ async function handleDrag(e: MouseEvent) {
           <rect x="0.5" y="2.5" width="7" height="7" fill="var(--titlebar-bg)" stroke="currentColor" stroke-width="1"/>
         </svg>
       </button>
-      <button class="titlebar-btn titlebar-btn-close" @click="handleClose" title="Close">
+      <button class="titlebar-btn titlebar-btn-close" @click="handleClose" :title="t('titlebar.close')">
         <svg width="10" height="10" viewBox="0 0 10 10">
           <line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/>
           <line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" stroke-width="1.2"/>
