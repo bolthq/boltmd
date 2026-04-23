@@ -23,9 +23,12 @@ import type { Command } from './components/common/CommandPalette.vue'
 const { mode, cycleMode, switchMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 
-const showToolbar = ref(true)
+const showToolbar = ref(configService.get('showToolbar'))
 const showSettings = ref(false)
 const showCommandPalette = ref(false)
+
+// showToolbar 变化时持久化
+watch(showToolbar, (val) => { configService.set('showToolbar', val) })
 
 // 命令面板命令列表
 const commands: Command[] = [
@@ -45,6 +48,21 @@ const commands: Command[] = [
 ]
 
 let unlistenDragDrop: (() => void) | null = null
+
+// 将编辑器配置应用到 CSS 变量
+function applyEditorConfig(): void {
+  const root = document.documentElement
+  root.style.setProperty('--font-size-editor', `${configService.get('fontSize')}px`)
+  root.style.setProperty('--font-editor', configService.get('fontFamily'))
+  root.style.setProperty('--line-height-editor', String(configService.get('lineHeight')))
+}
+
+// 注册编辑器配置变更监听
+function watchEditorConfig(): void {
+  configService.onChange('fontSize', () => applyEditorConfig())
+  configService.onChange('fontFamily', () => applyEditorConfig())
+  configService.onChange('lineHeight', () => applyEditorConfig())
+}
 
 // 保存当前窗口状态到 ConfigService
 async function saveWindowState(): Promise<void> {
@@ -208,12 +226,18 @@ onMounted(async () => {
   // 初始化主题
   themeService.init()
 
+  // 应用编辑器配置到 CSS 变量并监听变更
+  applyEditorConfig()
+  watchEditorConfig()
+
   // 恢复窗口状态（大小/位置）
   await restoreWindowState()
 
   // 恢复上次的标签会话；若无会话则创建空白标签
   const restored = await restoreSession()
   if (!restored) {
+    // 无会话时使用配置的默认编辑模式
+    switchMode(configService.get('defaultMode'))
     initTabs()
   }
 
