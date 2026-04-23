@@ -25,6 +25,16 @@
   outline: none;
 }
 
+.source-view .cm-editor .cm-scroller {
+  padding: 48px 0;
+}
+
+.source-view .cm-editor .cm-content {
+  width: clamp(480px, 80%, 800px);
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
 /* Split view layout */
 .split-view {
   flex: 1;
@@ -47,6 +57,6 @@
 }
 
 /* Preview pane (Tiptap read-only) */
-.split-view .preview-pane .ProseMirror {
+.split-view .preview-pane {
   overflow-y: auto;
 }
