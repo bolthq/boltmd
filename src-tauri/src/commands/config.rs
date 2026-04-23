@@ -22,9 +22,9 @@ fn default_config() -> Value {
         "autoSaveDelay": 3000,
         "defaultMode": "wysiwyg",
         "showLineNumbers": true,
-        "showToolbar": true,
+        "showToolbar": false,
         "imageStorePath": "relative",
-        "language": "zh-CN"
+        "language": "en"
     })
 }
 
