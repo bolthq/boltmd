@@ -1,0 +1,141 @@
+export default {
+  app: {
+    name: 'BoltMD',
+    unsavedTitle: 'Unsaved Changes',
+    unsavedMessage: '"{name}" has unsaved changes. Save before closing?',
+    save: 'Save',
+    discard: 'Discard',
+  },
+
+  menu: {
+    file: 'File',
+    edit: 'Edit',
+    view: 'View',
+    help: 'Help',
+  },
+
+  titlebar: {
+    minimize: 'Minimize',
+    maximize: 'Maximize',
+    restore: 'Restore',
+    close: 'Close',
+  },
+
+  tabs: {
+    close: 'Close',
+    closeOthers: 'Close Others',
+    closeToRight: 'Close to the Right',
+    copyPath: 'Copy Path',
+    untitled: 'untitled.md',
+  },
+
+  statusbar: {
+    lines: 'lines',
+    words: 'words',
+    ln: 'Ln',
+    col: 'Col',
+    switchMode: 'Click to switch mode',
+    switchTheme: 'Click to switch theme',
+  },
+
+  toolbar: {
+    undo: 'Undo',
+    redo: 'Redo',
+    bold: 'Bold',
+    italic: 'Italic',
+    strikethrough: 'Strikethrough',
+    inlineCode: 'Inline Code',
+    heading1: 'Heading 1',
+    heading2: 'Heading 2',
+    heading3: 'Heading 3',
+    bulletList: 'Bullet List',
+    orderedList: 'Ordered List',
+    taskList: 'Task List',
+    blockquote: 'Blockquote',
+    codeBlock: 'Code Block',
+    horizontalRule: 'Horizontal Rule',
+    insertTable: 'Insert Table',
+    insertImage: 'Insert Image',
+    insertLink: 'Insert Link',
+    clearFormatting: 'Clear Formatting',
+    imageUrl: 'Image URL:',
+    linkUrl: 'Link URL:',
+  },
+
+  settings: {
+    title: 'Settings',
+    close: 'Close',
+
+    appearance: 'Appearance',
+    theme: 'Theme',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeSystem: 'System',
+    defaultMode: 'Default Mode',
+    modeWysiwyg: 'WYSIWYG',
+    modeSource: 'Source',
+    modeSplit: 'Split',
+
+    editor: 'Editor',
+    fontSize: 'Font Size',
+    fontFamily: 'Font Family',
+    lineHeight: 'Line Height',
+    tabSize: 'Tab Size',
+    wordWrap: 'Word Wrap',
+    lineNumbers: 'Line Numbers',
+
+    file: 'File',
+    autoSave: 'Auto Save',
+    autoSaveDelay: 'Auto Save Delay',
+    ms: 'ms',
+
+    shortcuts: 'Keyboard Shortcuts',
+    shortcutNewTab: 'New tab',
+    shortcutOpenFile: 'Open file',
+    shortcutSaveFile: 'Save file',
+    shortcutCloseTab: 'Close tab',
+    shortcutCycleMode: 'Cycle editor mode',
+    shortcutToggleToolbar: 'Toggle toolbar',
+    shortcutSettings: 'Settings',
+    shortcutNextTab: 'Next tab',
+    shortcutPrevTab: 'Previous tab',
+    shortcutJumpTab: 'Jump to tab',
+  },
+
+  commands: {
+    newTab: 'New Tab',
+    openFile: 'Open File',
+    saveFile: 'Save File',
+    closeTab: 'Close Tab',
+    cycleMode: 'Cycle Editor Mode',
+    modeWysiwyg: 'Switch to WYSIWYG Mode',
+    modeSource: 'Switch to Source Mode',
+    modeSplit: 'Switch to Split Mode',
+    toggleToolbar: 'Toggle Toolbar',
+    openSettings: 'Open Settings',
+    themeLight: 'Theme: Light',
+    themeDark: 'Theme: Dark',
+    themeSystem: 'Theme: Follow System',
+    placeholder: 'Type a command...',
+    noMatch: 'No matching commands',
+  },
+
+  editor: {
+    placeholder: 'Start writing...',
+  },
+
+  fileDialog: {
+    markdown: 'Markdown',
+    allFiles: 'All Files',
+  },
+
+  errors: {
+    openFileFailed: 'Failed to open file',
+    openFilePathFailed: 'Failed to open file: {path}',
+    saveFileFailed: 'Failed to save file',
+    saveImageFirst: 'Please save the file first before pasting images',
+    saveImageFailed: 'Failed to save pasted image',
+    dropImageFirst: 'Please save the file first before dropping images',
+    dropImageFailed: 'Failed to save dropped image',
+  },
+}

@@ -1,0 +1,141 @@
+export default {
+  app: {
+    name: 'BoltMD',
+    unsavedTitle: '\u672a\u4fdd\u5b58\u7684\u66f4\u6539',
+    unsavedMessage: '"{name}" \u6709\u672a\u4fdd\u5b58\u7684\u66f4\u6539\u3002\u5173\u95ed\u524d\u4fdd\u5b58\uff1f',
+    save: '\u4fdd\u5b58',
+    discard: '\u653e\u5f03',
+  },
+
+  menu: {
+    file: '\u6587\u4ef6',
+    edit: '\u7f16\u8f91',
+    view: '\u89c6\u56fe',
+    help: '\u5e2e\u52a9',
+  },
+
+  titlebar: {
+    minimize: '\u6700\u5c0f\u5316',
+    maximize: '\u6700\u5927\u5316',
+    restore: '\u8fd8\u539f',
+    close: '\u5173\u95ed',
+  },
+
+  tabs: {
+    close: '\u5173\u95ed',
+    closeOthers: '\u5173\u95ed\u5176\u4ed6',
+    closeToRight: '\u5173\u95ed\u53f3\u4fa7',
+    copyPath: '\u590d\u5236\u8def\u5f84',
+    untitled: '\u672a\u547d\u540d.md',
+  },
+
+  statusbar: {
+    lines: '\u884c',
+    words: '\u5b57',
+    ln: '\u884c',
+    col: '\u5217',
+    switchMode: '\u70b9\u51fb\u5207\u6362\u6a21\u5f0f',
+    switchTheme: '\u70b9\u51fb\u5207\u6362\u4e3b\u9898',
+  },
+
+  toolbar: {
+    undo: '\u64a4\u9500',
+    redo: '\u91cd\u505a',
+    bold: '\u52a0\u7c97',
+    italic: '\u659c\u4f53',
+    strikethrough: '\u5220\u9664\u7ebf',
+    inlineCode: '\u884c\u5185\u4ee3\u7801',
+    heading1: '\u4e00\u7ea7\u6807\u9898',
+    heading2: '\u4e8c\u7ea7\u6807\u9898',
+    heading3: '\u4e09\u7ea7\u6807\u9898',
+    bulletList: '\u65e0\u5e8f\u5217\u8868',
+    orderedList: '\u6709\u5e8f\u5217\u8868',
+    taskList: '\u4efb\u52a1\u5217\u8868',
+    blockquote: '\u5f15\u7528',
+    codeBlock: '\u4ee3\u7801\u5757',
+    horizontalRule: '\u5206\u5272\u7ebf',
+    insertTable: '\u63d2\u5165\u8868\u683c',
+    insertImage: '\u63d2\u5165\u56fe\u7247',
+    insertLink: '\u63d2\u5165\u94fe\u63a5',
+    clearFormatting: '\u6e05\u9664\u683c\u5f0f',
+    imageUrl: '\u56fe\u7247\u5730\u5740\uff1a',
+    linkUrl: '\u94fe\u63a5\u5730\u5740\uff1a',
+  },
+
+  settings: {
+    title: '\u8bbe\u7f6e',
+    close: '\u5173\u95ed',
+
+    appearance: '\u5916\u89c2',
+    theme: '\u4e3b\u9898',
+    themeLight: '\u6d45\u8272',
+    themeDark: '\u6df1\u8272',
+    themeSystem: '\u8ddf\u968f\u7cfb\u7edf',
+    defaultMode: '\u9ed8\u8ba4\u6a21\u5f0f',
+    modeWysiwyg: '\u6240\u89c1\u5373\u6240\u5f97',
+    modeSource: '\u6e90\u7801',
+    modeSplit: '\u5206\u5c4f',
+
+    editor: '\u7f16\u8f91\u5668',
+    fontSize: '\u5b57\u4f53\u5927\u5c0f',
+    fontFamily: '\u5b57\u4f53',
+    lineHeight: '\u884c\u9ad8',
+    tabSize: 'Tab \u5927\u5c0f',
+    wordWrap: '\u81ea\u52a8\u6362\u884c',
+    lineNumbers: '\u884c\u53f7',
+
+    file: '\u6587\u4ef6',
+    autoSave: '\u81ea\u52a8\u4fdd\u5b58',
+    autoSaveDelay: '\u81ea\u52a8\u4fdd\u5b58\u5ef6\u8fdf',
+    ms: '\u6beb\u79d2',
+
+    shortcuts: '\u952e\u76d8\u5feb\u6377\u952e',
+    shortcutNewTab: '\u65b0\u5efa\u6807\u7b7e',
+    shortcutOpenFile: '\u6253\u5f00\u6587\u4ef6',
+    shortcutSaveFile: '\u4fdd\u5b58\u6587\u4ef6',
+    shortcutCloseTab: '\u5173\u95ed\u6807\u7b7e',
+    shortcutCycleMode: '\u5207\u6362\u7f16\u8f91\u6a21\u5f0f',
+    shortcutToggleToolbar: '\u5207\u6362\u5de5\u5177\u680f',
+    shortcutSettings: '\u8bbe\u7f6e',
+    shortcutNextTab: '\u4e0b\u4e00\u4e2a\u6807\u7b7e',
+    shortcutPrevTab: '\u4e0a\u4e00\u4e2a\u6807\u7b7e',
+    shortcutJumpTab: '\u8df3\u8f6c\u5230\u6807\u7b7e',
+  },
+
+  commands: {
+    newTab: '\u65b0\u5efa\u6807\u7b7e',
+    openFile: '\u6253\u5f00\u6587\u4ef6',
+    saveFile: '\u4fdd\u5b58\u6587\u4ef6',
+    closeTab: '\u5173\u95ed\u6807\u7b7e',
+    cycleMode: '\u5207\u6362\u7f16\u8f91\u6a21\u5f0f',
+    modeWysiwyg: '\u5207\u6362\u5230\u6240\u89c1\u5373\u6240\u5f97\u6a21\u5f0f',
+    modeSource: '\u5207\u6362\u5230\u6e90\u7801\u6a21\u5f0f',
+    modeSplit: '\u5207\u6362\u5230\u5206\u5c4f\u6a21\u5f0f',
+    toggleToolbar: '\u5207\u6362\u5de5\u5177\u680f',
+    openSettings: '\u6253\u5f00\u8bbe\u7f6e',
+    themeLight: '\u4e3b\u9898\uff1a\u6d45\u8272',
+    themeDark: '\u4e3b\u9898\uff1a\u6df1\u8272',
+    themeSystem: '\u4e3b\u9898\uff1a\u8ddf\u968f\u7cfb\u7edf',
+    placeholder: '\u8f93\u5165\u547d\u4ee4...',
+    noMatch: '\u6ca1\u6709\u5339\u914d\u7684\u547d\u4ee4',
+  },
+
+  editor: {
+    placeholder: '\u5f00\u59cb\u5199\u4f5c...',
+  },
+
+  fileDialog: {
+    markdown: 'Markdown',
+    allFiles: '\u6240\u6709\u6587\u4ef6',
+  },
+
+  errors: {
+    openFileFailed: '\u6253\u5f00\u6587\u4ef6\u5931\u8d25',
+    openFilePathFailed: '\u6253\u5f00\u6587\u4ef6\u5931\u8d25\uff1a{path}',
+    saveFileFailed: '\u4fdd\u5b58\u6587\u4ef6\u5931\u8d25',
+    saveImageFirst: '\u8bf7\u5148\u4fdd\u5b58\u6587\u4ef6\u518d\u7c98\u8d34\u56fe\u7247',
+    saveImageFailed: '\u4fdd\u5b58\u7c98\u8d34\u56fe\u7247\u5931\u8d25',
+    dropImageFirst: '\u8bf7\u5148\u4fdd\u5b58\u6587\u4ef6\u518d\u62d6\u5165\u56fe\u7247',
+    dropImageFailed: '\u4fdd\u5b58\u62d6\u5165\u56fe\u7247\u5931\u8d25',
+  },
+}
