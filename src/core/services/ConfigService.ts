@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { AppConfig } from '../types/config'
-import { DEFAULT_CONFIG } from '../types/config'
+import { DEFAULT_CONFIG, CONFIG_VERSION } from '../types/config'
 
 export interface IConfigService {
   get<K extends keyof AppConfig>(key: K): AppConfig[K]
@@ -23,11 +23,34 @@ class ConfigServiceImpl implements IConfigService {
   async load(): Promise<void> {
     try {
       const raw = await invoke<Record<string, unknown>>('read_config')
+      // 基础类型验证：必须是对象
+      if (!raw || typeof raw !== 'object') {
+        throw new Error('Config is not a valid object')
+      }
       // 合并：以 DEFAULT_CONFIG 为基础，覆盖 Rust 返回的字段
       this.config = { ...DEFAULT_CONFIG, ...(raw as Partial<AppConfig>) }
+      // 版本迁移
+      this.migrate()
     } catch (e) {
       console.warn('[ConfigService] Failed to load config, using defaults:', e)
       this.config = { ...DEFAULT_CONFIG }
+    }
+  }
+
+  /** 配置版本迁移 */
+  private migrate(): void {
+    const version = this.config.configVersion ?? 0
+
+    // 无版本号的旧配置 → v1：补全新字段（已由 DEFAULT_CONFIG spread 处理）
+    if (version < 1) {
+      // 未来版本迁移逻辑放这里
+      // e.g. if (version < 2) { migrate v1 → v2 }
+    }
+
+    // 更新到当前版本
+    if (version !== CONFIG_VERSION) {
+      this.config.configVersion = CONFIG_VERSION
+      this.persist()
     }
   }
 

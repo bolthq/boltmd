@@ -23,6 +23,7 @@ export interface TabSession {
 }
 
 export interface AppConfig {
+  configVersion: number
   theme: ThemeName
   fontSize: number
   fontFamily: string
@@ -40,7 +41,10 @@ export interface AppConfig {
   windowState: WindowState | null
 }
 
+export const CONFIG_VERSION = 1
+
 export const DEFAULT_CONFIG: AppConfig = {
+  configVersion: CONFIG_VERSION,
   theme: 'light',
   fontSize: 15,
   fontFamily: 'system-ui, sans-serif',
