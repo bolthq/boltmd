@@ -166,4 +166,18 @@ export default {
     dropImageFirst: 'Please save the file first before dropping images',
     dropImageFailed: 'Failed to save dropped image',
   },
+
+  updater: {
+    checking: 'Checking for updates...',
+    upToDate: 'Up to Date',
+    upToDateMessage: 'You are running the latest version of BoltMD.',
+    available: 'Update Available',
+    availableMessage: 'A new version {version} is available. Install now?',
+    install: 'Install',
+    later: 'Later',
+    downloading: 'Downloading update...',
+    installing: 'Installing update...',
+    failed: 'Update Failed',
+    failedMessage: 'Failed to check for updates: {error}',
+  },
 }

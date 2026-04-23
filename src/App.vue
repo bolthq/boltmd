@@ -19,6 +19,7 @@ import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab,
 import { saveFile, saveFileAs, openFile, openFilePath } from './core/stores/fileStore'
 import { themeService } from './core/services/ThemeService'
 import { configService } from './core/services/ConfigService'
+import { updateService } from './core/services/UpdateService'
 import type { WindowState } from './core/types/config'
 import type { Command } from './components/common/CommandPalette.vue'
 
@@ -297,7 +298,7 @@ onUnmounted(() => {
       @toggle-toolbar="showToolbar = !showToolbar"
       @open-settings="showSettings = true"
       @open-command-palette="showCommandPalette = true"
-      @check-update="() => {}"
+      @check-update="updateService.checkForUpdates()"
     />
     <!-- 标签栏 -->
     <TabBar />

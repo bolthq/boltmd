@@ -166,4 +166,18 @@ export default {
     dropImageFirst: '请先保存文件再拖入图片',
     dropImageFailed: '保存拖入图片失败',
   },
+
+  updater: {
+    checking: '正在检查更新...',
+    upToDate: '已是最新版本',
+    upToDateMessage: '您正在使用最新版本的 BoltMD。',
+    available: '发现新版本',
+    availableMessage: '新版本 {version} 可用，是否立即安装？',
+    install: '安装',
+    later: '稍后',
+    downloading: '正在下载更新...',
+    installing: '正在安装更新...',
+    failed: '更新失败',
+    failedMessage: '检查更新失败：{error}',
+  },
 }
