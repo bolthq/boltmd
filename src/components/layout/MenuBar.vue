@@ -32,11 +32,9 @@ function toggleMenu(menu: string) {
   openMenu.value = openMenu.value === menu ? null : menu
 }
 
-// 鼠标悬浮时若已打开其他菜单则自动切换
+// 鼠标悬浮直接展开菜单
 function hoverMenu(menu: string) {
-  if (openMenu.value !== null && openMenu.value !== menu) {
-    openMenu.value = menu
-  }
+  openMenu.value = menu
 }
 
 function closeMenus() {
@@ -78,7 +76,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="menubar">
+  <div class="menubar" @mouseleave="closeMenus">
     <!-- File 菜单 -->
     <div class="menu-item" @click.stop="toggleMenu('file')" @mouseenter="hoverMenu('file')">
       <span class="menu-label">{{ t('menu.file') }}</span>
@@ -256,12 +254,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   cursor: pointer;
-  border-radius: 3px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 0.15s, text-decoration-color 0.15s;
 }
 
 .menu-label:hover,
 .menu-item:has(.menu-dropdown) > .menu-label {
-  background: var(--bg-hover);
+  color: var(--accent-primary);
+  text-decoration-color: var(--accent-primary);
 }
 
 .menu-dropdown {
