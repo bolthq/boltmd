@@ -1,16 +1,23 @@
 <script setup lang="ts">
 /**
- * FindReplacePanel — 查找/替换浮层
+ * FindReplacePanel — find/replace floating panel.
  *
- * 三种编辑模式（WYSIWYG / Source / Split）共用此面板。
- * 实际查找逻辑由父级传入的 editorManager 代理到当前激活编辑器。
+ * Shared by all three editor modes (WYSIWYG / Source / Split).
+ * Actual search work is delegated to the active editor through EditorManager.
  *
- * 交互：
- * - 实时搜索（debounce 200ms）
- * - Enter: 下一个；Shift+Enter: 上一个
- * - Ctrl+Enter: 替换当前；Ctrl+Shift+Enter: 全部替换
- * - Esc: 关闭
- * - mode='find' 时隐藏替换行；mode='replace' 时显示
+ * Interactions:
+ * - Live search (200ms debounce)
+ * - Enter: next; Shift+Enter: previous
+ * - Ctrl+Enter: replace one; Ctrl+Shift+Enter: replace all
+ * - Esc: close
+ * - mode='find' hides the replace row; mode='replace' shows it
+ *
+ * Layout (VSCode-inspired):
+ * - Each row is a flex container: [fixed col] [flex:1 input-wrapper] [fixed buttons]
+ * - Option buttons (Aa / Ab / .*) are absolutely positioned on top of the find
+ *   input's right edge, with the input's padding-right reserving space.
+ * - This way the input never shrinks below its flex:1 share, buttons never wrap,
+ *   and both rows' inputs share the same left/right edges.
  */
 
 import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
@@ -18,8 +25,7 @@ import { useI18n } from 'vue-i18n'
 import type { SearchOptions, SearchState } from '../../core/editor/types'
 import { useEditorManager } from '../../core/editor/EditorManager'
 
-// 会话内位置记忆（不持久化到磁盘）
-// 组件卸载后下次打开使用这里保存的坐标；null = 使用默认居中位置
+// Session-only position memory (not persisted).
 interface PanelRect {
   left: number
   top: number
@@ -30,7 +36,7 @@ let savedRect: PanelRect | null = null
 const MIN_WIDTH = 360
 const MAX_WIDTH = 900
 const DEFAULT_WIDTH = 480
-const EDGE_MARGIN = 8 // 与父容器边缘的最小距离
+const EDGE_MARGIN = 8
 
 const props = defineProps<{
   mode: 'find' | 'replace'
@@ -57,7 +63,6 @@ const findInputRef = ref<HTMLInputElement | null>(null)
 const replaceInputRef = ref<HTMLInputElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
 
-// 位置/尺寸状态（响应式，用于 inline style）
 const left = ref(0)
 const top = ref(16)
 const width = ref(DEFAULT_WIDTH)
@@ -76,7 +81,6 @@ function scheduleSearch() {
 watch(query, scheduleSearch)
 watch(options, scheduleSearch, { deep: true })
 
-// 模式切换（find ↔ replace）时，若已有查询则重新聚焦对应输入框
 watch(
   () => props.mode,
   (m) => {
@@ -109,7 +113,6 @@ function doReplaceOne() {
 function doReplaceAll() {
   if (!query.value || state.value.total === 0) return
   em.replaceAllInEditor(replacement.value)
-  // 替换后刷新状态
   state.value = em.searchInEditor(query.value, options.value)
 }
 
@@ -117,12 +120,16 @@ function toggleOption(key: keyof SearchOptions) {
   options.value = { ...options.value, [key]: !options.value[key] }
 }
 
+function toggleMode() {
+  emit('modeChange', showReplace.value ? 'find' : 'replace')
+}
+
 function close() {
   em.clearSearch()
   emit('close')
 }
 
-// ---- Keyboard handling (只响应面板内按键) ----
+// ---- Keyboard handling (panel-scoped) ----
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     e.preventDefault()
@@ -135,7 +142,6 @@ function handleKeydown(e: KeyboardEvent) {
     e.preventDefault()
     e.stopPropagation()
 
-    // 在替换输入框里且按下 Ctrl/Meta → 替换动作
     if (showReplace.value && (e.ctrlKey || e.metaKey)) {
       if (e.shiftKey) {
         doReplaceAll()
@@ -154,7 +160,7 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-// ---- 状态显示 ----
+// ---- Status text ----
 const statusText = computed(() => {
   if (state.value.error) {
     return t('findReplace.regexError')
@@ -171,13 +177,12 @@ const statusText = computed(() => {
 
 const hasError = computed(() => !!state.value.error)
 
-// ---- 位置计算辅助 ----
+// ---- Position helpers ----
 function getParentRect(): DOMRect | null {
   const parent = panelRef.value?.offsetParent as HTMLElement | null
   return parent?.getBoundingClientRect() ?? null
 }
 
-/** 应用默认居中位置 */
 function applyDefaultPosition() {
   const parent = getParentRect()
   if (!parent) {
@@ -191,7 +196,6 @@ function applyDefaultPosition() {
   top.value = 16
 }
 
-/** 把 left/top/width 夹紧到父容器可视范围内 */
 function clampRect() {
   const parent = getParentRect()
   const panelEl = panelRef.value
@@ -205,15 +209,13 @@ function clampRect() {
   top.value = Math.max(EDGE_MARGIN, Math.min(top.value, maxTop))
 }
 
-// ---- 拖拽 ----
+// ---- Drag ----
 let dragOrigin: { mouseX: number; mouseY: number; left: number; top: number } | null = null
 
 function onDragStart(e: MouseEvent) {
-  // 只接受左键
   if (e.button !== 0) return
-  // 忽略输入框/按钮/其他可交互元素
   const target = e.target as HTMLElement
-  if (target.closest('input, button, textarea, select')) return
+  if (target.closest('input, button, textarea, select, .fr-resize-edge')) return
   dragOrigin = {
     mouseX: e.clientX,
     mouseY: e.clientY,
@@ -238,12 +240,19 @@ function onDragEnd() {
   window.removeEventListener('mouseup', onDragEnd)
 }
 
-// ---- Resize（右下角把手，只调宽度） ----
-let resizeOrigin: { mouseX: number; width: number } | null = null
+// ---- Resize (left/right edges, width only, VSCode-style) ----
+let resizeOrigin:
+  | { mouseX: number; width: number; left: number; side: 'left' | 'right' }
+  | null = null
 
-function onResizeStart(e: MouseEvent) {
+function onResizeStart(e: MouseEvent, side: 'left' | 'right') {
   if (e.button !== 0) return
-  resizeOrigin = { mouseX: e.clientX, width: width.value }
+  resizeOrigin = {
+    mouseX: e.clientX,
+    width: width.value,
+    left: left.value,
+    side,
+  }
   window.addEventListener('mousemove', onResizeMove)
   window.addEventListener('mouseup', onResizeEnd)
   e.preventDefault()
@@ -252,7 +261,16 @@ function onResizeStart(e: MouseEvent) {
 
 function onResizeMove(e: MouseEvent) {
   if (!resizeOrigin) return
-  width.value = resizeOrigin.width + (e.clientX - resizeOrigin.mouseX)
+  const dx = e.clientX - resizeOrigin.mouseX
+  if (resizeOrigin.side === 'right') {
+    width.value = resizeOrigin.width + dx
+  } else {
+    const newWidth = resizeOrigin.width - dx
+    const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth))
+    const actualDx = resizeOrigin.width - clampedWidth
+    width.value = clampedWidth
+    left.value = resizeOrigin.left + actualDx
+  }
   clampRect()
 }
 
@@ -265,7 +283,6 @@ function onResizeEnd() {
 // ---- Lifecycle ----
 onMounted(() => {
   nextTick(() => {
-    // 恢复上次位置或使用默认居中
     if (savedRect) {
       left.value = savedRect.left
       top.value = savedRect.top
@@ -281,13 +298,11 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (debounceTimer) clearTimeout(debounceTimer)
-  // 保存位置供下次打开使用
   savedRect = {
     left: left.value,
     top: top.value,
     width: width.value,
   }
-  // 清理可能未释放的全局监听
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', onDragEnd)
   window.removeEventListener('mousemove', onResizeMove)
@@ -295,7 +310,6 @@ onBeforeUnmount(() => {
   em.clearSearch()
 })
 
-// 暴露 focus 方法给父组件（Ctrl+F 再次按下时聚焦输入框）
 defineExpose({
   focus: () => {
     nextTick(() => {
@@ -317,165 +331,247 @@ defineExpose({
     @keydown="handleKeydown"
     @mousedown="onDragStart"
   >
-    <!-- 顶部拖拽把手条 -->
-    <div class="fr-drag-handle" :title="t('findReplace.find')"></div>
+    <!-- Invisible edge resize strips -->
+    <div class="fr-resize-edge fr-resize-edge-left" @mousedown="(e) => onResizeStart(e, 'left')"></div>
+    <div class="fr-resize-edge fr-resize-edge-right" @mousedown="(e) => onResizeStart(e, 'right')"></div>
 
-    <!-- 查找行 -->
-    <div class="fr-row">
-      <input
-        ref="findInputRef"
-        v-model="query"
-        class="fr-input"
-        :class="{ 'fr-input-error': hasError }"
-        :placeholder="t('findReplace.findPlaceholder')"
-        spellcheck="false"
-      />
+    <!-- Mode toggle button: spans both rows when replace is shown -->
+    <button
+      type="button"
+      class="fr-mode-toggle"
+      :class="{ 'fr-mode-toggle-tall': showReplace }"
+      :title="showReplace ? t('findReplace.find') : t('findReplace.replace')"
+      @click="toggleMode"
+    >
+      {{ showReplace ? '▾' : '▸' }}
+    </button>
 
-      <!-- 状态 -->
-      <span class="fr-status" :class="{ 'fr-status-error': hasError }">
-        {{ statusText }}
-      </span>
+    <!-- Grid area holding both rows. Column widths are determined by row 2's
+         text buttons (Replace / Replace All), so row 1's trailing group auto-
+         matches — inputs end up exactly the same width on both rows. -->
+    <div class="fr-grid" :class="{ 'fr-grid-replace': showReplace }">
+      <!-- Row 1: find -->
+      <div class="fr-input-wrap fr-cell-input">
+        <input
+          ref="findInputRef"
+          v-model="query"
+          class="fr-input fr-input-find"
+          :class="{ 'fr-input-error': hasError }"
+          :placeholder="t('findReplace.findPlaceholder')"
+          spellcheck="false"
+        />
+        <div class="fr-input-overlay">
+          <button
+            type="button"
+            class="fr-icon-btn fr-icon-btn-sm"
+            :class="{ 'fr-icon-btn-active': options.caseSensitive }"
+            :title="t('findReplace.caseSensitive')"
+            @click="toggleOption('caseSensitive')"
+          >
+            Aa
+          </button>
+          <button
+            type="button"
+            class="fr-icon-btn fr-icon-btn-sm"
+            :class="{ 'fr-icon-btn-active': options.wholeWord }"
+            :title="t('findReplace.wholeWord')"
+            @click="toggleOption('wholeWord')"
+          >
+            Ab
+          </button>
+          <button
+            type="button"
+            class="fr-icon-btn fr-icon-btn-sm"
+            :class="{ 'fr-icon-btn-active': options.regex }"
+            :title="t('findReplace.regex')"
+            @click="toggleOption('regex')"
+          >
+            .*
+          </button>
+        </div>
+      </div>
 
-      <!-- 选项切换 -->
-      <button
-        type="button"
-        class="fr-icon-btn"
-        :class="{ 'fr-icon-btn-active': options.caseSensitive }"
-        :title="t('findReplace.caseSensitive')"
-        @click="toggleOption('caseSensitive')"
-      >
-        Aa
-      </button>
-      <button
-        type="button"
-        class="fr-icon-btn"
-        :class="{ 'fr-icon-btn-active': options.wholeWord }"
-        :title="t('findReplace.wholeWord')"
-        @click="toggleOption('wholeWord')"
-      >
-        Ab
-      </button>
-      <button
-        type="button"
-        class="fr-icon-btn"
-        :class="{ 'fr-icon-btn-active': options.regex }"
-        :title="t('findReplace.regex')"
-        @click="toggleOption('regex')"
-      >
-        .*
-      </button>
+      <div class="fr-cell-trailing">
+        <span class="fr-status" :class="{ 'fr-status-error': hasError }">
+          {{ statusText }}
+        </span>
+        <button type="button" class="fr-icon-btn fr-nav-btn" :title="t('findReplace.previous')" @click="gotoPrev">
+          ↑
+        </button>
+        <button type="button" class="fr-icon-btn fr-nav-btn" :title="t('findReplace.next')" @click="gotoNext">
+          ↓
+        </button>
+      </div>
 
-      <!-- 导航 -->
-      <button type="button" class="fr-icon-btn" :title="t('findReplace.previous')" @click="gotoPrev">
-        ↑
-      </button>
-      <button type="button" class="fr-icon-btn" :title="t('findReplace.next')" @click="gotoNext">
-        ↓
-      </button>
-
-      <!-- 关闭 -->
-      <button type="button" class="fr-icon-btn fr-close-btn" :title="t('findReplace.close')" @click="close">
+      <button type="button" class="fr-icon-btn fr-close-btn fr-cell-close" :title="t('findReplace.close')" @click="close">
         ×
       </button>
-    </div>
 
-    <!-- 替换行 -->
-    <div v-if="showReplace" class="fr-row">
-      <input
-        ref="replaceInputRef"
-        v-model="replacement"
-        class="fr-input"
-        :placeholder="t('findReplace.replacePlaceholder')"
-        spellcheck="false"
-      />
-      <button type="button" class="fr-btn" @click="doReplaceOne">
-        {{ t('findReplace.replaceOne') }}
-      </button>
-      <button type="button" class="fr-btn" @click="doReplaceAll">
-        {{ t('findReplace.replaceAll') }}
-      </button>
-    </div>
+      <!-- Row 2: replace -->
+      <template v-if="showReplace">
+        <div class="fr-input-wrap fr-cell-input-r2">
+          <input
+            ref="replaceInputRef"
+            v-model="replacement"
+            class="fr-input"
+            :placeholder="t('findReplace.replacePlaceholder')"
+            spellcheck="false"
+          />
+        </div>
 
-    <!-- 右下角 resize 把手 -->
-    <div class="fr-resize-handle" @mousedown="onResizeStart"></div>
+        <div class="fr-cell-trailing fr-cell-trailing-r2">
+          <!-- Empty spacer with same width as row 1's status so both trailing
+               groups occupy exactly the same width; the two action buttons
+               align under row 1's ↑ / ↓ buttons. -->
+          <span class="fr-status" aria-hidden="true"></span>
+          <button
+            type="button"
+            class="fr-icon-btn fr-nav-btn"
+            :title="t('findReplace.replaceOne')"
+            @click="doReplaceOne"
+          >
+            ↪
+          </button>
+          <button
+            type="button"
+            class="fr-icon-btn fr-nav-btn"
+            :title="t('findReplace.replaceAll')"
+            @click="doReplaceAll"
+          >
+            ↯
+          </button>
+        </div>
+
+        <!-- Spacer to keep close column width in row 2 (empty cell) -->
+        <span class="fr-cell-close-r2" aria-hidden="true"></span>
+      </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .fr-panel {
   position: absolute;
-  /* left / top / width 由 inline style 动态设置 */
   z-index: 50;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  padding: 0 8px 6px 8px;
+  padding: 6px 8px;
+  /* Outer flex: [toggle button] [grid with both rows] */
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   gap: 4px;
   min-width: 360px;
   max-width: 900px;
   user-select: none;
-}
-
-/* 顶部拖拽把手条（4px 高，视觉上是一条浅色条带） */
-.fr-drag-handle {
-  height: 8px;
-  margin: 0 -8px 2px -8px;
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
   cursor: grab;
-  background: linear-gradient(
-    to bottom,
-    var(--bg-secondary),
-    transparent
-  );
-  border-bottom: 1px solid var(--border-primary);
 }
 
-.fr-drag-handle:active {
+.fr-panel:active {
   cursor: grabbing;
 }
 
-/* 右下角 resize 把手 */
-.fr-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 12px;
-  height: 12px;
-  cursor: ew-resize;
-  /* 用一个简单的小三角提示 */
-  background: linear-gradient(
-    135deg,
-    transparent 0%,
-    transparent 50%,
-    var(--text-muted) 50%,
-    var(--text-muted) 60%,
-    transparent 60%,
-    transparent 75%,
-    var(--text-muted) 75%,
-    var(--text-muted) 85%,
-    transparent 85%
-  );
-  border-bottom-right-radius: 6px;
-  opacity: 0.6;
+.fr-panel input,
+.fr-panel textarea {
+  cursor: text;
+}
+.fr-panel button {
+  cursor: pointer;
 }
 
-.fr-resize-handle:hover {
-  opacity: 1;
+/* Mode toggle: short (row 1 only) by default, tall (spans both rows) in
+   replace mode. */
+.fr-mode-toggle {
+  flex: 0 0 20px;
+  width: 20px;
+  min-width: 20px;
+  height: 26px;
+  padding: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  align-self: flex-start;
 }
 
-.fr-row {
+.fr-mode-toggle-tall {
+  /* 2 × 26px rows + 4px row-gap = 56px */
+  height: 56px;
+}
+
+.fr-mode-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Inner grid: 3 columns, 1 or 2 rows. Column widths follow content so row 2's
+   text buttons (Replace / Replace All) drive the trailing column width. */
+.fr-grid {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto auto;
+  column-gap: 4px;
+  row-gap: 4px;
+  align-items: center;
+}
+
+.fr-grid-replace {
+  grid-template-rows: 26px 26px;
+}
+
+/* Column 1: input wrapper, takes all leftover space */
+.fr-input-wrap {
+  position: relative;
+  height: 24px;
+  min-width: 0;
+}
+
+.fr-cell-input        { grid-column: 1; grid-row: 1; }
+.fr-cell-trailing     { grid-column: 2; grid-row: 1; }
+.fr-cell-close        { grid-column: 3; grid-row: 1; }
+.fr-cell-input-r2     { grid-column: 1; grid-row: 2; }
+.fr-cell-trailing-r2  { grid-column: 2; grid-row: 2; }
+.fr-cell-close-r2     { grid-column: 3; grid-row: 2; }
+
+/* Trailing groups are flex rows of icons/buttons; their width auto-sizes from
+   content, which ties both rows' trailing columns to the SAME width. */
+.fr-cell-trailing {
   display: flex;
   align-items: center;
   gap: 4px;
+  height: 24px;
 }
 
+.fr-cell-trailing-r2 {
+  /* Same layout as row 1's trailing (spacer + 2 icons), so column 2 width is
+     identical on both rows → input column stays the same width when the
+     replace row is toggled. */
+}
+
+/* Invisible 6px hot zones on left/right edges for resize */
+.fr-resize-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 1;
+}
+
+.fr-resize-edge-left  { left: 0; }
+.fr-resize-edge-right { right: 0; }
+
 .fr-input {
-  flex: 1;
-  min-width: 160px;
+  width: 100%;
+  height: 100%;
   padding: 4px 8px;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -486,6 +582,11 @@ defineExpose({
   outline: none;
   box-sizing: border-box;
   user-select: text;
+}
+
+/* Find input reserves space on its right for the overlayed option buttons */
+.fr-input-find {
+  padding-right: 84px;       /* room for Aa + Ab + .* (3 × ~24px + gaps) */
 }
 
 .fr-input:focus {
@@ -500,12 +601,30 @@ defineExpose({
   color: var(--text-muted);
 }
 
+/* Options overlay sitting on top of the find input's right edge */
+.fr-input-overlay {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.fr-input-overlay > * {
+  pointer-events: auto;
+}
+
 .fr-status {
   font-size: 11px;
   color: var(--text-muted);
   padding: 0 4px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  min-width: 3em;
+  text-align: right;
 }
 
 .fr-status-error {
@@ -513,6 +632,7 @@ defineExpose({
 }
 
 .fr-icon-btn {
+  flex: 0 0 auto;
   height: 24px;
   min-width: 24px;
   padding: 0 6px;
@@ -529,6 +649,14 @@ defineExpose({
   line-height: 1;
 }
 
+/* Smaller option buttons that fit inside the input overlay */
+.fr-icon-btn-sm {
+  height: 20px;
+  min-width: 22px;
+  padding: 0 4px;
+  font-size: 11px;
+}
+
 .fr-icon-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
@@ -540,25 +668,16 @@ defineExpose({
   border-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
 }
 
+.fr-nav-btn {
+  width: 24px;
+  min-width: 24px;
+  padding: 0;
+}
+
 .fr-close-btn {
+  width: 24px;
+  min-width: 24px;
+  padding: 0;
   font-size: 16px;
-  margin-left: 2px;
-}
-
-.fr-btn {
-  height: 24px;
-  padding: 0 10px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.fr-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent-primary);
 }
 </style>
