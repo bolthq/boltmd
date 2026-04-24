@@ -152,6 +152,24 @@ export default {
     placeholder: 'Start writing...',
   },
 
+  findReplace: {
+    find: 'Find',
+    replace: 'Replace',
+    findPlaceholder: 'Find',
+    replacePlaceholder: 'Replace with',
+    previous: 'Previous',
+    next: 'Next',
+    close: 'Close',
+    caseSensitive: 'Match Case',
+    wholeWord: 'Match Whole Word',
+    regex: 'Use Regex',
+    replaceOne: 'Replace',
+    replaceAll: 'Replace All',
+    noMatches: 'No matches',
+    regexError: 'Invalid regular expression',
+    matchCount: '{current} / {total}',
+  },
+
   fileDialog: {
     markdown: 'Markdown',
     allFiles: 'All Files',

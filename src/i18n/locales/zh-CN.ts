@@ -152,6 +152,24 @@ export default {
     placeholder: '开始写作...',
   },
 
+  findReplace: {
+    find: '查找',
+    replace: '替换',
+    findPlaceholder: '查找',
+    replacePlaceholder: '替换为',
+    previous: '上一个',
+    next: '下一个',
+    close: '关闭',
+    caseSensitive: '区分大小写',
+    wholeWord: '全字匹配',
+    regex: '正则表达式',
+    replaceOne: '替换',
+    replaceAll: '全部替换',
+    noMatches: '无匹配',
+    regexError: '正则表达式错误',
+    matchCount: '{current} / {total}',
+  },
+
   fileDialog: {
     markdown: 'Markdown',
     allFiles: '所有文件',
