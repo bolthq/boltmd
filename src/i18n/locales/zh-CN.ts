@@ -25,6 +25,8 @@ export default {
     copy: '复制',
     paste: '粘贴',
     selectAll: '全选',
+    find: '查找...',
+    replace: '替换...',
     // 视图菜单
     toggleToolbar: '工具栏',
     modeWysiwyg: '所见即所得模式',

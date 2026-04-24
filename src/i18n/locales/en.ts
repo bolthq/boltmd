@@ -25,6 +25,8 @@ export default {
     copy: 'Copy',
     paste: 'Paste',
     selectAll: 'Select All',
+    find: 'Find...',
+    replace: 'Replace...',
     // View menu
     toggleToolbar: 'Toolbar',
     modeWysiwyg: 'WYSIWYG Mode',
