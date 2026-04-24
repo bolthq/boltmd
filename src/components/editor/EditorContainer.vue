@@ -45,20 +45,43 @@ function handleChange(newContent: string) {
   }
 }
 
-// 全局快捷键（Ctrl+F / Ctrl+H）
+// Global shortcuts: Ctrl+F / Ctrl+H open our panel; Ctrl+G / F3 are swallowed
+// so neither CodeMirror's built-in search nor the Webview's find-in-page popup
+// can hijack them while our panel owns find/replace UX.
 function handleGlobalKeydown(e: KeyboardEvent) {
-  // macOS 下使用 metaKey，其他平台 ctrlKey
+  // F3 / Shift+F3: next / previous match when panel is open
+  if (e.key === 'F3') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (findPanelMode.value === null) {
+      openFind()
+    }
+    return
+  }
+
   const mod = e.ctrlKey || e.metaKey
   if (!mod) return
 
   if (e.key === 'f' || e.key === 'F') {
     e.preventDefault()
+    e.stopPropagation()
     openFind()
     return
   }
   if (e.key === 'h' || e.key === 'H') {
     e.preventDefault()
+    e.stopPropagation()
     openReplace()
+    return
+  }
+  // Swallow Ctrl+G / Ctrl+Shift+G so the Webview / CM6 can't pop their own
+  // search UI. When our panel is open, route them to next / previous match.
+  if (e.key === 'g' || e.key === 'G') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (findPanelMode.value === null) {
+      openFind()
+    }
     return
   }
 }
