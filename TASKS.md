@@ -90,15 +90,15 @@
 
     > 详细方案见 [docs/05-find-replace-plan.md](docs/05-find-replace-plan.md)
 
-    - [ ] P10.1-1: 扩展 IEditor 接口，新增 search/replace 相关方法和类型
-    - [ ] P10.1-2: WysiwygEditor 实现（集成 Tiptap 搜索扩展）
-    - [ ] P10.1-3: SourceEditor 实现（封装 CM6 SearchQuery，含 total 计数）
-    - [ ] P10.1-4: EditorManager 代理查找/替换方法
-    - [ ] P10.1-5: FindReplacePanel.vue 组件（大小写/全字/正则/替换/全部替换）
-    - [ ] P10.1-6: EditorContainer 集成快捷键（Ctrl+F / Ctrl+H / Esc / Enter）
-    - [ ] P10.1-7: i18n 翻译（en + zh-CN）
-    - [ ] P10.1-8: MenuBar Edit 菜单添加 Find / Replace 入口
-    - [ ] P10.1-9: 验证（build + 主题适配 + Markdown 结构完整性）
+    - [x] P10.1-1: 扩展 IEditor 接口，新增 search/replace 相关方法和类型
+    - [x] P10.1-2: WysiwygEditor 实现（集成 Tiptap 搜索扩展）
+    - [x] P10.1-3: SourceEditor 实现（封装 CM6 SearchQuery，含 total 计数）
+    - [x] P10.1-4: EditorManager 代理查找/替换方法
+    - [x] P10.1-5: FindReplacePanel.vue 组件（大小写/全字/正则/替换/全部替换）
+    - [x] P10.1-6: EditorContainer 集成快捷键（Ctrl+F / Ctrl+H / Esc / Enter）
+    - [x] P10.1-7: i18n 翻译（en + zh-CN）
+    - [x] P10.1-8: MenuBar Edit 菜单添加 Find / Replace 入口
+    - [x] P10.1-9: 验证（build + 主题适配 + Markdown 结构完整性）
 
 - [ ] P10-4: GitHub Actions CI 自动构建
 - [ ] P10-5: README.md（截图 + benchmark + 安装说明）
