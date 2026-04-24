@@ -313,3 +313,14 @@
   float: left;
   height: 0;
 }
+
+/* ---- 搜索匹配高亮（Tiptap 自实现 SearchAndReplace 扩展） ---- */
+.ProseMirror .search-match {
+  background-color: color-mix(in srgb, var(--accent-primary) 25%, transparent);
+  border-radius: 2px;
+}
+
+.ProseMirror .search-match-current {
+  background-color: color-mix(in srgb, var(--accent-primary) 55%, transparent);
+  outline: 1px solid var(--accent-primary);
+}

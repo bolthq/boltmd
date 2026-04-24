@@ -23,6 +23,22 @@ export interface EditorSnapshot {
   mode: EditorMode
 }
 
+// 搜索选项
+export interface SearchOptions {
+  caseSensitive: boolean
+  wholeWord: boolean
+  regex: boolean
+}
+
+// 搜索状态
+// total: 匹配总数；current: 当前匹配项索引（1-based，0 = 无匹配）
+// error: 正则语法错误信息（仅 regex=true 时可能出现）
+export interface SearchState {
+  total: number
+  current: number
+  error?: string
+}
+
 // 编辑器实例统一接口
 export interface IEditor {
   getContent(): string
@@ -39,4 +55,12 @@ export interface IEditor {
   destroy(): void
   onContentChange(callback: (markdown: string) => void): void
   getWordCount(): WordCount
+
+  // 查找/替换
+  search(query: string, options: SearchOptions): SearchState
+  gotoNextMatch(): SearchState
+  gotoPrevMatch(): SearchState
+  replaceNext(replacement: string): SearchState
+  replaceAll(replacement: string): number
+  clearSearch(): void
 }

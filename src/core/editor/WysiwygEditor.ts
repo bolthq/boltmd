@@ -12,8 +12,9 @@ import { Highlight } from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
 import type { Editor } from '@tiptap/core'
-import type { IEditor, CursorPosition, WordCount } from './types'
+import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
 import { t } from '../../i18n'
+import { SearchAndReplace, searchPluginKey } from './extensions/SearchAndReplace'
 
 // 懒初始化 lowlight，避免模块加载时同步解析所有语言语法
 let _lowlight: any = null
@@ -67,6 +68,7 @@ export function createWysiwygExtensions(): Extensions {
       transformCopiedText: true,
       transformPastedText: true,
     }),
+    SearchAndReplace,
   ]
 }
 
@@ -157,5 +159,68 @@ export class WysiwygEditor implements IEditor {
     const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length
     const lines = this.editor.state.doc.childCount
     return { characters, words, lines }
+  }
+
+  // ---- 查找 / 替换 ----
+
+  /** 从插件状态构造 SearchState（1-based current，0 = 无匹配） */
+  private readSearchState(): SearchState {
+    const plugin = searchPluginKey.getState(this.editor.state)
+    if (!plugin) return { total: 0, current: 0 }
+    return {
+      total: plugin.results.length,
+      current: plugin.currentIndex >= 0 ? plugin.currentIndex + 1 : 0,
+      error: plugin.error ?? undefined,
+    }
+  }
+
+  /** 跳转当前匹配到视口内 */
+  private scrollCurrentMatchIntoView(): void {
+    const plugin = searchPluginKey.getState(this.editor.state)
+    if (!plugin || plugin.currentIndex < 0) return
+    const range = plugin.results[plugin.currentIndex]
+    if (!range) return
+    try {
+      const dom = this.editor.view.domAtPos(range.from)
+      const node = dom.node instanceof HTMLElement ? dom.node : dom.node.parentElement
+      node?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    } catch {
+      // 某些位置可能取不到 DOM，忽略
+    }
+  }
+
+  search(query: string, options: SearchOptions): SearchState {
+    this.editor.commands.setSearchTerm(query, options)
+    this.scrollCurrentMatchIntoView()
+    return this.readSearchState()
+  }
+
+  gotoNextMatch(): SearchState {
+    this.editor.commands.nextSearchResult()
+    this.scrollCurrentMatchIntoView()
+    return this.readSearchState()
+  }
+
+  gotoPrevMatch(): SearchState {
+    this.editor.commands.prevSearchResult()
+    this.scrollCurrentMatchIntoView()
+    return this.readSearchState()
+  }
+
+  replaceNext(replacement: string): SearchState {
+    this.editor.commands.replaceCurrent(replacement)
+    this.scrollCurrentMatchIntoView()
+    return this.readSearchState()
+  }
+
+  replaceAll(replacement: string): number {
+    const before = searchPluginKey.getState(this.editor.state)?.results.length ?? 0
+    if (before === 0) return 0
+    this.editor.commands.replaceAllMatches(replacement)
+    return before
+  }
+
+  clearSearch(): void {
+    this.editor.commands.clearSearch()
   }
 }

@@ -3,13 +3,13 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, historyKeymap, history, indentWithTab, undo, redo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
+import { searchKeymap, highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, replaceNext, replaceAll, getSearchQuery } from '@codemirror/search'
 import { indentOnInput, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { eventBus } from '../events/EventBus'
 import { AppEvent } from '../events/events'
 import { themeService } from '../services/ThemeService'
-import type { IEditor, CursorPosition, WordCount } from './types'
+import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
 
 /** 暗色语法高亮样式 */
 const darkHighlightStyle = HighlightStyle.define([
@@ -230,5 +230,149 @@ export class SourceEditor implements IEditor {
     const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length
     const lines = this.view.state.doc.lines
     return { characters, words, lines }
+  }
+
+  // ---- 查找 / 替换 ----
+
+  /** 编译当前查询的正则（供遍历计数 / 当前索引计算用） */
+  private compileRegex(query: SearchQuery): RegExp | null {
+    if (!query.search) return null
+    try {
+      let pattern: string
+      if (query.regexp) {
+        pattern = query.search
+      } else {
+        pattern = query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      }
+      if (query.wholeWord) {
+        pattern = `\\b${pattern}\\b`
+      }
+      const flags = query.caseSensitive ? 'g' : 'gi'
+      return new RegExp(pattern, flags)
+    } catch {
+      return null
+    }
+  }
+
+  /** 遍历整个文档数匹配总数 + 当前光标所在匹配索引（1-based；0 = 无/未命中） */
+  private computeSearchState(query: SearchQuery | null): SearchState {
+    if (!query || !query.search) return { total: 0, current: 0 }
+
+    const regex = this.compileRegex(query)
+    if (!regex) {
+      return { total: 0, current: 0, error: 'Invalid regex' }
+    }
+
+    const text = this.view.state.doc.toString()
+    const cursorPos = this.view.state.selection.main.from
+    let total = 0
+    let current = 0
+    let match: RegExpExecArray | null
+    regex.lastIndex = 0
+    while ((match = regex.exec(text)) !== null) {
+      if (match[0].length === 0) {
+        regex.lastIndex++
+        continue
+      }
+      total++
+      // 选区起点 == 匹配起点，视为"当前"
+      if (current === 0 && match.index === cursorPos) {
+        current = total
+      }
+    }
+    return { total, current }
+  }
+
+  private buildQuery(query: string, options: SearchOptions): SearchQuery {
+    return new SearchQuery({
+      search: query,
+      caseSensitive: options.caseSensitive,
+      wholeWord: options.wholeWord,
+      regexp: options.regex,
+    })
+  }
+
+  search(query: string, options: SearchOptions): SearchState {
+    if (!query) {
+      this.clearSearch()
+      return { total: 0, current: 0 }
+    }
+
+    const sq = this.buildQuery(query, options)
+
+    // 正则语法错误预检
+    if (options.regex) {
+      try {
+        // eslint-disable-next-line no-new
+        new RegExp(query)
+      } catch (e) {
+        this.view.dispatch({ effects: setSearchQuery.of(sq) })
+        return {
+          total: 0,
+          current: 0,
+          error: e instanceof Error ? e.message : String(e),
+        }
+      }
+    }
+
+    this.view.dispatch({ effects: setSearchQuery.of(sq) })
+    // 跳到第一个匹配
+    findNext(this.view)
+    return this.computeSearchState(sq)
+  }
+
+  gotoNextMatch(): SearchState {
+    const query = getSearchQuery(this.view.state)
+    if (!query || !query.search) return { total: 0, current: 0 }
+    findNext(this.view)
+    return this.computeSearchState(query)
+  }
+
+  gotoPrevMatch(): SearchState {
+    const query = getSearchQuery(this.view.state)
+    if (!query || !query.search) return { total: 0, current: 0 }
+    findPrevious(this.view)
+    return this.computeSearchState(query)
+  }
+
+  replaceNext(replacement: string): SearchState {
+    const query = getSearchQuery(this.view.state)
+    if (!query || !query.search) return { total: 0, current: 0 }
+    // CM6 的 replaceNext 使用 query.replace，所以先同步新的 replace 字符串
+    const newQuery = new SearchQuery({
+      search: query.search,
+      replace: replacement,
+      caseSensitive: query.caseSensitive,
+      wholeWord: query.wholeWord,
+      regexp: query.regexp,
+    })
+    this.view.dispatch({ effects: setSearchQuery.of(newQuery) })
+    replaceNext(this.view)
+    return this.computeSearchState(newQuery)
+  }
+
+  replaceAll(replacement: string): number {
+    const query = getSearchQuery(this.view.state)
+    if (!query || !query.search) return 0
+    const before = this.computeSearchState(query).total
+    if (before === 0) return 0
+
+    const newQuery = new SearchQuery({
+      search: query.search,
+      replace: replacement,
+      caseSensitive: query.caseSensitive,
+      wholeWord: query.wholeWord,
+      regexp: query.regexp,
+    })
+    this.view.dispatch({ effects: setSearchQuery.of(newQuery) })
+    replaceAll(this.view)
+    return before
+  }
+
+  clearSearch(): void {
+    // 用空查询覆盖掉旧的查询 → 匹配高亮消失
+    this.view.dispatch({
+      effects: setSearchQuery.of(new SearchQuery({ search: '' })),
+    })
   }
 }

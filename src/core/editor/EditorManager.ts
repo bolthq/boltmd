@@ -1,6 +1,6 @@
 import { ref, readonly, type Ref, type DeepReadonly } from 'vue'
 import type { Editor } from '@tiptap/core'
-import type { EditorMode, EditorSnapshot, IEditor, CursorPosition } from './types'
+import type { EditorMode, EditorSnapshot, IEditor, CursorPosition, SearchOptions, SearchState } from './types'
 
 // 模式循环顺序
 const MODE_CYCLE: EditorMode[] = ['wysiwyg', 'source', 'split']
@@ -170,6 +170,39 @@ export function getActiveEditor(): IEditor | null {
   return activeEditor
 }
 
+// ---- 查找 / 替换（透传给当前激活的编辑器） ----
+
+const EMPTY_STATE: SearchState = { total: 0, current: 0 }
+
+export function searchInEditor(query: string, options: SearchOptions): SearchState {
+  if (!activeEditor) return EMPTY_STATE
+  return activeEditor.search(query, options)
+}
+
+export function gotoNextMatch(): SearchState {
+  if (!activeEditor) return EMPTY_STATE
+  return activeEditor.gotoNextMatch()
+}
+
+export function gotoPrevMatch(): SearchState {
+  if (!activeEditor) return EMPTY_STATE
+  return activeEditor.gotoPrevMatch()
+}
+
+export function replaceNextInEditor(replacement: string): SearchState {
+  if (!activeEditor) return EMPTY_STATE
+  return activeEditor.replaceNext(replacement)
+}
+
+export function replaceAllInEditor(replacement: string): number {
+  if (!activeEditor) return 0
+  return activeEditor.replaceAll(replacement)
+}
+
+export function clearSearch(): void {
+  activeEditor?.clearSearch()
+}
+
 /**
  * 注册 Tiptap 原始 Editor 实例（仅 WYSIWYG 模式）
  * 供 Toolbar 调用格式化命令
@@ -212,5 +245,12 @@ export function useEditorManager() {
     registerTiptapEditor,
     unregisterTiptapEditor,
     getTiptapEditor,
+    // 查找 / 替换
+    searchInEditor,
+    gotoNextMatch,
+    gotoPrevMatch,
+    replaceNextInEditor,
+    replaceAllInEditor,
+    clearSearch,
   }
 }
