@@ -204,6 +204,15 @@ export function clearSearch(): void {
 }
 
 /**
+ * Return the currently selected text from the active editor.
+ * Empty string when there's no active editor or no selection.
+ */
+export function getSelectionInEditor(): string {
+  if (!activeEditor) return ''
+  return activeEditor.getSelection()
+}
+
+/**
  * 注册 Tiptap 原始 Editor 实例（仅 WYSIWYG 模式）
  * 供 Toolbar 调用格式化命令
  */
@@ -252,5 +261,6 @@ export function useEditorManager() {
     replaceNextInEditor,
     replaceAllInEditor,
     clearSearch,
+    getSelectionInEditor,
   }
 }

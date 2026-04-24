@@ -7,31 +7,51 @@ import SourceView from './SourceView.vue'
 import SplitView from './SplitView.vue'
 import FindReplacePanel from '../common/FindReplacePanel.vue'
 
-const { mode, content } = useEditorManager()
+const { mode, content, getSelectionInEditor } = useEditorManager()
 
 // 查找/替换面板当前模式；null = 关闭
 const findPanelMode = ref<'find' | 'replace' | null>(null)
 const findPanelRef = ref<InstanceType<typeof FindReplacePanel> | null>(null)
+// Value used to prefill the find input on the next panel mount. Kept in a
+// ref so it's reactive for the initial render; we only read it at mount
+// time, subsequent re-opens pass the fresh selection via focus(prefill).
+const findPanelInitialQuery = ref('')
+
+// Grab the editor's current selection and return it only when it's a
+// non-empty, single-line string — multi-line selections are rarely what
+// the user wants in a find box and would make the input grow awkwardly.
+function readSinglelineSelection(): string {
+  const sel = getSelectionInEditor()
+  if (!sel) return ''
+  if (sel.includes('\n') || sel.includes('\r')) return ''
+  return sel
+}
 
 function openFind() {
+  const prefill = readSinglelineSelection()
   if (findPanelMode.value === 'find') {
-    // 已打开 → 重新聚焦查找框
-    findPanelRef.value?.focus()
+    // Panel already open → refocus; overwrite query only if user selected
+    // something fresh in the editor since last time.
+    findPanelRef.value?.focus(prefill)
   } else {
+    findPanelInitialQuery.value = prefill
     findPanelMode.value = 'find'
   }
 }
 
 function openReplace() {
+  const prefill = readSinglelineSelection()
   if (findPanelMode.value === 'replace') {
-    findPanelRef.value?.focus()
+    findPanelRef.value?.focus(prefill)
   } else {
+    findPanelInitialQuery.value = prefill
     findPanelMode.value = 'replace'
   }
 }
 
 function closeFindPanel() {
   findPanelMode.value = null
+  findPanelInitialQuery.value = ''
 }
 
 function handleModeChange(m: 'find' | 'replace') {
@@ -132,6 +152,7 @@ defineExpose({
       v-if="findPanelMode !== null"
       ref="findPanelRef"
       :mode="findPanelMode"
+      :initial-query="findPanelInitialQuery"
       @close="closeFindPanel"
       @mode-change="handleModeChange"
     />

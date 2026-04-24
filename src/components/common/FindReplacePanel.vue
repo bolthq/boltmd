@@ -40,6 +40,11 @@ const EDGE_MARGIN = 8
 
 const props = defineProps<{
   mode: 'find' | 'replace'
+  // Optional value that should overwrite the current find input when the
+  // panel opens. Used to prefill the input with the editor's current
+  // single-line selection. Empty string / undefined leaves the existing
+  // query untouched (useful for re-opens where the user expects history).
+  initialQuery?: string
 }>()
 
 const emit = defineEmits<{
@@ -282,6 +287,12 @@ function onResizeEnd() {
 
 // ---- Lifecycle ----
 onMounted(() => {
+  // Prefill with the editor's current selection when the opener passes one.
+  // Non-empty value always wins over any stale `query` state; empty string
+  // means "no prefill requested" and leaves `query` (typically '') alone.
+  if (props.initialQuery) {
+    query.value = props.initialQuery
+  }
   nextTick(() => {
     if (savedRect) {
       left.value = savedRect.left
@@ -311,7 +322,12 @@ onBeforeUnmount(() => {
 })
 
 defineExpose({
-  focus: () => {
+  focus: (prefill?: string) => {
+    // Re-opens while already mounted: let the caller overwrite the query
+    // with a fresh selection if one was provided.
+    if (prefill) {
+      query.value = prefill
+    }
     nextTick(() => {
       findInputRef.value?.focus()
       findInputRef.value?.select()
