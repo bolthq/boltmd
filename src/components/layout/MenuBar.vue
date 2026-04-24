@@ -18,6 +18,8 @@ const emit = defineEmits<{
   (e: 'openSettings'): void
   (e: 'openCommandPalette'): void
   (e: 'checkUpdate'): void
+  (e: 'find'): void
+  (e: 'replace'): void
 }>()
 
 const props = defineProps<{
@@ -135,6 +137,15 @@ onUnmounted(() => {
         <div class="menu-entry" @click="execEdit('selectAll')">
           <span>{{ t('menu.selectAll') }}</span>
           <span class="menu-shortcut">Ctrl+A</span>
+        </div>
+        <div class="menu-separator" />
+        <div class="menu-entry" @click="doAction(() => emit('find'))">
+          <span>{{ t('menu.find') }}</span>
+          <span class="menu-shortcut">Ctrl+F</span>
+        </div>
+        <div class="menu-entry" @click="doAction(() => emit('replace'))">
+          <span>{{ t('menu.replace') }}</span>
+          <span class="menu-shortcut">Ctrl+H</span>
         </div>
       </div>
     </div>
