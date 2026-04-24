@@ -86,12 +86,15 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+// Use capture phase so we see Ctrl+F before CodeMirror's internal keymap
+// handlers (which otherwise swallow it in Source/Split mode, letting the
+// Webview's native find-in-page popup take over).
 onMounted(() => {
-  window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('keydown', handleGlobalKeydown, { capture: true })
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('keydown', handleGlobalKeydown, { capture: true })
 })
 
 // 暴露方法给外部（MenuBar 会用）
