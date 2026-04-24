@@ -3,7 +3,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, historyKeymap, history, indentWithTab, undo, redo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
-import { highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, replaceNext, replaceAll, getSearchQuery } from '@codemirror/search'
+import { highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, replaceNext, replaceAll, getSearchQuery, search } from '@codemirror/search'
 import { indentOnInput, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { eventBus } from '../events/EventBus'
@@ -64,6 +64,14 @@ export class SourceEditor implements IEditor {
       markdown({
         base: markdownLanguage,
         codeLanguages: languages,
+      }),
+      // Explicitly register the search state extension with a no-op panel.
+      // Without this, calls like setSearchQuery / findNext auto-inject the
+      // extension AND open CM6's own floating search panel, which shows up
+      // alongside ours. Returning a detached DOM node keeps the search state
+      // alive (so total / current counts work) while nothing is ever rendered.
+      search({
+        createPanel: () => ({ dom: document.createElement('div') }),
       }),
       keymap.of([
         ...defaultKeymap,
