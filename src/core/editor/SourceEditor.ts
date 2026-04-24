@@ -3,7 +3,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, historyKeymap, history, indentWithTab, undo, redo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
-import { searchKeymap, highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, replaceNext, replaceAll, getSearchQuery } from '@codemirror/search'
+import { highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, replaceNext, replaceAll, getSearchQuery } from '@codemirror/search'
 import { indentOnInput, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { eventBus } from '../events/EventBus'
@@ -68,7 +68,6 @@ export class SourceEditor implements IEditor {
       keymap.of([
         ...defaultKeymap,
         ...historyKeymap,
-        ...searchKeymap,
         ...foldKeymap,
         indentWithTab,
       ]),
