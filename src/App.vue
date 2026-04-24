@@ -31,6 +31,9 @@ const showToolbar = ref(configService.get('showToolbar'))
 const showSettings = ref(false)
 const showCommandPalette = ref(false)
 
+// Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
+const editorContainerRef = ref<InstanceType<typeof EditorContainer> | null>(null)
+
 // showToolbar 变化时持久化
 watch(showToolbar, (val) => { configService.set('showToolbar', val) })
 
@@ -303,12 +306,14 @@ onUnmounted(() => {
       @open-settings="showSettings = true"
       @open-command-palette="showCommandPalette = true"
       @check-update="updateService.checkForUpdates()"
+      @find="editorContainerRef?.openFind()"
+      @replace="editorContainerRef?.openReplace()"
     />
     <!-- 标签栏 -->
     <TabBar />
     <!-- 工具栏（仅 WYSIWYG 模式 + 用户开启时显示） -->
     <Toolbar v-if="showToolbar && mode === 'wysiwyg'" />
-    <EditorContainer />
+    <EditorContainer ref="editorContainerRef" />
     <!-- 状态栏 -->
     <StatusBar />
     <!-- 设置面板 -->
