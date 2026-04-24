@@ -85,6 +85,21 @@
 - [ ] P10-1: 应用图标设计与配置
 - [ ] P10-2: NSIS 安装包配置 + 文件关联
 - [ ] P10-3: 启动性能优化（目标 <500ms）
+
+## Phase 10.1: 查找/替换功能
+
+    > 详细方案见 [docs/05-find-replace-plan.md](docs/05-find-replace-plan.md)
+
+    - [ ] P10.1-1: 扩展 IEditor 接口，新增 search/replace 相关方法和类型
+    - [ ] P10.1-2: WysiwygEditor 实现（集成 Tiptap 搜索扩展）
+    - [ ] P10.1-3: SourceEditor 实现（封装 CM6 SearchQuery，含 total 计数）
+    - [ ] P10.1-4: EditorManager 代理查找/替换方法
+    - [ ] P10.1-5: FindReplacePanel.vue 组件（大小写/全字/正则/替换/全部替换）
+    - [ ] P10.1-6: EditorContainer 集成快捷键（Ctrl+F / Ctrl+H / Esc / Enter）
+    - [ ] P10.1-7: i18n 翻译（en + zh-CN）
+    - [ ] P10.1-8: MenuBar Edit 菜单添加 Find / Replace 入口
+    - [ ] P10.1-9: 验证（build + 主题适配 + Markdown 结构完整性）
+
 - [ ] P10-4: GitHub Actions CI 自动构建
 - [ ] P10-5: README.md（截图 + benchmark + 安装说明）
 - [ ] P10-6: 首个 GitHub Release
