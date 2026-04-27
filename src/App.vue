@@ -258,19 +258,21 @@ onMounted(async () => {
   applyEditorConfig()
   watchEditorConfig()
 
-  // 恢复窗口状态（大小/位置）
-  await restoreWindowState()
+  // Restore window geometry, tab session, and check for CLI file in parallel.
+  // These three IPC calls are independent and safe to overlap.
+  const [, restored, cliFile] = await Promise.all([
+    restoreWindowState(),
+    restoreSession(),
+    invoke<string | null>('get_cli_file'),
+  ])
 
-  // 恢复上次的标签会话；若无会话则创建空白标签
-  const restored = await restoreSession()
   if (!restored) {
-    // 无会话时使用配置的默认编辑模式
+    // No previous session — apply the configured default editor mode
     switchMode(configService.get('defaultMode'))
     initTabs()
   }
 
-  // CLI 参数：启动时若传入文件路径则打开
-  const cliFile = await invoke<string | null>('get_cli_file')
+  // CLI argument: open the file passed at launch
   if (cliFile) {
     await openFilePath(cliFile)
   }
