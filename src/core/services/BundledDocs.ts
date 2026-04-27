@@ -23,7 +23,7 @@ interface BundledDocMeta {
 
 const REGISTRY: Record<BundledDocName, BundledDocMeta> = {
   'welcome': {
-    url: '/about.md',
+    url: '/welcome.md',
     title: 'Welcome.md',
   },
   'markdown-guide': {
