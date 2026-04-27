@@ -39,6 +39,8 @@ export default {
     commandPalette: 'Command Palette...',
     settings: 'Settings...',
     checkUpdate: 'Check for Updates...',
+    welcome: 'Welcome',
+    markdownGuide: 'Markdown Guide',
     about: 'About BoltMD',
     // Language submenu
     language: 'Language',
