@@ -2,9 +2,11 @@ export default {
   app: {
     name: 'BoltMD',
     unsavedTitle: '未保存的更改',
-    unsavedMessage: '"{name}" 有未保存的更改。关闭前保存？',
+    unsavedMessage: '"{name}" 有未保存的更改。放弃更改并关闭？',
+    unsavedMultiple: '{count} 个文件有未保存的更改（{names}）。放弃更改并关闭？',
     save: '保存',
     discard: '放弃',
+    cancel: '取消',
   },
 
   menu: {

@@ -284,21 +284,34 @@ onMounted(async () => {
     }
   })
 
-  // 关窗拦截：保存会话和窗口状态，有未保存内容时弹确认框
+  // Intercept window close: persist session, warn about unsaved changes.
   getCurrentWindow().onCloseRequested(async (event) => {
     await saveSession()
     await saveWindowState()
-    const tab = activeTab.value
-    if (!tab?.dirty) return
+
+    const dirtyTabs = tabs.value.filter((tab) => tab.dirty)
+    if (dirtyTabs.length === 0) return
+
     event.preventDefault()
-    const confirmed = await ask(
-      t('app.unsavedMessage', { name: tab.fileName }),
-      { title: t('app.unsavedTitle'), kind: 'warning', okLabel: t('app.save'), cancelLabel: t('app.discard') },
-    )
+
+    // Build a user-friendly message listing all unsaved files.
+    const names = dirtyTabs.map((tab) => tab.fileName)
+    const msg =
+      dirtyTabs.length === 1
+        ? t('app.unsavedMessage', { name: names[0] })
+        : t('app.unsavedMultiple', { count: dirtyTabs.length, names: names.join(', ') })
+
+    const confirmed = await ask(msg, {
+      title: t('app.unsavedTitle'),
+      kind: 'warning',
+      okLabel: t('app.discard'),
+      cancelLabel: t('app.cancel'),
+    })
+
     if (confirmed) {
-      await saveFile()
+      await getCurrentWindow().destroy()
     }
-    await getCurrentWindow().destroy()
+    // User chose "Cancel" — stay open, do nothing.
   })
 })
 

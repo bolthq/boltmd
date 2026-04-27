@@ -2,9 +2,11 @@ export default {
   app: {
     name: 'BoltMD',
     unsavedTitle: 'Unsaved Changes',
-    unsavedMessage: '"{name}" has unsaved changes. Save before closing?',
+    unsavedMessage: '"{name}" has unsaved changes. Discard and close?',
+    unsavedMultiple: '{count} files have unsaved changes ({names}). Discard and close?',
     save: 'Save',
     discard: 'Discard',
+    cancel: 'Cancel',
   },
 
   menu: {
