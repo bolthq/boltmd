@@ -70,6 +70,12 @@ export default {
     col: '列',
     switchMode: '点击切换模式',
     switchTheme: '点击切换主题',
+    modeWysiwyg: '所见即所得',
+    modeSource: '源码',
+    modeSplit: '分栏',
+    themeLight: '浅色',
+    themeDark: '深色',
+    themeSystem: '跟随系统',
   },
 
   toolbar: {

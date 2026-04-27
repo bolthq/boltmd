@@ -31,9 +31,15 @@ function updateTheme(value: ThemeName) {
   themeService.setTheme(value)
 }
 
+// Clamp a number to [min, max], treating NaN as min.
+function clamp(v: number, min: number, max: number): number {
+  return Number.isFinite(v) ? Math.min(Math.max(v, min), max) : min
+}
+
 async function updateFontSize(value: number) {
-  fontSize.value = value
-  await configService.set('fontSize', value)
+  const v = clamp(value, 10, 32)
+  fontSize.value = v
+  await configService.set('fontSize', v)
 }
 
 async function updateFontFamily(value: string) {
@@ -42,13 +48,15 @@ async function updateFontFamily(value: string) {
 }
 
 async function updateLineHeight(value: number) {
-  lineHeight.value = value
-  await configService.set('lineHeight', value)
+  const v = clamp(value, 1.0, 3.0)
+  lineHeight.value = v
+  await configService.set('lineHeight', v)
 }
 
 async function updateTabSize(value: number) {
-  tabSize.value = value
-  await configService.set('tabSize', value)
+  const v = clamp(value, 1, 8)
+  tabSize.value = v
+  await configService.set('tabSize', v)
 }
 
 async function updateWordWrap(value: boolean) {
@@ -62,8 +70,9 @@ async function updateAutoSave(value: boolean) {
 }
 
 async function updateAutoSaveDelay(value: number) {
-  autoSaveDelay.value = value
-  await configService.set('autoSaveDelay', value)
+  const v = clamp(value, 500, 30000)
+  autoSaveDelay.value = v
+  await configService.set('autoSaveDelay', v)
 }
 
 async function updateDefaultMode(value: EditorMode) {

@@ -70,6 +70,12 @@ export default {
     col: 'Col',
     switchMode: 'Click to switch mode',
     switchTheme: 'Click to switch theme',
+    modeWysiwyg: 'WYSIWYG',
+    modeSource: 'Source',
+    modeSplit: 'Split',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeSystem: 'System',
   },
 
   toolbar: {

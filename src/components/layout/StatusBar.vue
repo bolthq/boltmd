@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { fileEncoding } from '../../core/stores/fileStore'
@@ -10,18 +10,18 @@ import type { CursorPosition, WordCount } from '../../core/editor/types'
 const { t } = useI18n()
 const { mode, switchMode, getActiveEditor } = useEditorManager()
 
-// 模式名称映射
-const modeLabels: Record<string, string> = {
-  wysiwyg: 'WYSIWYG',
-  source: 'Source',
-  split: 'Split',
-}
+// Mode and theme labels (reactive for language switching).
+const modeLabels = computed<Record<string, string>>(() => ({
+  wysiwyg: t('statusbar.modeWysiwyg'),
+  source: t('statusbar.modeSource'),
+  split: t('statusbar.modeSplit'),
+}))
 
-const themeLabels: Record<string, string> = {
-  light: 'Light',
-  dark: 'Dark',
-  system: 'System',
-}
+const themeLabels = computed<Record<string, string>>(() => ({
+  light: t('statusbar.themeLight'),
+  dark: t('statusbar.themeDark'),
+  system: t('statusbar.themeSystem'),
+}))
 
 // 状态数据（通过定时器刷新）
 const cursor = ref<CursorPosition>({ line: 0, column: 0, offset: 0 })
