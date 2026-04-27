@@ -10,15 +10,24 @@ import './styles/source.css'
 import { initConfig } from './core/services/ConfigService'
 import { setupI18n } from './i18n'
 
+// Catch unhandled promise rejections globally so they are always logged.
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[App] Unhandled promise rejection:', event.reason)
+})
+
 async function bootstrap() {
-  // 1. 加载配置（i18n 依赖 language 设置）
+  // 1. Load config (i18n depends on language setting)
   await initConfig()
 
-  // 2. 初始化 i18n
+  // 2. Initialize i18n
   const i18n = setupI18n()
 
-  // 3. 挂载应用
-  createApp(App).use(i18n).mount('#app')
+  // 3. Mount app with Vue-level error handler
+  const app = createApp(App)
+  app.config.errorHandler = (err, _instance, info) => {
+    console.error(`[Vue] Error in ${info}:`, err)
+  }
+  app.use(i18n).mount('#app')
 }
 
 bootstrap()

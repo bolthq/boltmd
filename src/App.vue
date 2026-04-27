@@ -277,11 +277,15 @@ onMounted(async () => {
     await openFilePath(cliFile)
   }
 
-  // 拖拽打开：取第一个拖入的文件路径
+  // Drag-and-drop: open the first dropped file.
   unlistenDragDrop = await getCurrentWebview().onDragDropEvent(async (event) => {
     if (event.payload.type === 'drop' && event.payload.paths.length > 0) {
       await openFilePath(event.payload.paths[0])
     }
+  }).catch((err: unknown) => {
+    console.warn('[App] Failed to register drag-drop listener:', err)
+    const noop: () => void = () => {}
+    return noop
   })
 
   // Intercept window close: persist session, warn about unsaved changes.
@@ -319,6 +323,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   stopAutoSave()
   unlistenDragDrop?.()
+  if (titleTimer) clearTimeout(titleTimer)
 })
 </script>
 
