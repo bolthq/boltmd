@@ -44,6 +44,10 @@ export function openTab(filePath: string, content: string): TabState {
   return tabManager.openTab(filePath, content)
 }
 
+export function openBundledDocTab(title: string, content: string): TabState {
+  return tabManager.openBundledDocTab(title, content)
+}
+
 export async function closeTab(tabId: string): Promise<boolean> {
   return tabManager.closeTab(tabId)
 }

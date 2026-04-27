@@ -17,6 +17,7 @@ export interface ITabManager {
   getActiveTab(): TabState | null
   createTab(): TabState
   openTab(filePath: string, content: string): TabState
+  openBundledDocTab(title: string, content: string): TabState
   closeTab(tabId: string): Promise<boolean>
   switchTab(tabId: string): void
   updateTabContent(tabId: string, content: string): void

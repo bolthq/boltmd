@@ -109,6 +109,33 @@ export class TabManager implements ITabManager {
     return tab
   }
 
+  /**
+   * Open a bundled, read-from-disk-but-not-bound-to-disk document in a new
+   * tab. Used for Help content such as the Welcome page and the Markdown
+   * guide: the file actually lives in the app bundle, but we treat it like
+   * an untitled scratch tab so Ctrl+S naturally routes through Save As and
+   * the user can't accidentally overwrite the bundled asset.
+   *
+   * Always creates a fresh tab — repeatedly invoking the menu entry yields
+   * multiple tabs, matching "New Tab" semantics.
+   */
+  openBundledDocTab(title: string, content: string): TabState {
+    const tab: TabState = {
+      id: genId(),
+      filePath: null,
+      fileName: title,
+      content,
+      dirty: false,
+      editorMode: 'wysiwyg',
+      cursorPosition: { line: 0, column: 0, offset: 0 },
+      scrollPosition: 0,
+      lastModified: Date.now(),
+    }
+    this.tabs.push(tab)
+    this.switchTab(tab.id)
+    return tab
+  }
+
   /** 关闭标签，返回 true 表示已关闭 */
   async closeTab(tabId: string): Promise<boolean> {
     const index = this.tabs.findIndex((t) => t.id === tabId)
