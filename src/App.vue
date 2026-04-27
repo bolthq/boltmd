@@ -15,11 +15,12 @@ const SettingsPanel = defineAsyncComponent(() => import('./components/settings/S
 const CommandPalette = defineAsyncComponent(() => import('./components/common/CommandPalette.vue'))
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
-import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, saveSession, restoreSession } from './core/stores/tabStore'
+import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, openBundledDocTab, saveSession, restoreSession } from './core/stores/tabStore'
 import { saveFile, saveFileAs, openFile, openFilePath } from './core/stores/fileStore'
 import { themeService } from './core/services/ThemeService'
 import { configService } from './core/services/ConfigService'
 import { updateService } from './core/services/UpdateService'
+import { loadBundledDoc, type BundledDocName } from './core/services/BundledDocs'
 import type { WindowState } from './core/types/config'
 import type { Command } from './components/common/CommandPalette.vue'
 
@@ -33,6 +34,20 @@ const showCommandPalette = ref(false)
 
 // Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
 const editorContainerRef = ref<InstanceType<typeof EditorContainer> | null>(null)
+
+/**
+ * Open one of the in-app Help docs (Welcome / Markdown Guide) as a fresh
+ * tab. The tab is detached from any filesystem path so Ctrl+S routes
+ * through Save As and can't overwrite the bundled asset.
+ */
+async function openHelpDoc(name: BundledDocName): Promise<void> {
+  try {
+    const { title, content } = await loadBundledDoc(name)
+    openBundledDocTab(title, content)
+  } catch (err) {
+    console.error('[App] Failed to open bundled doc', name, err)
+  }
+}
 
 // showToolbar 变化时持久化
 watch(showToolbar, (val) => { configService.set('showToolbar', val) })
@@ -306,6 +321,8 @@ onUnmounted(() => {
       @open-settings="showSettings = true"
       @open-command-palette="showCommandPalette = true"
       @check-update="updateService.checkForUpdates()"
+      @open-welcome="openHelpDoc('welcome')"
+      @open-markdown-guide="openHelpDoc('markdown-guide')"
       @find="editorContainerRef?.openFind()"
       @replace="editorContainerRef?.openReplace()"
     />

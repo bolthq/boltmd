@@ -18,6 +18,8 @@ const emit = defineEmits<{
   (e: 'openSettings'): void
   (e: 'openCommandPalette'): void
   (e: 'checkUpdate'): void
+  (e: 'openWelcome'): void
+  (e: 'openMarkdownGuide'): void
   (e: 'find'): void
   (e: 'replace'): void
 }>()
@@ -223,6 +225,13 @@ onUnmounted(() => {
         <div class="menu-entry" @click="doAction(() => emit('openSettings'))">
           <span>{{ t('menu.settings') }}</span>
           <span class="menu-shortcut">Ctrl+,</span>
+        </div>
+        <div class="menu-separator" />
+        <div class="menu-entry" @click="doAction(() => emit('openWelcome'))">
+          <span>{{ t('menu.welcome') }}</span>
+        </div>
+        <div class="menu-entry" @click="doAction(() => emit('openMarkdownGuide'))">
+          <span>{{ t('menu.markdownGuide') }}</span>
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => emit('checkUpdate'))">
