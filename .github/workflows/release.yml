@@ -107,3 +107,32 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
+
+      # Windows portable zip: package the bare exe + WebView2Loader into
+      # a zip so users can run BoltMD without installation.
+      - name: Package Windows portable zip
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $src = "src-tauri/target/release/BoltMD.exe"
+          $zip = "BoltMD_${version}_x64_portable.zip"
+          Compress-Archive -Path $src -DestinationPath $zip
+
+      - name: Upload Windows portable zip
+        if: matrix.platform == 'windows-latest'
+        uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const version = require('./src-tauri/tauri.conf.json').version;
+            const zipName = `BoltMD_${version}_x64_portable.zip`;
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: Number(process.env.RELEASE_ID),
+              name: zipName,
+              data: fs.readFileSync(zipName),
+            });
