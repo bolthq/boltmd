@@ -13,6 +13,7 @@ import EditorContainer from './components/editor/EditorContainer.vue'
 const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
 const SettingsPanel = defineAsyncComponent(() => import('./components/settings/SettingsPanel.vue'))
 const CommandPalette = defineAsyncComponent(() => import('./components/common/CommandPalette.vue'))
+const AboutDialog = defineAsyncComponent(() => import('./components/common/AboutDialog.vue'))
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, openBundledDocTab, saveSession, restoreSession } from './core/stores/tabStore'
@@ -31,6 +32,7 @@ const { t } = useI18n()
 const showToolbar = ref(configService.get('showToolbar'))
 const showSettings = ref(false)
 const showCommandPalette = ref(false)
+const showAbout = ref(false)
 
 // Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
 const editorContainerRef = ref<InstanceType<typeof EditorContainer> | null>(null)
@@ -325,6 +327,7 @@ onUnmounted(() => {
       @open-markdown-guide="openHelpDoc('markdown-guide')"
       @find="editorContainerRef?.openFind()"
       @replace="editorContainerRef?.openReplace()"
+      @open-about="showAbout = true"
     />
     <!-- 标签栏 -->
     <TabBar />
@@ -337,6 +340,8 @@ onUnmounted(() => {
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
     <!-- 命令面板 -->
     <CommandPalette v-if="showCommandPalette" :commands="commands" @close="showCommandPalette = false" />
+    <!-- 关于对话框 -->
+    <AboutDialog v-if="showAbout" @close="showAbout = false" />
   </div>
 </template>
 

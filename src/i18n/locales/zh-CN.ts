@@ -189,6 +189,17 @@ export default {
     dropImageFailed: '保存拖入图片失败',
   },
 
+  about: {
+    close: '关闭',
+    tagline: '快速、现代的 Markdown 编辑器',
+    version: '版本',
+    copyright: '© 2026 Madhouse Studio',
+    license: '基于 MIT 协议发布',
+    github: 'GitHub',
+    copyVersionInfo: '复制版本信息',
+    copied: '已复制！',
+  },
+
   updater: {
     checking: '正在检查更新...',
     upToDate: '已是最新版本',

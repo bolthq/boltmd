@@ -22,6 +22,7 @@ const emit = defineEmits<{
   (e: 'openMarkdownGuide'): void
   (e: 'find'): void
   (e: 'replace'): void
+  (e: 'openAbout'): void
 }>()
 
 const props = defineProps<{
@@ -238,7 +239,7 @@ onUnmounted(() => {
           <span>{{ t('menu.checkUpdate') }}</span>
         </div>
         <div class="menu-separator" />
-        <div class="menu-entry disabled">
+        <div class="menu-entry" @click="doAction(() => emit('openAbout'))">
           <span>{{ t('menu.about') }}</span>
         </div>
       </div>

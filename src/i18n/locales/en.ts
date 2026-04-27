@@ -189,6 +189,17 @@ export default {
     dropImageFailed: 'Failed to save dropped image',
   },
 
+  about: {
+    close: 'Close',
+    tagline: 'A fast, modern Markdown editor',
+    version: 'Version',
+    copyright: '© 2026 Madhouse Studio',
+    license: 'Released under the MIT License',
+    github: 'GitHub',
+    copyVersionInfo: 'Copy Version Info',
+    copied: 'Copied!',
+  },
+
   updater: {
     checking: 'Checking for updates...',
     upToDate: 'Up to Date',
