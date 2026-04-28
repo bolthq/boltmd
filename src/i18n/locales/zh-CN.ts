@@ -41,6 +41,7 @@ export default {
     commandPalette: '命令面板...',
     settings: '设置...',
     checkUpdate: '检查更新...',
+    checkingUpdate: '正在检查更新...',
     welcome: '欢迎',
     markdownGuide: 'Markdown 指南',
     about: '关于 BoltMD',

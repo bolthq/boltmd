@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { SUPPORTED_LOCALES, getLocale, setLocale, type SupportedLocale } from '../../i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { themeService } from '../../core/services/ThemeService'
+import { updateService } from '../../core/services/UpdateService'
 
 const { t } = useI18n()
 const { mode, switchMode } = useEditorManager()
@@ -235,8 +236,12 @@ onUnmounted(() => {
           <span>{{ t('menu.markdownGuide') }}</span>
         </div>
         <div class="menu-separator" />
-        <div class="menu-entry" @click="doAction(() => emit('checkUpdate'))">
-          <span>{{ t('menu.checkUpdate') }}</span>
+        <div
+          class="menu-entry"
+          :class="{ disabled: updateService.checking.value }"
+          @click="!updateService.checking.value && doAction(() => emit('checkUpdate'))"
+        >
+          <span>{{ updateService.checking.value ? t('menu.checkingUpdate') : t('menu.checkUpdate') }}</span>
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => emit('openAbout'))">

@@ -1,15 +1,19 @@
+import { ref, readonly } from 'vue'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { ask, message } from '@tauri-apps/plugin-dialog'
 import { t } from '../../i18n'
 
 class UpdateServiceImpl {
-  private checking = false
+  private _checking = ref(false)
+
+  /** Reactive flag: true while an update check is in progress. */
+  readonly checking = readonly(this._checking)
 
   /** 手动检查更新（菜单触发） */
   async checkForUpdates(): Promise<void> {
-    if (this.checking) return
-    this.checking = true
+    if (this._checking.value) return
+    this._checking.value = true
 
     try {
       const update = await check()
@@ -46,7 +50,7 @@ class UpdateServiceImpl {
         kind: 'error',
       })
     } finally {
-      this.checking = false
+      this._checking.value = false
     }
   }
 }
