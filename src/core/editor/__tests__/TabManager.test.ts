@@ -209,10 +209,10 @@ describe('TabManager', () => {
   })
 
   describe('setTabs', () => {
-    it('replaces tabs and activates requested id', () => {
+    it('replaces tabs, regenerates ids, and activates by index', () => {
       const restored = [
         {
-          id: 'r1',
+          id: '',
           filePath: '/x/1.md',
           fileName: '1.md',
           content: '1',
@@ -223,7 +223,7 @@ describe('TabManager', () => {
           lastModified: 0,
         },
         {
-          id: 'r2',
+          id: '',
           filePath: '/x/2.md',
           fileName: '2.md',
           content: '2',
@@ -234,14 +234,20 @@ describe('TabManager', () => {
           lastModified: 0,
         },
       ]
-      mgr.setTabs(restored, 'r2')
+      mgr.setTabs(restored, 1)
       expect(mgr.getTabs()).toHaveLength(2)
-      expect(mgr.getActiveTabId()).toBe('r2')
+      // All ids should be regenerated (non-empty and unique)
+      const tabs = mgr.getTabs()
+      expect(tabs[0].id).not.toBe('')
+      expect(tabs[1].id).not.toBe('')
+      expect(tabs[0].id).not.toBe(tabs[1].id)
+      // Second tab (index 1) should be active
+      expect(mgr.getActiveTabId()).toBe(tabs[1].id)
     })
 
-    it('falls back to first tab when active id is missing', () => {
+    it('clamps activeIndex to valid range', () => {
       const t = {
-        id: 'only',
+        id: '',
         filePath: null,
         fileName: 'x',
         content: '',
@@ -251,12 +257,13 @@ describe('TabManager', () => {
         scrollPosition: 0,
         lastModified: 0,
       }
-      mgr.setTabs([t], 'missing')
-      expect(mgr.getActiveTabId()).toBe('only')
+      mgr.setTabs([t], 99)
+      // Should clamp to last valid index (0)
+      expect(mgr.getActiveTabId()).toBe(mgr.getTabs()[0].id)
     })
 
     it('creates a default tab when the restored list is empty', () => {
-      mgr.setTabs([], null)
+      mgr.setTabs([], 0)
       expect(mgr.getTabs()).toHaveLength(1)
       expect(mgr.getActiveTabId()).not.toBeNull()
     })

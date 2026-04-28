@@ -127,7 +127,7 @@ export async function restoreSession(): Promise<boolean> {
   if (restoredTabs.length === 0) return false
 
   const activeIdx = Math.min(session.activeIndex, restoredTabs.length - 1)
-  tabManager.setTabs(restoredTabs, restoredTabs[activeIdx]?.id ?? null)
+  tabManager.setTabs(restoredTabs, activeIdx)
   return true
 }
 

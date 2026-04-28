@@ -25,6 +25,7 @@ export interface ITabManager {
   moveTab(fromIndex: number, toIndex: number): void
   closeOtherTabs(tabId: string): void
   closeTabsToRight(tabId: string): void
+  setTabs(tabs: TabState[], activeIndex: number): void
   saveSession(): void
   restoreSession(): void
 }

@@ -268,13 +268,17 @@ export class TabManager implements ITabManager {
   }
 
   /** 批量设置标签（恢复会话用） */
-  setTabs(tabs: TabState[], activeId: string | null): void {
+  setTabs(tabs: TabState[], activeIndex: number): void {
+    // Assign a fresh unique id to every restored tab.
+    for (const tab of tabs) {
+      tab.id = genId()
+    }
     this.tabs = tabs
     this.activeTabId = null
-    if (activeId && this.tabs.find((t) => t.id === activeId)) {
-      this.switchTab(activeId)
-    } else if (this.tabs.length > 0) {
-      this.switchTab(this.tabs[0].id)
+
+    const idx = Math.min(Math.max(activeIndex, 0), this.tabs.length - 1)
+    if (this.tabs.length > 0) {
+      this.switchTab(this.tabs[idx].id)
     } else {
       this.createTab()
     }
