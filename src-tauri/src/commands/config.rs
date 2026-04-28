@@ -10,6 +10,39 @@ fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(data_dir.join("config.json"))
 }
 
+/// Check (and consume) the `.installed` sentinel that the NSIS installer
+/// drops after every install / reinstall.  Returns `true` if the sentinel
+/// was present, meaning this is the first launch after a (re)install.
+///
+/// The sentinel is checked in two locations for robustness:
+///   1. The app data directory (%APPDATA%\<bundleId>)
+///   2. Next to the executable (the install directory)
+fn consume_install_sentinel(app: &tauri::AppHandle) -> bool {
+    let mut found = false;
+
+    // Location 1: app data dir
+    if let Ok(data_dir) = app.path().app_data_dir() {
+        let sentinel = data_dir.join(".installed");
+        if sentinel.exists() {
+            let _ = std::fs::remove_file(&sentinel);
+            found = true;
+        }
+    }
+
+    // Location 2: next to the exe (install dir)
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let sentinel = dir.join(".installed");
+            if sentinel.exists() {
+                let _ = std::fs::remove_file(&sentinel);
+                found = true;
+            }
+        }
+    }
+
+    found
+}
+
 fn default_config() -> Value {
     serde_json::json!({
         "theme": "light",
@@ -31,6 +64,7 @@ fn default_config() -> Value {
 /// 读取配置文件；首次启动时写入默认配置并返回
 #[tauri::command]
 pub fn read_config(app: tauri::AppHandle) -> Result<Value, String> {
+    let just_installed = consume_install_sentinel(&app);
     let path = config_path(&app)?;
 
     if !path.exists() {
@@ -50,8 +84,26 @@ pub fn read_config(app: tauri::AppHandle) -> Result<Value, String> {
     let raw = std::fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read config: {e}"))?;
 
-    serde_json::from_str::<Value>(&raw)
-        .map_err(|e| format!("Failed to parse config JSON: {e}"))
+    let mut config: Value = serde_json::from_str(&raw)
+        .map_err(|e| format!("Failed to parse config JSON: {e}"))?;
+
+    // After a (re)install the NSIS hook drops a sentinel file.
+    // Clear the stale tab session and re-enable the welcome page so the
+    // user gets a fresh-start experience without losing other preferences.
+    if just_installed {
+        if let Some(obj) = config.as_object_mut() {
+            obj.insert("tabSession".into(), Value::Null);
+            obj.insert("firstLaunch".into(), Value::Bool(true));
+            obj.remove("windowState");
+
+            // Persist the cleaned config immediately.
+            if let Ok(json) = serde_json::to_string_pretty(&config) {
+                let _ = std::fs::write(&path, json.as_bytes());
+            }
+        }
+    }
+
+    Ok(config)
 }
 
 /// 写入配置（全量替换）

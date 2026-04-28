@@ -19,7 +19,8 @@
         "minHeight": 400,
         "decorations": false,
         "resizable": true,
-        "center": true
+        "center": false,
+        "visible": false
       }
     ],
     "security": {
@@ -45,11 +46,13 @@
       }
     ],
     "createUpdaterArtifacts": true,
+    "resources": ["icons/md.ico"],
     "windows": {
       "nsis": {
         "installMode": "both",
         "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico"
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "nsis-hooks.nsh"
       }
     }
   },
