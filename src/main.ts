@@ -30,4 +30,6 @@ async function bootstrap() {
   app.use(i18n).mount('#app')
 }
 
-bootstrap()
+bootstrap().catch((err) => {
+  console.error('[App] Fatal bootstrap error:', err)
+})
