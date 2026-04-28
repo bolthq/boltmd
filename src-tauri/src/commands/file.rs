@@ -13,7 +13,7 @@ pub struct FileInfo {
     pub last_modified: u64, // Unix timestamp (ms)
 }
 
-/// 读取文件，自动检测编码（优先 UTF-8，fallback GBK）
+/// Read a file and auto-detect its encoding (UTF-8 → GBK → Latin-1).
 #[tauri::command]
 pub fn read_file(path: String) -> Result<FileInfo, String> {
     let path_obj = Path::new(&path);
@@ -26,21 +26,18 @@ pub fn read_file(path: String) -> Result<FileInfo, String> {
 
     let raw = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
 
-    // 先尝试 UTF-8
-    let (content, encoding) = if let Ok(s) = std::str::from_utf8(&raw) {
+    // Fast path: UTF-8 BOM (EF BB BF).  Skip the 3-byte BOM and trust the
+    // rest as UTF-8 — if it turns out invalid, from_utf8 below will catch it
+    // and we fall through to the GBK / Latin-1 branches.
+    let (content, encoding) = if raw.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        match std::str::from_utf8(&raw[3..]) {
+            Ok(s) => (s.to_string(), "UTF-8".to_string()),
+            Err(_) => decode_fallback(&raw),
+        }
+    } else if let Ok(s) = std::str::from_utf8(&raw) {
         (s.to_string(), "UTF-8".to_string())
     } else {
-        // fallback: GBK
-        let (decoded, enc, had_errors) = Encoding::for_label(b"GBK")
-            .unwrap_or(encoding_rs::UTF_8)
-            .decode(&raw);
-        if had_errors {
-            // 最后尝试 Latin-1（无损）
-            let s = raw.iter().map(|&b| b as char).collect::<String>();
-            (s, "Latin-1".to_string())
-        } else {
-            (decoded.into_owned(), enc.name().to_string())
-        }
+        decode_fallback(&raw)
     };
 
     let last_modified = std::fs::metadata(&path)
@@ -59,14 +56,28 @@ pub fn read_file(path: String) -> Result<FileInfo, String> {
     })
 }
 
-/// 保存文件（UTF-8）
+/// Fallback encoding detection: try GBK first, then Latin-1 (lossless).
+fn decode_fallback(raw: &[u8]) -> (String, String) {
+    let (decoded, enc, had_errors) = Encoding::for_label(b"GBK")
+        .unwrap_or(encoding_rs::UTF_8)
+        .decode(raw);
+    if had_errors {
+        // Latin-1 is a lossless 1:1 byte→char mapping — always succeeds.
+        let s = raw.iter().map(|&b| b as char).collect::<String>();
+        (s, "Latin-1".to_string())
+    } else {
+        (decoded.into_owned(), enc.name().to_string())
+    }
+}
+
+/// Save file content as UTF-8.
 #[tauri::command]
 pub fn save_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content.as_bytes())
         .map_err(|e| format!("Failed to save file: {e}"))
 }
 
-/// 获取文件元信息（不读取内容）
+/// Get file metadata without reading content.
 #[tauri::command]
 pub fn get_file_info(path: String) -> Result<FileInfo, String> {
     let path_obj = Path::new(&path);
@@ -91,36 +102,35 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
     Ok(FileInfo {
         path,
         name,
-        content: String::new(), // 不读取内容
+        content: String::new(), // Content not read
         encoding: "UTF-8".to_string(),
         last_modified,
     })
 }
 
-/// 保存图片（base64 → 二进制文件）
-/// dir: 目标目录路径
-/// filename: 文件名（如 boltmd-1234567890.png）
-/// data: base64 编码的图片数据
+/// Save a base64-encoded image to disk.
+/// dir: target directory path
+/// filename: file name (e.g. boltmd-1234567890.png)
+/// data: base64-encoded image data
 #[tauri::command]
 pub fn save_image(dir: String, filename: String, data: String) -> Result<String, String> {
     let dir_path = Path::new(&dir);
 
-    // 确保目录存在
+    // Ensure target directory exists.
     if !dir_path.exists() {
         std::fs::create_dir_all(dir_path)
             .map_err(|e| format!("Failed to create directory: {e}"))?;
     }
 
-    // 解码 base64
+    // Decode base64 payload.
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&data)
         .map_err(|e| format!("Failed to decode base64: {e}"))?;
 
-    // 写入文件
+    // Write the image file.
     let file_path = dir_path.join(&filename);
     std::fs::write(&file_path, &bytes)
         .map_err(|e| format!("Failed to save image: {e}"))?;
 
-    // 返回完整路径
     Ok(file_path.to_string_lossy().to_string())
 }
