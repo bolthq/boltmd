@@ -40,6 +40,11 @@ export class TabManager implements ITabManager {
   private activeTabId: string | null = null
   private onChangeCallback: (() => void) | null = null
   private onLastTabClosedCallback: (() => void) | null = null
+  /** Tracks tabs whose first editor-normalisation onChange has already been
+   *  absorbed into the cleanContent baseline.  Only the very first change on
+   *  a still-clean tab is treated as normalisation; subsequent changes set
+   *  dirty as expected. */
+  private baselineAbsorbed = new Set<string>()
 
   /** 注册状态变更回调（tabStore 使用） */
   onChange(callback: () => void): void {
@@ -148,6 +153,7 @@ export class TabManager implements ITabManager {
     const wasActive = tabId === this.activeTabId
 
     this.tabs.splice(index, 1)
+    this.baselineAbsorbed.delete(tabId)
 
     if (wasActive) {
       if (this.tabs.length === 0) {
@@ -200,6 +206,15 @@ export class TabManager implements ITabManager {
   updateTabContent(tabId: string, content: string): void {
     const tab = this.tabs.find((t) => t.id === tabId)
     if (!tab) return
+    // When the tab is still clean and hasn't had its baseline absorbed yet,
+    // the first onChange is typically the editor normalising whitespace /
+    // trailing newlines.  Accept that normalised form as the new baseline
+    // so it doesn't cause a false dirty flag.  Only the very first change
+    // is absorbed; subsequent edits will set dirty as expected.
+    if (!tab.dirty && !this.baselineAbsorbed.has(tabId) && content !== tab.cleanContent) {
+      tab.cleanContent = content
+      this.baselineAbsorbed.add(tabId)
+    }
     tab.content = content
     tab.dirty = content !== tab.cleanContent
     tab.lastModified = Date.now()
@@ -214,6 +229,8 @@ export class TabManager implements ITabManager {
     tab.fileName = filePath.split(/[\\/]/).pop() ?? tab.fileName
     tab.cleanContent = tab.content
     tab.dirty = false
+    // Allow re-absorbing editor normalisation after save.
+    this.baselineAbsorbed.delete(tabId)
     this.notify()
   }
 

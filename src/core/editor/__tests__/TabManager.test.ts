@@ -198,6 +198,10 @@ describe('TabManager', () => {
   describe('markSaved', () => {
     it('updates filePath, fileName and clears dirty', () => {
       const tab = mgr.createTab()
+      // First updateTabContent on a clean tab updates the baseline
+      // (simulates editor normalisation), so we need two calls:
+      mgr.updateTabContent(tab.id, 'normalised')
+      // Now actually edit the content
       mgr.updateTabContent(tab.id, 'edited')
       expect(tab.dirty).toBe(true)
       mgr.markSaved(tab.id, '/tmp/saved.md')
