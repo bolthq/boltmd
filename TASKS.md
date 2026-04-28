@@ -108,10 +108,10 @@
 
 > v0.1.0 安装后发现的 bug 和体验问题，按优先级排列
 
-- [ ] P11-1: [Bug/P0] 会话恢复 tab ID 为空 — setTabs 未重新生成 ID，导致所有标签激活状态异常
-- [ ] P11-2: [Bug/P0] 标签关闭按钮关错标签 — handleClose 未 await 异步 closeTab，竞态条件
-- [ ] P11-3: [Feature/P1] 单实例模式 — 集成 tauri-plugin-single-instance，文件关联打开时复用已有窗口
-- [ ] P11-4: [Feature/P1] 首次启动欢迎页 — 检测 firstLaunch 标志，自动打开 welcome + markdown-guide
-- [ ] P11-5: [Config/P2] NSIS 安装器图标 — 配置 installerIcon 使安装 exe 显示自定义图标
-- [ ] P11-6: [UX/P2] 更新检查加载反馈 — 点击后立即显示 loading/checking 状态
-- [ ] P11-7: [Perf/P3] 文件打开卡顿优化 — 添加 loading 指示器，优化 IPC + 编码检测 + Tiptap 初始化
+- [x] P11-1: [Bug/P0] 会话恢复 tab ID 为空 — setTabs 未重新生成 ID，导致所有标签激活状态异常
+- [x] P11-2: [Bug/P0] 标签关闭按钮关错标签 — handleClose 未 await 异步 closeTab，竞态条件
+- [x] P11-3: [Feature/P1] 单实例模式 — 集成 tauri-plugin-single-instance，文件关联打开时复用已有窗口
+- [x] P11-4: [Feature/P1] 首次启动欢迎页 — 检测 firstLaunch 标志，自动打开 welcome + markdown-guide
+- [x] P11-5: [Config/P2] NSIS 安装器图标 — 配置 installerIcon 使安装 exe 显示自定义图标
+- [x] P11-6: [UX/P2] 更新检查加载反馈 — 点击后立即显示 loading/checking 状态
+- [x] P11-7: [Perf/P3] 文件打开卡顿优化 — 添加 loading 指示器，优化 IPC + 编码检测 + Tiptap 初始化
