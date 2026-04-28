@@ -120,23 +120,6 @@ async function saveWindowState(): Promise<void> {
   }
 }
 
-// 恢复窗口状态
-async function restoreWindowState(): Promise<void> {
-  const state = configService.get('windowState')
-  if (!state) return
-  const win = getCurrentWindow()
-  try {
-    const { LogicalSize, LogicalPosition } = await import('@tauri-apps/api/dpi')
-    await win.setSize(new LogicalSize(state.width, state.height))
-    await win.setPosition(new LogicalPosition(state.x, state.y))
-    if (state.maximized) {
-      await win.maximize()
-    }
-  } catch {
-    // 忽略恢复失败（如坐标超出屏幕范围）
-  }
-}
-
 // 标题栏：设置原生窗口标题（任务栏显示用），防抖避免高频 IPC
 let titleTimer: ReturnType<typeof setTimeout> | null = null
 watch(
@@ -260,36 +243,46 @@ onMounted(async () => {
   applyEditorConfig()
   watchEditorConfig()
 
-  // Restore window geometry and check for CLI file in parallel.
-  const [, cliFile] = await Promise.all([
-    restoreWindowState(),
-    invoke<string | null>('get_cli_file'),
-  ])
+  // All initialisation is wrapped in try/catch so that a failure in
+  // session restore or bundled-doc loading never leaves the app in a
+  // broken state.
+  try {
+    // Check for CLI file (double-click launch).
+    // Window geometry is already restored by the Rust setup hook, so we
+    // only need to check for a file-association argument here.
+    const cliFile = await invoke<string | null>('get_cli_file')
 
-  // When launched via file association (double-click a .md), skip session
-  // restore and only open the requested file.
-  if (cliFile) {
-    switchMode(configService.get('defaultMode'))
-    await openFilePath(cliFile)
-  } else {
-    const restored = await restoreSession()
-
-    if (!restored) {
-      // No previous session — apply the configured default editor mode
+    // When launched via file association (double-click a .md), skip session
+    // restore and only open the requested file.
+    if (cliFile) {
       switchMode(configService.get('defaultMode'))
+      await openFilePath(cliFile)
+    } else {
+      const restored = await restoreSession()
 
-      // First launch: open Welcome + Markdown Guide bundled docs
-      if (configService.get('firstLaunch')) {
-        await openHelpDoc('welcome')
-        await openHelpDoc('markdown-guide')
-        // Switch to the Welcome tab (first tab)
-        if (tabs.value.length > 0) {
-          switchTab(tabs.value[0].id)
+      if (!restored) {
+        // No previous session — apply the configured default editor mode
+        switchMode(configService.get('defaultMode'))
+
+        // First launch: open Welcome + Markdown Guide bundled docs
+        if (configService.get('firstLaunch')) {
+          await openHelpDoc('welcome')
+          await openHelpDoc('markdown-guide')
+          // Switch to the Welcome tab (first tab)
+          if (tabs.value.length > 0) {
+            switchTab(tabs.value[0].id)
+          }
+          await configService.set('firstLaunch', false)
+        } else {
+          initTabs()
         }
-        await configService.set('firstLaunch', false)
-      } else {
-        initTabs()
       }
+    }
+  } catch (err) {
+    console.error('[App] Initialisation error:', err)
+    // Ensure the user has at least one blank tab so the app is usable.
+    if (tabs.value.length === 0) {
+      initTabs()
     }
   }
 
