@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { ask } from '@tauri-apps/plugin-dialog'
@@ -72,6 +73,7 @@ const commands = computed<Command[]>(() => [
 ])
 
 let unlistenDragDrop: (() => void) | null = null
+let unlistenSingleInstance: (() => void) | null = null
 
 // 将编辑器配置应用到 CSS 变量
 function applyEditorConfig(): void {
@@ -300,6 +302,13 @@ onMounted(async () => {
     return noop
   })
 
+  // Single-instance: another process tried to launch — open its file here.
+  unlistenSingleInstance = await listen<string>('single-instance-open-file', async (event) => {
+    if (event.payload) {
+      await openFilePath(event.payload)
+    }
+  })
+
   // Intercept window close: persist session, warn about unsaved changes.
   getCurrentWindow().onCloseRequested(async (event) => {
     await saveSession()
@@ -335,6 +344,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   stopAutoSave()
   unlistenDragDrop?.()
+  unlistenSingleInstance?.()
   if (titleTimer) clearTimeout(titleTimer)
 })
 </script>
