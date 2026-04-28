@@ -260,35 +260,38 @@ onMounted(async () => {
   applyEditorConfig()
   watchEditorConfig()
 
-  // Restore window geometry, tab session, and check for CLI file in parallel.
-  // These three IPC calls are independent and safe to overlap.
-  const [, restored, cliFile] = await Promise.all([
+  // Restore window geometry and check for CLI file in parallel.
+  const [, cliFile] = await Promise.all([
     restoreWindowState(),
-    restoreSession(),
     invoke<string | null>('get_cli_file'),
   ])
 
-  if (!restored) {
-    // No previous session — apply the configured default editor mode
-    switchMode(configService.get('defaultMode'))
-
-    // First launch: open Welcome + Markdown Guide bundled docs
-    if (configService.get('firstLaunch')) {
-      await openHelpDoc('welcome')
-      await openHelpDoc('markdown-guide')
-      // Switch to the Welcome tab (first tab)
-      if (tabs.value.length > 0) {
-        switchTab(tabs.value[0].id)
-      }
-      await configService.set('firstLaunch', false)
-    } else {
-      initTabs()
-    }
-  }
-
-  // CLI argument: open the file passed at launch
+  // When launched via file association (double-click a .md), skip session
+  // restore and only open the requested file.
   if (cliFile) {
+    switchMode(configService.get('defaultMode'))
+    initTabs()
     await openFilePath(cliFile)
+  } else {
+    const restored = await restoreSession()
+
+    if (!restored) {
+      // No previous session — apply the configured default editor mode
+      switchMode(configService.get('defaultMode'))
+
+      // First launch: open Welcome + Markdown Guide bundled docs
+      if (configService.get('firstLaunch')) {
+        await openHelpDoc('welcome')
+        await openHelpDoc('markdown-guide')
+        // Switch to the Welcome tab (first tab)
+        if (tabs.value.length > 0) {
+          switchTab(tabs.value[0].id)
+        }
+        await configService.set('firstLaunch', false)
+      } else {
+        initTabs()
+      }
+    }
   }
 
   // Drag-and-drop: open the first dropped file.
