@@ -39,9 +39,10 @@ export interface AppConfig {
   language: string
   tabSession: TabSession | null
   windowState: WindowState | null
+  firstLaunch: boolean
 }
 
-export const CONFIG_VERSION = 1
+export const CONFIG_VERSION = 2
 
 export const DEFAULT_CONFIG: AppConfig = {
   configVersion: CONFIG_VERSION,
@@ -60,4 +61,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   language: 'en',
   tabSession: null,
   windowState: null,
+  firstLaunch: true,
 }

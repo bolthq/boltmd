@@ -269,7 +269,19 @@ onMounted(async () => {
   if (!restored) {
     // No previous session — apply the configured default editor mode
     switchMode(configService.get('defaultMode'))
-    initTabs()
+
+    // First launch: open Welcome + Markdown Guide bundled docs
+    if (configService.get('firstLaunch')) {
+      await openHelpDoc('welcome')
+      await openHelpDoc('markdown-guide')
+      // Switch to the Welcome tab (first tab)
+      if (tabs.value.length > 0) {
+        switchTab(tabs.value[0].id)
+      }
+      await configService.set('firstLaunch', false)
+    } else {
+      initTabs()
+    }
   }
 
   // CLI argument: open the file passed at launch

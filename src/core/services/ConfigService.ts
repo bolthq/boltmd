@@ -41,10 +41,10 @@ class ConfigServiceImpl implements IConfigService {
   private migrate(): void {
     const version = this.config.configVersion ?? 0
 
-    // 无版本号的旧配置 → v1：补全新字段（已由 DEFAULT_CONFIG spread 处理）
-    if (version < 1) {
-      // 未来版本迁移逻辑放这里
-      // e.g. if (version < 2) { migrate v1 → v2 }
+    // v1 → v2: add firstLaunch field.
+    // Existing users (who already have a tabSession) are NOT first-launch.
+    if (version < 2) {
+      this.config.firstLaunch = this.config.tabSession != null ? false : true
     }
 
     // 更新到当前版本
