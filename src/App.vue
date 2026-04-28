@@ -270,7 +270,6 @@ onMounted(async () => {
   // restore and only open the requested file.
   if (cliFile) {
     switchMode(configService.get('defaultMode'))
-    initTabs()
     await openFilePath(cliFile)
   } else {
     const restored = await restoreSession()
