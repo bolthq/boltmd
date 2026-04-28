@@ -163,6 +163,7 @@ export default {
 
   editor: {
     placeholder: 'Start writing...',
+    loading: 'Loading file...',
   },
 
   findReplace: {

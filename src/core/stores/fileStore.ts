@@ -14,6 +14,7 @@ const _content = ref<string>('')
 const _encoding = ref<string>('UTF-8')
 const _dirty = ref<boolean>(false)
 const _lastSaved = ref<number | null>(null)
+const _isLoading = ref<boolean>(false)
 
 // ── 只读导出 ─────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ export const fileContent = readonly(_content)
 export const fileEncoding = readonly(_encoding)
 export const isDirty = readonly(_dirty)
 export const lastSaved = readonly(_lastSaved)
+export const isFileLoading = readonly(_isLoading)
 
 // ── 内部工具 ─────────────────────────────────────────────────────────────────
 
@@ -46,6 +48,7 @@ export function markDirty(content: string): void {
 /** 弹出打开对话框，加载文件到新标签 */
 export async function openFile(): Promise<boolean> {
   try {
+    _isLoading.value = true
     const info = await fileService.openFile()
     if (!info) return false
     applyFileInfo(info)
@@ -61,12 +64,15 @@ export async function openFile(): Promise<boolean> {
       source: 'fileStore',
     })
     return false
+  } finally {
+    _isLoading.value = false
   }
 }
 
 /** 直接按路径打开文件到新标签 */
 export async function openFilePath(path: string): Promise<boolean> {
   try {
+    _isLoading.value = true
     const info = await fileService.openFilePath(path)
     applyFileInfo(info)
     tabOpenTab(path, info.content)
@@ -79,6 +85,8 @@ export async function openFilePath(path: string): Promise<boolean> {
       source: 'fileStore',
     })
     return false
+  } finally {
+    _isLoading.value = false
   }
 }
 

@@ -8,6 +8,38 @@
   position: relative;
 }
 
+/* Loading overlay shown while reading a file from disk */
+.editor-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg-editor);
+  opacity: 0.9;
+}
+
+.editor-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border-primary);
+  border-top-color: var(--text-secondary);
+  border-radius: 50%;
+  animation: editor-spin 0.7s linear infinite;
+}
+
+.editor-loading-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+@keyframes editor-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Source editor layout */
 .source-view {
   flex: 1;

@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { activeTabId, updateTabContent } from '../../core/stores/tabStore'
+import { isFileLoading } from '../../core/stores/fileStore'
 import EditorCore from './EditorCore.vue'
 import SourceView from './SourceView.vue'
 import SplitView from './SplitView.vue'
 import FindReplacePanel from '../common/FindReplacePanel.vue'
 
 const { mode, content, getSelectionInEditor } = useEditorManager()
+const { t } = useI18n()
 
 // 查找/替换面板当前模式；null = 关闭
 const findPanelMode = ref<'find' | 'replace' | null>(null)
@@ -126,6 +129,12 @@ defineExpose({
 
 <template>
   <div class="editor-container">
+    <!-- Loading overlay shown while a file is being read from disk -->
+    <div v-if="isFileLoading" class="editor-loading-overlay">
+      <div class="editor-loading-spinner" />
+      <span class="editor-loading-text">{{ t('editor.loading') }}</span>
+    </div>
+
     <!-- WYSIWYG 模式 -->
     <EditorCore
       v-if="mode === 'wysiwyg'"
