@@ -5,16 +5,31 @@ import { tabs, activeTabId, switchTab, closeTab, moveTab, closeOtherTabs, closeT
 
 const { t } = useI18n()
 
-function handleClose(e: MouseEvent, tabId: string) {
+// Guard against concurrent close operations (async closeTab + rapid clicks).
+let closing = false
+
+async function handleClose(e: MouseEvent, tabId: string) {
   e.stopPropagation()
-  closeTab(tabId)
+  if (closing) return
+  closing = true
+  try {
+    await closeTab(tabId)
+  } finally {
+    closing = false
+  }
 }
 
-function handleMouseDown(e: MouseEvent, tabId: string) {
+async function handleMouseDown(e: MouseEvent, tabId: string) {
   // 中键点击关闭
   if (e.button === 1) {
     e.preventDefault()
-    closeTab(tabId)
+    if (closing) return
+    closing = true
+    try {
+      await closeTab(tabId)
+    } finally {
+      closing = false
+    }
   }
 }
 
@@ -70,8 +85,11 @@ function closeContextMenu() {
 }
 
 function ctxClose() {
-  if (contextMenu.value) closeTab(contextMenu.value.tabId)
-  closeContextMenu()
+  if (contextMenu.value) {
+    const tabId = contextMenu.value.tabId
+    closeContextMenu()
+    closeTab(tabId)
+  }
 }
 
 function ctxCloseOthers() {
