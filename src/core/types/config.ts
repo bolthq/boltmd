@@ -24,6 +24,9 @@ export interface TabSession {
 
 export interface AppConfig {
   configVersion: number
+  /** Tracks the app version that last wrote this config.
+   *  Used to detect reinstalls / upgrades and re-show welcome docs. */
+  appVersion: string | null
   theme: ThemeName
   fontSize: number
   fontFamily: string
@@ -46,6 +49,7 @@ export const CONFIG_VERSION = 2
 
 export const DEFAULT_CONFIG: AppConfig = {
   configVersion: CONFIG_VERSION,
+  appVersion: null,
   theme: 'light',
   fontSize: 15,
   fontFamily: 'system-ui, sans-serif',

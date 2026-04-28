@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { getVersion } from '@tauri-apps/api/app'
 import type { AppConfig } from '../types/config'
 import { DEFAULT_CONFIG, CONFIG_VERSION } from '../types/config'
 
@@ -29,8 +30,11 @@ class ConfigServiceImpl implements IConfigService {
       }
       // 合并：以 DEFAULT_CONFIG 为基础，覆盖 Rust 返回的字段
       this.config = { ...DEFAULT_CONFIG, ...(raw as Partial<AppConfig>) }
-      // 版本迁移
-      this.migrate()
+
+      // Detect version change (reinstall / upgrade).
+      let currentVersion: string | null = null
+      try { currentVersion = await getVersion() } catch { /* dev mode */ }
+      this.migrate(currentVersion)
     } catch (e) {
       console.warn('[ConfigService] Failed to load config, using defaults:', e)
       this.config = { ...DEFAULT_CONFIG }
@@ -38,18 +42,39 @@ class ConfigServiceImpl implements IConfigService {
   }
 
   /** 配置版本迁移 */
-  private migrate(): void {
+  private migrate(currentAppVersion: string | null): void {
     const version = this.config.configVersion ?? 0
+    let changed = false
 
     // v1 → v2: add firstLaunch field.
     // Existing users (who already have a tabSession) are NOT first-launch.
     if (version < 2) {
       this.config.firstLaunch = this.config.tabSession != null ? false : true
+      changed = true
+    }
+
+    // Detect reinstall / upgrade: if the stored appVersion differs from
+    // the running binary, clear the stale session and re-show welcome.
+    // Skip when appVersion was never set (first time this feature runs) —
+    // in that case just stamp the current version without resetting.
+    if (currentAppVersion) {
+      if (this.config.appVersion != null && this.config.appVersion !== currentAppVersion) {
+        this.config.firstLaunch = true
+        this.config.tabSession = null
+      }
+      if (this.config.appVersion !== currentAppVersion) {
+        this.config.appVersion = currentAppVersion
+        changed = true
+      }
     }
 
     // 更新到当前版本
     if (version !== CONFIG_VERSION) {
       this.config.configVersion = CONFIG_VERSION
+      changed = true
+    }
+
+    if (changed) {
       this.persist()
     }
   }

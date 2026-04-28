@@ -141,7 +141,14 @@ export async function restoreSession(): Promise<boolean> {
     }
   }
 
-  if (restoredTabs.length === 0) return false
+  if (restoredTabs.length === 0) {
+    // All previously-open files are gone (e.g. after a reinstall).
+    // Clear the stale session and reset firstLaunch so the caller
+    // can show the welcome docs again.
+    await configService.set('tabSession', null)
+    await configService.set('firstLaunch', true)
+    return false
+  }
 
   const activeIdx = Math.min(session.activeIndex, restoredTabs.length - 1)
   tabManager.setTabs(restoredTabs, activeIdx)

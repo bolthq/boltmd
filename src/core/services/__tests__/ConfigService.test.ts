@@ -7,6 +7,11 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }))
 
+// Mock getVersion from @tauri-apps/api/app — returns a fixed version string.
+vi.mock('@tauri-apps/api/app', () => ({
+  getVersion: vi.fn(() => Promise.resolve('0.1.0')),
+}))
+
 // Import after the mock is registered. We re-import inside beforeEach to get
 // a fresh singleton for every test.
 async function freshModule() {
@@ -30,6 +35,7 @@ describe('ConfigService', () => {
         theme: 'dark',
         fontSize: 18,
         configVersion: 2,
+        appVersion: '0.1.0',
       })
       const { configService } = await freshModule()
       await configService.load()
@@ -59,11 +65,12 @@ describe('ConfigService', () => {
     })
 
     it('keeps configVersion stable when the loaded config is already current', async () => {
-      invokeMock.mockResolvedValueOnce({ theme: 'dark', configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ theme: 'dark', configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
       expect(configService.get('configVersion')).toBe(2)
-      // Since merged version equals CONFIG_VERSION, migrate should not persist.
+      // Since merged version equals CONFIG_VERSION and appVersion matches,
+      // migrate should not persist.
       expect(invokeMock).toHaveBeenCalledTimes(1)
       expect(invokeMock).toHaveBeenCalledWith('read_config')
     })
@@ -92,14 +99,14 @@ describe('ConfigService', () => {
 
   describe('get / getAll', () => {
     it('get returns the value for a key', async () => {
-      invokeMock.mockResolvedValueOnce({ fontSize: 20, configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ fontSize: 20, configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
       expect(configService.get('fontSize')).toBe(20)
     })
 
     it('getAll returns a clone so callers cannot mutate internal state', async () => {
-      invokeMock.mockResolvedValueOnce({ configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
       const snap = configService.getAll()
@@ -110,7 +117,7 @@ describe('ConfigService', () => {
 
   describe('set', () => {
     it('updates the value synchronously and debounces persist', async () => {
-      invokeMock.mockResolvedValueOnce({ configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
       invokeMock.mockClear()
@@ -130,7 +137,7 @@ describe('ConfigService', () => {
     })
 
     it('coalesces multiple rapid sets into a single persist', async () => {
-      invokeMock.mockResolvedValueOnce({ configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
       invokeMock.mockClear()
@@ -152,7 +159,7 @@ describe('ConfigService', () => {
 
   describe('onChange', () => {
     it('invokes registered handlers on set', async () => {
-      invokeMock.mockResolvedValueOnce({ configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
 
@@ -163,7 +170,7 @@ describe('ConfigService', () => {
     })
 
     it('does not fire handlers for unrelated keys', async () => {
-      invokeMock.mockResolvedValueOnce({ configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
 
@@ -177,7 +184,7 @@ describe('ConfigService', () => {
     })
 
     it('supports multiple handlers per key', async () => {
-      invokeMock.mockResolvedValueOnce({ configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ configVersion: 2, appVersion: '0.1.0' })
       const { configService } = await freshModule()
       await configService.load()
 
@@ -193,7 +200,7 @@ describe('ConfigService', () => {
 
   describe('initConfig', () => {
     it('calls load() on the singleton', async () => {
-      invokeMock.mockResolvedValueOnce({ configVersion: 2 })
+      invokeMock.mockResolvedValueOnce({ configVersion: 2, appVersion: '0.1.0' })
       const { initConfig, configService } = await freshModule()
       const spy = vi.spyOn(configService, 'get')
       await initConfig()
