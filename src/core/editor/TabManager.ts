@@ -13,6 +13,7 @@ function createDefaultTab(): TabState {
     filePath: null,
     fileName: t('tabs.untitled'),
     content: '',
+    cleanContent: '',
     dirty: false,
     editorMode: 'wysiwyg',
     cursorPosition: { line: 0, column: 0, offset: 0 },
@@ -98,6 +99,7 @@ export class TabManager implements ITabManager {
       filePath,
       fileName: name,
       content,
+      cleanContent: content,
       dirty: false,
       editorMode: 'wysiwyg',
       cursorPosition: { line: 0, column: 0, offset: 0 },
@@ -125,6 +127,7 @@ export class TabManager implements ITabManager {
       filePath: null,
       fileName: title,
       content,
+      cleanContent: content,
       dirty: false,
       editorMode: 'wysiwyg',
       cursorPosition: { line: 0, column: 0, offset: 0 },
@@ -198,7 +201,7 @@ export class TabManager implements ITabManager {
     const tab = this.tabs.find((t) => t.id === tabId)
     if (!tab) return
     tab.content = content
-    tab.dirty = true
+    tab.dirty = content !== tab.cleanContent
     tab.lastModified = Date.now()
     this.notifyLazy()
   }
@@ -209,6 +212,7 @@ export class TabManager implements ITabManager {
     if (!tab) return
     tab.filePath = filePath
     tab.fileName = filePath.split(/[\\/]/).pop() ?? tab.fileName
+    tab.cleanContent = tab.content
     tab.dirty = false
     this.notify()
   }

@@ -5,6 +5,9 @@ export interface TabState {
   filePath: string | null       // null = 新建未保存
   fileName: string
   content: string
+  /** Content snapshot taken when the file was last opened or saved.
+   *  Used to decide whether the tab is truly dirty. */
+  cleanContent: string
   dirty: boolean
   editorMode: EditorMode
   cursorPosition: CursorPosition

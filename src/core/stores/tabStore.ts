@@ -5,6 +5,8 @@ import { tabManager } from '../editor/TabManager'
 import { configService } from '../services/ConfigService'
 import { fileService } from '../services/FileService'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { ask } from '@tauri-apps/plugin-dialog'
+import { t } from '../../i18n'
 
 // ── 响应式状态 ───────────────────────────────────────────────────────────────
 
@@ -49,6 +51,20 @@ export function openBundledDocTab(title: string, content: string): TabState {
 }
 
 export async function closeTab(tabId: string): Promise<boolean> {
+  // Check if tab has unsaved changes before closing
+  const tab = _tabs.value.find((tab) => tab.id === tabId)
+  if (tab && tab.dirty) {
+    const confirmed = await ask(
+      t('app.unsavedMessage', { name: tab.fileName }),
+      {
+        title: t('app.unsavedTitle'),
+        kind: 'warning',
+        okLabel: t('app.discard'),
+        cancelLabel: t('app.cancel'),
+      },
+    )
+    if (!confirmed) return false
+  }
   return tabManager.closeTab(tabId)
 }
 
@@ -112,6 +128,7 @@ export async function restoreSession(): Promise<boolean> {
           filePath: info.path,
           fileName: info.name,
           content: info.content,
+          cleanContent: info.content,
           dirty: false,
           editorMode: item.editorMode,
           cursorPosition: { line: 0, column: 0, offset: 0 },
