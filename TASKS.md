@@ -115,3 +115,26 @@
 - [x] P11-5: [Config/P2] NSIS 安装器图标 — 配置 installerIcon 使安装 exe 显示自定义图标
 - [x] P11-6: [UX/P2] 更新检查加载反馈 — 点击后立即显示 loading/checking 状态
 - [x] P11-7: [Perf/P3] 文件打开卡顿优化 — 添加 loading 指示器，优化 IPC + 编码检测 + Tiptap 初始化
+- [x] P11-8: [Bug/P0] 重装后欢迎页不显示 — NSIS sentinel 文件 + Rust 侧重置 session/firstLaunch
+- [x] P11-9: [Bug/P0] 窗口位置跳动 — 窗口 visible:false 启动，Rust setup hook 同步恢复物理像素位置后 show
+- [x] P11-10: [Bug/P1] 版本升级检测 — appVersion 字段跟踪版本变化，重置 firstLaunch
+- [x] P11-11: [Bug/P2] md 文件图标 — NSIS hook 注册 DefaultIcon + 打包 md.ico 资源
+- [x] P11-12: [Fix/P2] bootstrap 异常兜底 — main.ts 捕获 fatal bootstrap error
+
+## Phase 12: 启动性能优化
+
+> 当前双击 .md 文件到可编辑约 2-3s，目标降至 < 1s。
+> 瓶颈分析：串行阻塞链路长、主 bundle 1.3MB、缺少渐进式加载。
+
+### P0 — 预计提速 40-60%
+
+- [ ] P12-1: config 一次读取 — Rust setup hook 读取 config 后通过 emit 传给前端，避免 initConfig() 二次 IPC
+- [ ] P12-2: 会话恢复并行化 — restoreSession() 改 Promise.allSettled 并行读取多标签文件
+- [ ] P12-3: Vite manualChunks 代码分割 — tiptap/codemirror/lowlight/vue 分包，主 bundle 从 1.3MB 降至 300-500KB
+- [ ] P12-4: 编辑器异步加载 + 骨架屏 — 先渲染 UI 壳（标题栏/菜单/标签栏），编辑器组件 defineAsyncComponent 延迟加载
+
+### P1 — 再提速 20-30%
+
+- [ ] P12-5: lowlight 真正懒加载 — 动态 import lowlight/common，首次插入代码块时才加载语法高亮
+- [ ] P12-6: Rust 侧 config 缓存 — 首次解析后缓存于内存，后续 read_config 直接返回
+- [ ] P12-7: 文件编码检测按需触发 — 默认只尝试 UTF-8，失败后再 fallback GBK/Latin-1
