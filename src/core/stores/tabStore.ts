@@ -119,26 +119,32 @@ export async function restoreSession(): Promise<boolean> {
 
   const restoredTabs: TabState[] = []
 
-  for (const item of session.tabs) {
-    if (item.filePath) {
-      try {
-        const info = await fileService.openFilePath(item.filePath)
-        restoredTabs.push({
-          id: '',  // setTabs 时会由 TabManager 重新生成
-          filePath: info.path,
-          fileName: info.name,
-          content: info.content,
-          cleanContent: info.content,
-          dirty: false,
-          editorMode: item.editorMode,
-          cursorPosition: { line: 0, column: 0, offset: 0 },
-          scrollPosition: 0,
-          lastModified: Date.now(),
-        })
-      } catch {
-        // 文件不存在或读取失败，跳过
-      }
+  // Read all tab files in parallel to minimise startup latency.
+  const results = await Promise.allSettled(
+    session.tabs.map((item) =>
+      item.filePath
+        ? fileService.openFilePath(item.filePath).then((info) => ({ info, item }))
+        : Promise.reject('no path'),
+    ),
+  )
+
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const { info, item } = result.value
+      restoredTabs.push({
+        id: '',  // setTabs will regenerate IDs via TabManager
+        filePath: info.path,
+        fileName: info.name,
+        content: info.content,
+        cleanContent: info.content,
+        dirty: false,
+        editorMode: item.editorMode,
+        cursorPosition: { line: 0, column: 0, offset: 0 },
+        scrollPosition: 0,
+        lastModified: Date.now(),
+      })
     }
+    // Failed reads (file deleted, permission error, etc.) are silently skipped.
   }
 
   if (restoredTabs.length === 0) {
