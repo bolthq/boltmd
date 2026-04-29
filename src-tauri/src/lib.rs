@@ -1,9 +1,11 @@
 mod commands;
 
+use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use commands::config::{ConfigCache, load_config};
 
 /// Check whether the NSIS install sentinel exists (without consuming it —
-/// that is done later by `read_config`).
+/// that is done later by `load_config`).
 fn has_install_sentinel(app: &tauri::AppHandle) -> bool {
     // Check app data dir
     if let Ok(data_dir) = app.path().app_data_dir() {
@@ -22,26 +24,11 @@ fn has_install_sentinel(app: &tauri::AppHandle) -> bool {
     false
 }
 
-/// Restore the window geometry from config.json and then show the window.
-///
-/// The window starts hidden (`visible: false` in tauri.conf.json) so that
-/// position/size adjustments happen off-screen.  After geometry is set we
-/// call `win.show()` — all within the synchronous `setup` hook, before the
-/// WebView renders its first frame.
-fn restore_window_geometry(app: &tauri::AppHandle) {
-    let Some(win) = app.get_webview_window("main") else { return };
-
-    // After a (re)install, ignore stale window state and just center.
-    if has_install_sentinel(app) {
-        let _ = win.center();
-        let _ = win.show();
-        return;
-    }
-
+/// Restore the window geometry from the already-loaded config and show the
+/// window.  The window starts hidden (`visible: false` in tauri.conf.json)
+/// so that position/size adjustments happen off-screen.
+fn restore_window_geometry(win: &tauri::WebviewWindow, config: &serde_json::Value) {
     let positioned = (|| -> Option<()> {
-        let data_dir = app.path().app_data_dir().ok()?;
-        let raw = std::fs::read_to_string(data_dir.join("config.json")).ok()?;
-        let config: serde_json::Value = serde_json::from_str(&raw).ok()?;
         let ws = config.get("windowState")?;
         if ws.is_null() { return None; }
 
@@ -71,6 +58,7 @@ fn restore_window_geometry(app: &tauri::AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(ConfigCache(Mutex::new(None)))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -90,7 +78,28 @@ pub fn run() {
             }
         }))
         .setup(|app| {
-            restore_window_geometry(app.handle());
+            let handle = app.handle();
+
+            // Load config once — sentinel consumption + first-launch defaults
+            // all happen here.  The result is cached in ConfigCache so the
+            // frontend's `invoke('read_config')` returns instantly from memory.
+            let config = load_config(handle).unwrap_or_default();
+            {
+                let cache = handle.state::<ConfigCache>();
+                let mut guard = cache.0.lock().unwrap();
+                *guard = Some(config.clone());
+            }
+
+            // Restore window geometry from the loaded config.
+            if let Some(win) = app.get_webview_window("main") {
+                if has_install_sentinel(handle) {
+                    let _ = win.center();
+                    let _ = win.show();
+                } else {
+                    restore_window_geometry(&win, &config);
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

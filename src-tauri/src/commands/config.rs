@@ -1,6 +1,11 @@
 use serde_json::Value;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::Manager;
+
+/// Cached config loaded once during startup and returned on subsequent
+/// `read_config` calls without hitting the filesystem again.
+pub struct ConfigCache(pub Mutex<Option<Value>>);
 
 fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let data_dir = app
@@ -61,14 +66,13 @@ fn default_config() -> Value {
     })
 }
 
-/// 读取配置文件；首次启动时写入默认配置并返回
-#[tauri::command]
-pub fn read_config(app: tauri::AppHandle) -> Result<Value, String> {
-    let just_installed = consume_install_sentinel(&app);
-    let path = config_path(&app)?;
+/// Core config loading logic shared by `setup` hook and `read_config` command.
+/// Reads config.json, handles first-launch defaults and sentinel-based reset.
+pub fn load_config(app: &tauri::AppHandle) -> Result<Value, String> {
+    let just_installed = consume_install_sentinel(app);
+    let path = config_path(app)?;
 
     if !path.exists() {
-        // 首次启动：创建目录 + 写入默认配置
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create config dir: {e}"))?;
@@ -87,16 +91,12 @@ pub fn read_config(app: tauri::AppHandle) -> Result<Value, String> {
     let mut config: Value = serde_json::from_str(&raw)
         .map_err(|e| format!("Failed to parse config JSON: {e}"))?;
 
-    // After a (re)install the NSIS hook drops a sentinel file.
-    // Clear the stale tab session and re-enable the welcome page so the
-    // user gets a fresh-start experience without losing other preferences.
     if just_installed {
         if let Some(obj) = config.as_object_mut() {
             obj.insert("tabSession".into(), Value::Null);
             obj.insert("firstLaunch".into(), Value::Bool(true));
             obj.remove("windowState");
 
-            // Persist the cleaned config immediately.
             if let Ok(json) = serde_json::to_string_pretty(&config) {
                 let _ = std::fs::write(&path, json.as_bytes());
             }
@@ -106,9 +106,30 @@ pub fn read_config(app: tauri::AppHandle) -> Result<Value, String> {
     Ok(config)
 }
 
+/// Tauri command: return cached config if available, otherwise load from disk.
+#[tauri::command]
+pub fn read_config(app: tauri::AppHandle) -> Result<Value, String> {
+    let cache = app.state::<ConfigCache>();
+    let mut guard = cache.0.lock().unwrap();
+    if let Some(ref cfg) = *guard {
+        return Ok(cfg.clone());
+    }
+    // Fallback: load from disk (should rarely happen — setup hook populates cache).
+    let cfg = load_config(&app)?;
+    *guard = Some(cfg.clone());
+    Ok(cfg)
+}
+
 /// 写入配置（全量替换）
 #[tauri::command]
 pub fn write_config(app: tauri::AppHandle, config: Value) -> Result<(), String> {
+    // Update the in-memory cache so subsequent reads are consistent.
+    {
+        let cache = app.state::<ConfigCache>();
+        let mut guard = cache.0.lock().unwrap();
+        *guard = Some(config.clone());
+    }
+
     let path = config_path(&app)?;
 
     if let Some(parent) = path.parent() {
@@ -120,5 +141,6 @@ pub fn write_config(app: tauri::AppHandle, config: Value) -> Result<(), String> 
         .map_err(|e| format!("Failed to serialize config: {e}"))?;
 
     std::fs::write(&path, json.as_bytes())
-        .map_err(|e| format!("Failed to write config: {e}"))
+        .map_err(|e| format!("Failed to write config: {e}")
+    )
 }
