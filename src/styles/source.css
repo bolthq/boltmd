@@ -40,6 +40,35 @@
   to { transform: rotate(360deg); }
 }
 
+/* Skeleton placeholder while editor chunks are loading */
+.editor-skeleton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 48px 40px;
+  width: clamp(480px, 80%, 800px);
+  margin: 0 auto;
+  background: var(--bg-editor);
+}
+
+.editor-skeleton-line {
+  height: 16px;
+  border-radius: 4px;
+  background: var(--border-primary);
+  opacity: 0.4;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.editor-skeleton-line.wide { width: 90%; }
+.editor-skeleton-line.medium { width: 60%; }
+.editor-skeleton-line.narrow { width: 35%; }
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.15; }
+}
+
 /* Source editor layout */
 .source-view {
   flex: 1;

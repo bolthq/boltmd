@@ -1,13 +1,43 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, defineAsyncComponent, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { activeTabId, updateTabContent } from '../../core/stores/tabStore'
 import { isFileLoading } from '../../core/stores/fileStore'
-import EditorCore from './EditorCore.vue'
-import SourceView from './SourceView.vue'
-import SplitView from './SplitView.vue'
 import FindReplacePanel from '../common/FindReplacePanel.vue'
+
+// Skeleton placeholder rendered while the heavy editor chunk is loading.
+// Keeps the layout stable and gives instant visual feedback.
+const EditorSkeleton = {
+  render() {
+    return h('div', { class: 'editor-skeleton' }, [
+      h('div', { class: 'editor-skeleton-line wide' }),
+      h('div', { class: 'editor-skeleton-line medium' }),
+      h('div', { class: 'editor-skeleton-line narrow' }),
+      h('div', { class: 'editor-skeleton-line medium' }),
+      h('div', { class: 'editor-skeleton-line wide' }),
+    ])
+  },
+}
+
+// Async-load editor views so tiptap / codemirror chunks are not required
+// for the initial render.  The UI shell (title bar, menu, tab bar) appears
+// instantly while the editor JS is fetched in the background.
+const EditorCore = defineAsyncComponent({
+  loader: () => import('./EditorCore.vue'),
+  loadingComponent: EditorSkeleton,
+  delay: 0,
+})
+const SourceView = defineAsyncComponent({
+  loader: () => import('./SourceView.vue'),
+  loadingComponent: EditorSkeleton,
+  delay: 0,
+})
+const SplitView = defineAsyncComponent({
+  loader: () => import('./SplitView.vue'),
+  loadingComponent: EditorSkeleton,
+  delay: 0,
+})
 
 const { mode, content, getSelectionInEditor } = useEditorManager()
 const { t } = useI18n()
