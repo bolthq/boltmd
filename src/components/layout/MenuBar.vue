@@ -38,9 +38,11 @@ function toggleMenu(menu: string) {
   openMenu.value = openMenu.value === menu ? null : menu
 }
 
-// 鼠标悬浮直接展开菜单
+// Hover switches menu only when another menu is already open (standard behavior).
 function hoverMenu(menu: string) {
-  openMenu.value = menu
+  if (openMenu.value !== null) {
+    openMenu.value = menu
+  }
 }
 
 function closeMenus() {
@@ -72,17 +74,26 @@ function handleClickOutside(e: MouseEvent) {
   }
 }
 
+// Escape 关闭菜单
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && openMenu.value !== null) {
+    closeMenus()
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
 <template>
-  <div class="menubar" @mouseleave="closeMenus">
+  <div class="menubar">
     <!-- File 菜单 -->
     <div class="menu-item" @click.stop="toggleMenu('file')" @mouseenter="hoverMenu('file')">
       <span class="menu-label">{{ t('menu.file') }}</span>
