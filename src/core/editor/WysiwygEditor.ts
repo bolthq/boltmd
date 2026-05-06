@@ -86,7 +86,7 @@ export function createWysiwygExtensions(): Extensions {
     Image.configure({ inline: true, allowBase64: true }),
     Markdown.configure({
       html: true,
-      transformCopiedText: true,
+      transformCopiedText: false,
       transformPastedText: true,
     }),
     SearchAndReplace,
