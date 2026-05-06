@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 
 export interface IFileService {
   openFile(): Promise<FileInfo | null>
+  openFiles(): Promise<FileInfo[]>
   openFilePath(path: string): Promise<FileInfo>
   saveFile(path: string, content: string): Promise<void>
   saveFileAs(content: string): Promise<string | null>
@@ -42,6 +43,24 @@ class FileServiceImpl implements IFileService {
     })
     if (!selected) return null
     return this.openFilePath(selected as string)
+  }
+
+  /** 弹出多选打开对话框，返回所有选中文件 */
+  async openFiles(): Promise<FileInfo[]> {
+    const selected = await open({
+      multiple: true,
+      filters: [
+        { name: t('fileDialog.markdown'), extensions: ['md', 'markdown', 'txt'] },
+        { name: t('fileDialog.allFiles'), extensions: ['*'] },
+      ],
+    })
+    if (!selected) return []
+    const paths = Array.isArray(selected) ? selected : [selected]
+    const results: FileInfo[] = []
+    for (const path of paths) {
+      results.push(await this.openFilePath(path))
+    }
+    return results
   }
 
   /** 直接按路径读取文件 */

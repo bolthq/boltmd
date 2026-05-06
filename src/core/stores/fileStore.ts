@@ -93,18 +93,19 @@ export function markDirty(content: string): void {
   _dirty.value = true
 }
 
-/** 弹出打开对话框，加载文件到新标签 */
+/** 弹出打开对话框，加载文件到新标签（支持多选） */
 export async function openFile(): Promise<boolean> {
   try {
     _isLoading.value = true
-    const info = await fileService.openFile()
-    if (!info) return false
-    applyFileInfo(info)
-    if (info.path) {
-      tabOpenTab(info.path, info.content)
-      addRecentFile(info.path)
-      // Start watching for external changes.
-      await fileWatcherService.watch(info.path)
+    const files = await fileService.openFiles()
+    if (files.length === 0) return false
+    for (const info of files) {
+      applyFileInfo(info)
+      if (info.path) {
+        tabOpenTab(info.path, info.content)
+        addRecentFile(info.path)
+        await fileWatcherService.watch(info.path)
+      }
     }
     return true
   } catch (e) {
