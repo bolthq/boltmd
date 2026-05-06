@@ -1,4 +1,5 @@
 import { ref, readonly } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { fileService } from '../services/FileService'
 import { fileWatcherService } from '../services/FileWatcherService'
 import { errorService } from '../services/ErrorService'
@@ -67,6 +68,21 @@ export function removeRecentFile(path: string): void {
 /** Clear all recent files history. */
 export function clearRecentFiles(): void {
   configService.set('recentFiles', [])
+}
+
+/** Check which recent file paths still exist on disk. Returns a Map<path, exists>. */
+export async function checkRecentFilesExist(): Promise<Map<string, boolean>> {
+  const list = configService.get('recentFiles')
+  if (list.length === 0) return new Map()
+  const paths = list.map((item) => item.path)
+  try {
+    const results: boolean[] = await invoke('check_paths_exist', { paths })
+    const map = new Map<string, boolean>()
+    paths.forEach((p, i) => map.set(p, results[i]))
+    return map
+  } catch {
+    return new Map()
+  }
 }
 
 // ── 动作 ─────────────────────────────────────────────────────────────────────

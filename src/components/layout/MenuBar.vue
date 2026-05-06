@@ -5,7 +5,7 @@ import { SUPPORTED_LOCALES, getLocale, setLocale, type SupportedLocale } from '.
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { themeService } from '../../core/services/ThemeService'
 import { updateService } from '../../core/services/UpdateService'
-import { getRecentFiles, clearRecentFiles, removeRecentFile, openFilePath } from '../../core/stores/fileStore'
+import { getRecentFiles, clearRecentFiles, removeRecentFile, checkRecentFilesExist, openFilePath } from '../../core/stores/fileStore'
 
 const { t } = useI18n()
 const { mode, switchMode } = useEditorManager()
@@ -37,12 +37,22 @@ const currentLocale = ref<SupportedLocale>(getLocale())
 
 function toggleMenu(menu: string) {
   openMenu.value = openMenu.value === menu ? null : menu
+  if (openMenu.value === 'file') {
+    checkRecentFilesExist().then((map) => {
+      recentFileExists.value = map
+    })
+  }
 }
 
 // Hover switches menu only when another menu is already open (standard behavior).
 function hoverMenu(menu: string) {
   if (openMenu.value !== null) {
     openMenu.value = menu
+    if (menu === 'file') {
+      checkRecentFilesExist().then((map) => {
+        recentFileExists.value = map
+      })
+    }
   }
 }
 
@@ -53,7 +63,12 @@ function closeMenus() {
 // Reactive recent files list.
 const recentFiles = computed(() => getRecentFiles())
 
+// Track which recent file paths exist on disk.
+const recentFileExists = ref<Map<string, boolean>>(new Map())
+
 function openRecentFile(path: string) {
+  // Don't open if file doesn't exist.
+  if (recentFileExists.value.has(path) && !recentFileExists.value.get(path)) return
   openFilePath(path)
   closeMenus()
 }
@@ -135,6 +150,7 @@ onUnmounted(() => {
                 v-for="item in recentFiles"
                 :key="item.path"
                 class="menu-entry recent-entry"
+                :class="{ 'recent-missing': recentFileExists.has(item.path) && !recentFileExists.get(item.path) }"
                 :title="item.path"
                 @click="openRecentFile(item.path)"
               >
@@ -493,5 +509,17 @@ onUnmounted(() => {
 .recent-remove:hover {
   opacity: 1;
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Gray out missing files */
+.recent-missing {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.recent-missing:hover {
+  background: transparent;
+  color: var(--text-primary);
+  opacity: 0.45;
 }
 </style>

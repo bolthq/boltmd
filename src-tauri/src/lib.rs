@@ -114,6 +114,7 @@ pub fn run() {
             commands::file::save_file,
             commands::file::get_file_info,
             commands::file::save_image,
+            commands::file::check_paths_exist,
             commands::config::read_config,
             commands::config::write_config,
             commands::cli::get_cli_file,

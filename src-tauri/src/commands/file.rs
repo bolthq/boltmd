@@ -108,6 +108,12 @@ pub fn get_file_info(path: String) -> Result<FileInfo, String> {
     })
 }
 
+/// Check which paths exist on disk. Returns a vec of booleans in the same order.
+#[tauri::command]
+pub fn check_paths_exist(paths: Vec<String>) -> Vec<bool> {
+    paths.iter().map(|p| Path::new(p).exists()).collect()
+}
+
 /// Save a base64-encoded image to disk.
 /// dir: target directory path
 /// filename: file name (e.g. boltmd-1234567890.png)
