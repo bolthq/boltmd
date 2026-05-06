@@ -5,7 +5,7 @@ import { SUPPORTED_LOCALES, getLocale, setLocale, type SupportedLocale } from '.
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { themeService } from '../../core/services/ThemeService'
 import { updateService } from '../../core/services/UpdateService'
-import { getRecentFiles, clearRecentFiles, openFilePath } from '../../core/stores/fileStore'
+import { getRecentFiles, clearRecentFiles, removeRecentFile, openFilePath } from '../../core/stores/fileStore'
 
 const { t } = useI18n()
 const { mode, switchMode } = useEditorManager()
@@ -61,6 +61,11 @@ function openRecentFile(path: string) {
 function handleClearRecent() {
   clearRecentFiles()
   closeMenus()
+}
+
+function handleRemoveRecent(path: string, e: MouseEvent) {
+  e.stopPropagation()
+  removeRecentFile(path)
 }
 
 function doAction(action: () => void) {
@@ -129,12 +134,13 @@ onUnmounted(() => {
               <div
                 v-for="item in recentFiles"
                 :key="item.path"
-                class="menu-entry"
+                class="menu-entry recent-entry"
                 :title="item.path"
                 @click="openRecentFile(item.path)"
               >
                 <span class="recent-file-name">{{ item.path.split(/[\\/]/).pop() }}</span>
                 <span class="recent-file-path">{{ item.path }}</span>
+                <span class="recent-remove" title="" @click="handleRemoveRecent(item.path, $event)">&times;</span>
               </div>
               <div class="menu-separator" />
               <div class="menu-entry" @click="handleClearRecent">
@@ -457,5 +463,35 @@ onUnmounted(() => {
 
 .menu-entry:hover .recent-file-path {
   opacity: 0.7;
+}
+
+/* Recent file entry with remove button */
+.recent-entry {
+  position: relative;
+  padding-right: 28px;
+}
+
+.recent-remove {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: 3px;
+  opacity: 0.6;
+}
+
+.recent-entry:hover .recent-remove {
+  display: flex;
+}
+
+.recent-remove:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
 }
 </style>
