@@ -223,4 +223,11 @@ export default {
     failed: 'Update Failed',
     failedMessage: 'Failed to check for updates: {error}',
   },
+
+  fileWatcher: {
+    conflictTitle: 'File Changed Externally',
+    conflictMessage: '"{name}" has been modified outside the editor. Reload from disk?',
+    reload: 'Reload',
+    keep: 'Keep Mine',
+  },
 }

@@ -223,4 +223,11 @@ export default {
     failed: '更新失败',
     failedMessage: '检查更新失败：{error}',
   },
+
+  fileWatcher: {
+    conflictTitle: '文件已被外部修改',
+    conflictMessage: '"{name}" 已被其他程序修改。是否从磁盘重新加载？',
+    reload: '重新加载',
+    keep: '保留本地',
+  },
 }
