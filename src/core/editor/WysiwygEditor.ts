@@ -18,12 +18,33 @@ import { SearchAndReplace, searchPluginKey } from './extensions/SearchAndReplace
 
 // 懒初始化 lowlight，避免模块加载时同步解析所有语言语法
 let _lowlight: any = null
+// Callbacks to invoke once lowlight is ready (editors need to re-highlight).
+const _onLowlightReady: Array<() => void> = []
+
 async function getLowlight() {
   if (!_lowlight) {
     const { common, createLowlight } = await import('lowlight')
     _lowlight = createLowlight(common)
+    // Notify all waiting editors to re-render code blocks.
+    _onLowlightReady.forEach((cb) => cb())
+    _onLowlightReady.length = 0
   }
   return _lowlight
+}
+
+/** Check if lowlight has already been loaded. */
+export function isLowlightLoaded(): boolean {
+  return _lowlight !== null
+}
+
+/** Register a callback to be called when lowlight finishes loading.
+ *  If already loaded, the callback is invoked immediately. */
+export function onLowlightReady(cb: () => void): void {
+  if (_lowlight) {
+    cb()
+  } else {
+    _onLowlightReady.push(cb)
+  }
 }
 
 // 预热：在空闲时异步加载 lowlight，不阻塞首次渲染

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
-import { createWysiwygExtensions, WysiwygEditor } from '../../core/editor/WysiwygEditor'
+import { createWysiwygExtensions, WysiwygEditor, onLowlightReady, isLowlightLoaded } from '../../core/editor/WysiwygEditor'
 import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor } from '../../core/editor/EditorManager'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { activeTab } from '../../core/stores/tabStore'
@@ -26,6 +26,27 @@ const tiptapEditor = useEditor({
     editorWrapper.onContentChange((md) => emit('change', md))
     registerEditor(editorWrapper)
     registerTiptapEditor(editor)
+
+    // When lowlight finishes lazy-loading, force CodeBlockLowlight to
+    // recompute syntax highlighting by touching every codeBlock node.
+    // Skip if lowlight was already loaded before editor creation (no-op).
+    if (!isLowlightLoaded()) {
+      onLowlightReady(() => {
+        if (editor.isDestroyed) return
+        const { tr } = editor.state
+        let modified = false
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === 'codeBlock') {
+            tr.setNodeMarkup(pos, undefined, node.attrs)
+            modified = true
+          }
+        })
+        if (modified) {
+          tr.setMeta('addToHistory', false)
+          editor.view.dispatch(tr)
+        }
+      })
+    }
 
     // 预热 markdown 序列化器：首次 getMarkdown() 需要构建 nodes/marks 映射表，
     // 提前触发让 V8 JIT 优化这条代码路径，避免用户第一次按键时卡顿
