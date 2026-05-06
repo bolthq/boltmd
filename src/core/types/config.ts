@@ -22,6 +22,12 @@ export interface TabSession {
   activeIndex: number
 }
 
+/** Recent file entry for file open history */
+export interface RecentFileItem {
+  path: string
+  openedAt: number  // timestamp ms
+}
+
 export interface AppConfig {
   configVersion: number
   /** Tracks the app version that last wrote this config.
@@ -43,6 +49,7 @@ export interface AppConfig {
   tabSession: TabSession | null
   windowState: WindowState | null
   firstLaunch: boolean
+  recentFiles: RecentFileItem[]
 }
 
 export const CONFIG_VERSION = 2
@@ -66,4 +73,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   tabSession: null,
   windowState: null,
   firstLaunch: true,
+  recentFiles: [],
 }
