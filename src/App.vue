@@ -18,7 +18,7 @@ const AboutDialog = defineAsyncComponent(() => import('./components/common/About
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, openBundledDocTab, saveSession, restoreSession, reloadTab } from './core/stores/tabStore'
-import { saveFile, saveFileAs, openFile, openFilePath } from './core/stores/fileStore'
+import { saveFile, saveFileAs, openFile, openFilePath, getRecentFiles } from './core/stores/fileStore'
 import { fileWatcherService } from './core/services/FileWatcherService'
 import { themeService } from './core/services/ThemeService'
 import { configService } from './core/services/ConfigService'
@@ -35,6 +35,7 @@ const showToolbar = ref(configService.get('showToolbar'))
 const showSettings = ref(false)
 const showCommandPalette = ref(false)
 const showAbout = ref(false)
+const paletteMode = ref<'commands' | 'recent'>('commands')
 
 // Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
 const editorContainerRef = ref<InstanceType<typeof EditorContainer> | null>(null)
@@ -72,6 +73,28 @@ const commands = computed<Command[]>(() => [
   { id: 'theme-dark', label: t('commands.themeDark'), action: () => themeService.setTheme('dark') },
   { id: 'theme-system', label: t('commands.themeSystem'), action: () => themeService.setTheme('system') },
 ])
+
+// Recent files as command palette entries
+const recentFileCommands = computed<Command[]>(() => {
+  return getRecentFiles().map((item) => {
+    const name = item.path.split(/[\\/]/).pop() || item.path
+    return {
+      id: `recent:${item.path}`,
+      label: name,
+      shortcut: item.path,
+      action: () => openFilePath(item.path),
+    }
+  })
+})
+
+// Active palette commands depend on mode
+const paletteCommands = computed(() =>
+  paletteMode.value === 'recent' ? recentFileCommands.value : commands.value
+)
+
+const palettePlaceholder = computed(() =>
+  paletteMode.value === 'recent' ? t('commands.recentPlaceholder') : undefined
+)
 
 let unlistenDragDrop: (() => void) | null = null
 let unlistenSingleInstance: (() => void) | null = null
@@ -141,7 +164,8 @@ function handleKeydown(e: KeyboardEvent) {
 
   // Block browser-style refresh shortcuts in production — WebView reload
   // discards in-memory state and loses unsaved tabs.
-  if ((ctrl && e.key === 'r') || e.key === 'F5') {
+  // Note: Ctrl+R is handled below as "open recent files" (which also prevents refresh).
+  if (e.key === 'F5') {
     e.preventDefault()
     return
   }
@@ -156,6 +180,15 @@ function handleKeydown(e: KeyboardEvent) {
   // Ctrl+Shift+P 打开命令面板
   if (ctrl && e.shiftKey && e.key === 'P') {
     e.preventDefault()
+    paletteMode.value = 'commands'
+    showCommandPalette.value = !showCommandPalette.value
+    return
+  }
+
+  // Ctrl+R 打开最近文件搜索
+  if (ctrl && !e.shiftKey && e.key === 'r') {
+    e.preventDefault()
+    paletteMode.value = 'recent'
     showCommandPalette.value = !showCommandPalette.value
     return
   }
@@ -402,7 +435,7 @@ onUnmounted(() => {
     <!-- 设置面板 -->
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
     <!-- 命令面板 -->
-    <CommandPalette v-if="showCommandPalette" :commands="commands" @close="showCommandPalette = false" />
+    <CommandPalette v-if="showCommandPalette" :commands="paletteCommands" :placeholder="palettePlaceholder" @close="showCommandPalette = false" />
     <!-- 关于对话框 -->
     <AboutDialog v-if="showAbout" @close="showAbout = false" />
   </div>

@@ -161,6 +161,7 @@ export default {
     themeDark: 'Theme: Dark',
     themeSystem: 'Theme: Follow System',
     placeholder: 'Type a command...',
+    recentPlaceholder: 'Search recent files...',
     noMatch: 'No matching commands',
   },
 

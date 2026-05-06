@@ -161,6 +161,7 @@ export default {
     themeDark: '主题：深色',
     themeSystem: '主题：跟随系统',
     placeholder: '输入命令...',
+    recentPlaceholder: '搜索最近文件...',
     noMatch: '没有匹配的命令',
   },
 

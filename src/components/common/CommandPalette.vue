@@ -11,6 +11,7 @@ export interface Command {
 
 const props = defineProps<{
   commands: Command[]
+  placeholder?: string
 }>()
 
 const emit = defineEmits<{
@@ -23,12 +24,13 @@ const query = ref('')
 const selectedIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
 
-// 搜索过滤：按 label 模糊匹配
+// 搜索过滤：按 label 和 shortcut 模糊匹配
 const filtered = computed(() => {
   const q = query.value.toLowerCase().trim()
   if (!q) return props.commands
   return props.commands.filter((cmd) =>
-    cmd.label.toLowerCase().includes(q)
+    cmd.label.toLowerCase().includes(q) ||
+    (cmd.shortcut && cmd.shortcut.toLowerCase().includes(q))
   )
 })
 
@@ -101,7 +103,7 @@ onMounted(() => {
           ref="inputRef"
           v-model="query"
           class="palette-input"
-          :placeholder="t('commands.placeholder')"
+          :placeholder="props.placeholder || t('commands.placeholder')"
           @input="handleInput"
         />
       </div>
