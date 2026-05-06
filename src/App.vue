@@ -327,10 +327,12 @@ onMounted(async () => {
     }
   }
 
-  // Drag-and-drop: open the first dropped file.
+  // Drag-and-drop: open all dropped files as tabs.
   unlistenDragDrop = await getCurrentWebview().onDragDropEvent(async (event) => {
     if (event.payload.type === 'drop' && event.payload.paths.length > 0) {
-      await openFilePath(event.payload.paths[0])
+      for (const path of event.payload.paths) {
+        await openFilePath(path)
+      }
     }
   }).catch((err: unknown) => {
     console.warn('[App] Failed to register drag-drop listener:', err)
