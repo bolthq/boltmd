@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { SUPPORTED_LOCALES, getLocale, setLocale, type SupportedLocale } from '../../i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { themeService } from '../../core/services/ThemeService'
 import { updateService } from '../../core/services/UpdateService'
+import { getRecentFiles, clearRecentFiles, openFilePath } from '../../core/stores/fileStore'
 
 const { t } = useI18n()
 const { mode, switchMode } = useEditorManager()
@@ -47,6 +48,19 @@ function hoverMenu(menu: string) {
 
 function closeMenus() {
   openMenu.value = null
+}
+
+// Reactive recent files list.
+const recentFiles = computed(() => getRecentFiles())
+
+function openRecentFile(path: string) {
+  openFilePath(path)
+  closeMenus()
+}
+
+function handleClearRecent() {
+  clearRecentFiles()
+  closeMenus()
 }
 
 function doAction(action: () => void) {
@@ -105,6 +119,32 @@ onUnmounted(() => {
         <div class="menu-entry" @click="doAction(() => emit('openFile'))">
           <span>{{ t('menu.openFile') }}</span>
           <span class="menu-shortcut">Ctrl+O</span>
+        </div>
+        <!-- Recent Files submenu -->
+        <div class="menu-entry menu-submenu-parent">
+          <span>{{ t('menu.recentFiles') }}</span>
+          <span class="menu-arrow">▸</span>
+          <div class="menu-submenu menu-submenu-recent">
+            <template v-if="recentFiles.length > 0">
+              <div
+                v-for="item in recentFiles"
+                :key="item.path"
+                class="menu-entry"
+                :title="item.path"
+                @click="openRecentFile(item.path)"
+              >
+                <span class="recent-file-name">{{ item.path.split(/[\\/]/).pop() }}</span>
+                <span class="recent-file-path">{{ item.path }}</span>
+              </div>
+              <div class="menu-separator" />
+              <div class="menu-entry" @click="handleClearRecent">
+                <span>{{ t('menu.clearRecent') }}</span>
+              </div>
+            </template>
+            <div v-else class="menu-entry disabled">
+              <span>{{ t('menu.noRecent') }}</span>
+            </div>
+          </div>
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => emit('save'))">
@@ -392,5 +432,30 @@ onUnmounted(() => {
 
 .menu-submenu-parent:hover > .menu-submenu {
   display: block;
+}
+
+/* Recent files submenu */
+.menu-submenu-recent {
+  min-width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.recent-file-name {
+  flex-shrink: 0;
+}
+
+.recent-file-path {
+  margin-left: 12px;
+  font-size: 10px;
+  opacity: 0.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.menu-entry:hover .recent-file-path {
+  opacity: 0.7;
 }
 </style>
