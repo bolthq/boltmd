@@ -138,7 +138,7 @@
 
 ## Backlog: Bug & Feature
 
-- [ ] **[Bug/P1] 外部文件变更检测** — 已打开的文件被外部程序修改后，编辑器应检测到变更并提示/自动更新内容。需要 Rust 侧 fs watch（推荐 notify crate）+ 前端冲突处理（无本地修改→自动刷新，有本地修改→提示用户选择）
+- [x] **[Bug/P1] 外部文件变更检测** — 已打开的文件被外部程序修改后，编辑器应检测到变更并提示/自动更新内容。需要 Rust 侧 fs watch（推荐 notify crate）+ 前端冲突处理（无本地修改→自动刷新，有本地修改→提示用户选择）
 - [ ] **[Bug/P2] README badge 换行** — `<div align="center">` 内的 inline badge 图片被 Tiptap 渲染为多行，GitHub 正常。需排查 Tiptap 对 HTML block 内 inline image 的处理逻辑
 
 ---
