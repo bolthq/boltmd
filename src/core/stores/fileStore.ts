@@ -5,7 +5,11 @@ import { errorService } from '../services/ErrorService'
 import { ErrorLevel } from '../services/ErrorService'
 import { getContent } from '../editor/EditorManager'
 import { openTab as tabOpenTab, markSaved as tabMarkSaved, activeTabId, activeTab } from './tabStore'
+import { configService } from '../services/ConfigService'
 import { t } from '../../i18n'
+import type { RecentFileItem } from '../types/config'
+
+const MAX_RECENT_FILES = 30
 
 // ── 状态 ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +42,33 @@ function applyFileInfo(info: { path: string | null; name: string; content: strin
   _lastSaved.value = Date.now()
 }
 
+/** Record a file path in the recent files list (most recent first, deduped). */
+function addRecentFile(path: string): void {
+  const list = configService.get('recentFiles').filter((item) => item.path !== path)
+  const entry: RecentFileItem = { path, openedAt: Date.now() }
+  list.unshift(entry)
+  if (list.length > MAX_RECENT_FILES) list.length = MAX_RECENT_FILES
+  configService.set('recentFiles', list)
+}
+
+// ── Recent Files API ────────────────────────────────────────────────────────
+
+/** Get the recent files list (most recent first). */
+export function getRecentFiles(): RecentFileItem[] {
+  return configService.get('recentFiles')
+}
+
+/** Remove a single entry from the recent files list. */
+export function removeRecentFile(path: string): void {
+  const list = configService.get('recentFiles').filter((item) => item.path !== path)
+  configService.set('recentFiles', list)
+}
+
+/** Clear all recent files history. */
+export function clearRecentFiles(): void {
+  configService.set('recentFiles', [])
+}
+
 // ── 动作 ─────────────────────────────────────────────────────────────────────
 
 /** 标记内容已修改（由编辑器 onChange 调用） */
@@ -55,6 +86,7 @@ export async function openFile(): Promise<boolean> {
     applyFileInfo(info)
     if (info.path) {
       tabOpenTab(info.path, info.content)
+      addRecentFile(info.path)
       // Start watching for external changes.
       await fileWatcherService.watch(info.path)
     }
@@ -79,6 +111,7 @@ export async function openFilePath(path: string): Promise<boolean> {
     const info = await fileService.openFilePath(path)
     applyFileInfo(info)
     tabOpenTab(path, info.content)
+    addRecentFile(path)
     // Start watching for external changes.
     await fileWatcherService.watch(path)
     return true
