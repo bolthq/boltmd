@@ -17,8 +17,9 @@ const CommandPalette = defineAsyncComponent(() => import('./components/common/Co
 const AboutDialog = defineAsyncComponent(() => import('./components/common/AboutDialog.vue'))
 import { useEditorManager } from './core/editor/EditorManager'
 import { useAutoSave } from './core/editor/useAutoSave'
-import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, openBundledDocTab, saveSession, restoreSession } from './core/stores/tabStore'
+import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, openBundledDocTab, saveSession, restoreSession, reloadTab } from './core/stores/tabStore'
 import { saveFile, saveFileAs, openFile, openFilePath } from './core/stores/fileStore'
+import { fileWatcherService } from './core/services/FileWatcherService'
 import { themeService } from './core/services/ThemeService'
 import { configService } from './core/services/ConfigService'
 import { updateService } from './core/services/UpdateService'
@@ -297,6 +298,23 @@ onMounted(async () => {
     return noop
   })
 
+  // Initialize file watcher: detect external file changes.
+  await fileWatcherService.init(
+    // onReload: re-read the file and update the tab content.
+    async (path: string) => { await reloadTab(path) },
+    // isDirty: check if the tab with the given path has local edits.
+    (path: string) => {
+      const tab = tabs.value.find((tab) => tab.filePath === path)
+      return tab?.dirty ?? false
+    },
+  )
+  // Watch all currently open file-backed tabs.
+  for (const tab of tabs.value) {
+    if (tab.filePath) {
+      await fileWatcherService.watch(tab.filePath)
+    }
+  }
+
   // Single-instance: another process tried to launch — open its file here.
   unlistenSingleInstance = await listen<string>('single-instance-open-file', async (event) => {
     if (event.payload) {
@@ -338,6 +356,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   stopAutoSave()
+  fileWatcherService.dispose()
   unlistenDragDrop?.()
   unlistenSingleInstance?.()
   if (titleTimer) clearTimeout(titleTimer)

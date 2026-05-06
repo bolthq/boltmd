@@ -1,5 +1,6 @@
 import { ref, readonly } from 'vue'
 import { fileService } from '../services/FileService'
+import { fileWatcherService } from '../services/FileWatcherService'
 import { errorService } from '../services/ErrorService'
 import { ErrorLevel } from '../services/ErrorService'
 import { getContent } from '../editor/EditorManager'
@@ -54,6 +55,8 @@ export async function openFile(): Promise<boolean> {
     applyFileInfo(info)
     if (info.path) {
       tabOpenTab(info.path, info.content)
+      // Start watching for external changes.
+      await fileWatcherService.watch(info.path)
     }
     return true
   } catch (e) {
@@ -76,6 +79,8 @@ export async function openFilePath(path: string): Promise<boolean> {
     const info = await fileService.openFilePath(path)
     applyFileInfo(info)
     tabOpenTab(path, info.content)
+    // Start watching for external changes.
+    await fileWatcherService.watch(path)
     return true
   } catch (e) {
     errorService.report({
@@ -100,6 +105,7 @@ export async function saveFile(): Promise<boolean> {
   const path = tab?.filePath ?? _path.value
   if (path && tabId) {
     try {
+      await fileWatcherService.suppress(path)
       await fileService.saveFile(path, content)
       _dirty.value = false
       _lastSaved.value = Date.now()
@@ -133,6 +139,8 @@ export async function saveFileAs(): Promise<boolean> {
     if (tabId) {
       tabMarkSaved(tabId, newPath)
     }
+    // Watch the new path for external changes.
+    await fileWatcherService.watch(newPath)
     return true
   } catch (e) {
     errorService.report({

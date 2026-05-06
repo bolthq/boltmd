@@ -2,8 +2,10 @@ import { ref, readonly, computed } from 'vue'
 import type { TabState } from '../types/tab'
 import type { TabSession, TabSessionItem } from '../types/config'
 import { tabManager } from '../editor/TabManager'
+import { setContent } from '../editor/EditorManager'
 import { configService } from '../services/ConfigService'
 import { fileService } from '../services/FileService'
+import { fileWatcherService } from '../services/FileWatcherService'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { ask } from '@tauri-apps/plugin-dialog'
 import { t } from '../../i18n'
@@ -65,6 +67,10 @@ export async function closeTab(tabId: string): Promise<boolean> {
     )
     if (!confirmed) return false
   }
+  // Unwatch the file before closing the tab.
+  if (tab?.filePath) {
+    await fileWatcherService.unwatch(tab.filePath)
+  }
   return tabManager.closeTab(tabId)
 }
 
@@ -90,6 +96,31 @@ export function closeOtherTabs(tabId: string): void {
 
 export function closeTabsToRight(tabId: string): void {
   tabManager.closeTabsToRight(tabId)
+}
+
+/** Reload a tab's content from disk (used when external changes are detected). */
+export async function reloadTab(filePath: string): Promise<void> {
+  const tab = _tabs.value.find((t) => t.filePath === filePath)
+  if (!tab) return
+
+  try {
+    const info = await fileService.openFilePath(filePath)
+    // Update internal tab state directly via TabManager's underlying array.
+    tab.content = info.content
+    tab.cleanContent = info.content
+    tab.dirty = false
+    tab.lastModified = Date.now()
+
+    // If this tab is currently active, push the new content to the editor.
+    if (tab.id === _activeTabId.value) {
+      setContent(info.content)
+    }
+
+    // Trigger reactivity sync.
+    sync()
+  } catch (e) {
+    console.warn('[tabStore] Failed to reload tab:', filePath, e)
+  }
 }
 
 // ── 会话持久化 ──────────────────────────────────────────────────────────────
