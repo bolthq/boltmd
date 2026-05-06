@@ -17,6 +17,9 @@ export default {
     // 文件菜单
     newTab: '新建标签',
     openFile: '打开文件...',
+    recentFiles: '最近打开',
+    clearRecent: '清除记录',
+    noRecent: '没有最近文件',
     save: '保存',
     saveAs: '另存为...',
     closeTab: '关闭标签',

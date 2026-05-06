@@ -17,6 +17,9 @@ export default {
     // File menu
     newTab: 'New Tab',
     openFile: 'Open File...',
+    recentFiles: 'Recent Files',
+    clearRecent: 'Clear Recent',
+    noRecent: 'No Recent Files',
     save: 'Save',
     saveAs: 'Save As...',
     closeTab: 'Close Tab',
