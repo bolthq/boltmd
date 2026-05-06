@@ -139,6 +139,13 @@ watch(
 function handleKeydown(e: KeyboardEvent) {
   const ctrl = e.ctrlKey || e.metaKey
 
+  // Block browser-style refresh shortcuts in production — WebView reload
+  // discards in-memory state and loses unsaved tabs.
+  if ((ctrl && e.key === 'r') || e.key === 'F5') {
+    e.preventDefault()
+    return
+  }
+
   // Ctrl+/ 循环切换编辑模式
   if (ctrl && e.key === '/') {
     e.preventDefault()
