@@ -291,13 +291,15 @@ onMounted(async () => {
     // Check for CLI file (double-click launch).
     // Window geometry is already restored by the Rust setup hook, so we
     // only need to check for a file-association argument here.
-    const cliFile = await invoke<string | null>('get_cli_file')
+    const cliFiles = await invoke<string[]>('get_cli_file')
 
     // When launched via file association (double-click a .md), skip session
-    // restore and only open the requested file.
-    if (cliFile) {
+    // restore and only open the requested file(s).
+    if (cliFiles.length > 0) {
       switchMode(configService.get('defaultMode'))
-      await openFilePath(cliFile)
+      for (const file of cliFiles) {
+        await openFilePath(file)
+      }
     } else {
       const restored = await restoreSession()
 

@@ -79,8 +79,9 @@ pub fn run() {
                 let _ = win.set_focus();
             }
 
-            // Forward the first non-flag argument (file path) to the frontend.
-            if let Some(path) = args.get(1).filter(|a| !a.starts_with("--")) {
+            // Forward all non-flag arguments (file paths) to the frontend.
+            let files: Vec<&String> = args.iter().skip(1).filter(|a| !a.starts_with("--")).collect();
+            for path in files {
                 let _ = app.emit("single-instance-open-file", path.clone());
             }
         }))

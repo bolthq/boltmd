@@ -1,10 +1,9 @@
-/// 返回启动时传入的第一个文件路径参数（如果有）
-/// 用法：boltmd /path/to/file.md
+/// Return all file path arguments passed on the command line.
+/// Usage: boltmd file1.md file2.md file3.md
 #[tauri::command]
-pub fn get_cli_file() -> Option<String> {
-    // args()[0] 是程序自身，跳过
-    std::env::args().nth(1).filter(|arg| {
-        // 排除 tauri 内部标志（以 "--" 开头）
-        !arg.starts_with("--")
-    })
+pub fn get_cli_file() -> Vec<String> {
+    std::env::args()
+        .skip(1)
+        .filter(|arg| !arg.starts_with("--"))
+        .collect()
 }
