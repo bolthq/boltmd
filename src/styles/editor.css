@@ -250,10 +250,18 @@
 
 /* Image */
 .ProseMirror img {
-  display: block;
   max-width: 100%;
   height: auto;
   border-radius: 6px;
+}
+
+/* Standalone image (only child of a paragraph) — display as block centered */
+.ProseMirror p:has(> img:only-child) {
+  text-align: center;
+}
+
+.ProseMirror p > img:only-child {
+  display: block;
   margin: 0.75em auto;
 }
 
