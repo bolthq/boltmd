@@ -139,7 +139,10 @@
 ## Backlog: Bug & Feature
 
 - [x] **[Bug/P1] 外部文件变更检测** — 已打开的文件被外部程序修改后，编辑器应检测到变更并提示/自动更新内容。需要 Rust 侧 fs watch（推荐 notify crate）+ 前端冲突处理（无本地修改→自动刷新，有本地修改→提示用户选择）
-- [ ] **[Bug/P2] README badge 换行** — `<div align="center">` 内的 inline badge 图片被 Tiptap 渲染为多行，GitHub 正常。需排查 Tiptap 对 HTML block 内 inline image 的处理逻辑
+- [ ] **[Bug/P2] README badge 换行** — `<div align="center">` 内的 inline badge 图片被 Tiptap 渲染为多行，GitHub 正常。需自定义 HtmlBlock 原子节点保留原始 HTML 渲染
+- [x] **[Bug/P2] 代码块首次打开无语法高亮** — 打开含代码块的文件时高亮不生效，需编辑后才触发。可能是 lowlight 懒加载完成前编辑器已渲染，需在 lowlight ready 后重新触发高亮
+- [x] **[Bug/P2] 复制代码块单行自动包裹 ``` ** — 在 WYSIWYG 模式复制代码块中的某一行，粘贴时内容被额外包裹为代码块。需排查 tiptap-markdown 的 transformCopiedText 逻辑
+- [x] **[Bug/P3] Ctrl+R 刷新后新打开的文件丢失** — WebView 刷新导致前端状态重置，新打开但未保存到 session 的标签被丢弃
 
 ---
 
