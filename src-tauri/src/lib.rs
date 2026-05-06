@@ -1,8 +1,10 @@
 mod commands;
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use commands::config::{ConfigCache, load_config};
+use commands::watcher::{FileWatcherState, WatcherInner};
 
 /// Check whether the NSIS install sentinel exists (without consuming it —
 /// that is done later by `load_config`).
@@ -59,6 +61,11 @@ fn restore_window_geometry(win: &tauri::WebviewWindow, config: &serde_json::Valu
 pub fn run() {
     tauri::Builder::default()
         .manage(ConfigCache(Mutex::new(None)))
+        .manage(FileWatcherState(Mutex::new(WatcherInner {
+            watcher: None,
+            watched_files: HashMap::new(),
+            suppressed: HashMap::new(),
+        })))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -110,6 +117,9 @@ pub fn run() {
             commands::config::read_config,
             commands::config::write_config,
             commands::cli::get_cli_file,
+            commands::watcher::watch_file,
+            commands::watcher::unwatch_file,
+            commands::watcher::suppress_watcher,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
