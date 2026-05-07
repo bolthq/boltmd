@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, defineAsyncComponent, h } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useEditorManager } from '../../core/editor/EditorManager'
+import { useEditorManager, syncContent } from '../../core/editor/EditorManager'
 import { activeTabId, updateTabContent } from '../../core/stores/tabStore'
 import { isFileLoading } from '../../core/stores/fileStore'
 import FindReplacePanel from '../common/FindReplacePanel.vue'
@@ -96,6 +96,8 @@ function handleChange(newContent: string) {
   if (tabId) {
     updateTabContent(tabId, newContent)
   }
+  // Keep EditorManager content ref in sync for observers (OutlinePanel, etc.)
+  syncContent(newContent)
 }
 
 // Global shortcuts: Ctrl+F / Ctrl+H open our panel; Ctrl+G / F3 are swallowed

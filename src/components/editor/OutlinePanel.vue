@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { parseHeadings, type HeadingItem } from '../../core/services/OutlineService'
@@ -7,7 +7,16 @@ import { parseHeadings, type HeadingItem } from '../../core/services/OutlineServ
 const { content, cursorLine, getActiveEditor } = useEditorManager()
 const { t } = useI18n()
 
-const headings = computed<HeadingItem[]>(() => parseHeadings(content.value))
+// Debounced headings: re-parse only after 300ms of inactivity.
+const headings = ref<HeadingItem[]>(parseHeadings(content.value))
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(content, (md) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    headings.value = parseHeadings(md)
+  }, 300)
+}, { immediate: false })
 
 /** Index of the heading that contains the current cursor position. */
 const activeIndex = computed(() => {

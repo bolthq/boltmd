@@ -181,6 +181,15 @@ export function reportCursorLine(line: number): void {
   cursorLine.value = line
 }
 
+/**
+ * Sync content ref from editor without pushing back to the editor.
+ * Called by EditorContainer on every content change event so that
+ * observers (e.g. OutlinePanel) can react to edits in real-time.
+ */
+export function syncContent(markdown: string): void {
+  content.value = markdown
+}
+
 // ---- 查找 / 替换（透传给当前激活的编辑器） ----
 
 const EMPTY_STATE: SearchState = { total: 0, current: 0 }
@@ -262,6 +271,7 @@ export function useEditorManager() {
     getContent,
     getActiveEditor,
     reportCursorLine,
+    syncContent,
     registerEditor,
     unregisterEditor,
     registerTiptapEditor,
