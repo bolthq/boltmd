@@ -17,6 +17,7 @@ const emit = defineEmits<{
   (e: 'saveAs'): void
   (e: 'closeTab'): void
   (e: 'toggleToolbar'): void
+  (e: 'toggleOutline'): void
   (e: 'openSettings'): void
   (e: 'openCommandPalette'): void
   (e: 'checkUpdate'): void
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 
 const props = defineProps<{
   showToolbar: boolean
+  showOutline: boolean
 }>()
 
 // 当前展开的菜单（null 表示全部收起）
@@ -245,6 +247,13 @@ onUnmounted(() => {
             {{ t('menu.toggleToolbar') }}
           </span>
           <span class="menu-shortcut">Ctrl+Shift+T</span>
+        </div>
+        <div class="menu-entry" @click="doAction(() => emit('toggleOutline'))">
+          <span>
+            <span class="menu-check">{{ props.showOutline ? '✓' : '' }}</span>
+            {{ t('menu.toggleOutline') }}
+          </span>
+          <span class="menu-shortcut">Ctrl+Shift+L</span>
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => switchMode('wysiwyg'))">

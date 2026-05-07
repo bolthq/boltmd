@@ -44,6 +44,7 @@ export interface AppConfig {
   defaultMode: EditorMode
   showLineNumbers: boolean
   showToolbar: boolean
+  showOutline: boolean
   imageStorePath: 'relative' | 'absolute'
   language: string
   tabSession: TabSession | null
@@ -68,6 +69,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   defaultMode: 'wysiwyg',
   showLineNumbers: true,
   showToolbar: false,
+  showOutline: false,
   imageStorePath: 'relative',
   language: 'en',
   tabSession: null,

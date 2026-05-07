@@ -12,6 +12,7 @@ import MenuBar from './components/layout/MenuBar.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
+const OutlinePanel = defineAsyncComponent(() => import('./components/editor/OutlinePanel.vue'))
 const SettingsPanel = defineAsyncComponent(() => import('./components/settings/SettingsPanel.vue'))
 const CommandPalette = defineAsyncComponent(() => import('./components/common/CommandPalette.vue'))
 const AboutDialog = defineAsyncComponent(() => import('./components/common/AboutDialog.vue'))
@@ -35,6 +36,7 @@ const showToolbar = ref(configService.get('showToolbar'))
 const showSettings = ref(false)
 const showCommandPalette = ref(false)
 const showAbout = ref(false)
+const showOutline = ref(configService.get('showOutline') ?? false)
 const paletteMode = ref<'commands' | 'recent'>('commands')
 
 // Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
@@ -56,6 +58,7 @@ async function openHelpDoc(name: BundledDocName): Promise<void> {
 
 // showToolbar 变化时持久化
 watch(showToolbar, (val) => { configService.set('showToolbar', val) })
+watch(showOutline, (val) => { configService.set('showOutline', val) })
 
 // 命令面板命令列表（computed 以支持语言切换）
 const commands = computed<Command[]>(() => [
@@ -68,6 +71,7 @@ const commands = computed<Command[]>(() => [
   { id: 'mode-source', label: t('commands.modeSource'), action: () => switchMode('source') },
   { id: 'mode-split', label: t('commands.modeSplit'), action: () => switchMode('split') },
   { id: 'toggle-toolbar', label: t('commands.toggleToolbar'), shortcut: 'Ctrl+Shift+T', action: () => { showToolbar.value = !showToolbar.value } },
+  { id: 'toggle-outline', label: t('commands.toggleOutline'), shortcut: 'Ctrl+Shift+L', action: () => { showOutline.value = !showOutline.value } },
   { id: 'settings', label: t('commands.openSettings'), shortcut: 'Ctrl+,', action: () => { showSettings.value = true } },
   { id: 'theme-light', label: t('commands.themeLight'), action: () => themeService.setTheme('light') },
   { id: 'theme-dark', label: t('commands.themeDark'), action: () => themeService.setTheme('dark') },
@@ -197,6 +201,13 @@ function handleKeydown(e: KeyboardEvent) {
   if (ctrl && e.shiftKey && e.key === 'T') {
     e.preventDefault()
     showToolbar.value = !showToolbar.value
+    return
+  }
+
+  // Ctrl+Shift+L 显示/隐藏大纲面板
+  if (ctrl && e.shiftKey && e.key === 'L') {
+    e.preventDefault()
+    showOutline.value = !showOutline.value
     return
   }
 
@@ -414,12 +425,14 @@ onUnmounted(() => {
     <!-- 菜单栏 -->
     <MenuBar
       :show-toolbar="showToolbar"
+      :show-outline="showOutline"
       @new-tab="createTab()"
       @open-file="openFile()"
       @save="saveFile()"
       @save-as="saveFileAs()"
       @close-tab="activeTabId && closeTab(activeTabId)"
       @toggle-toolbar="showToolbar = !showToolbar"
+      @toggle-outline="showOutline = !showOutline"
       @open-settings="showSettings = true"
       @open-command-palette="showCommandPalette = true"
       @check-update="updateService.checkForUpdates()"
@@ -433,7 +446,11 @@ onUnmounted(() => {
     <TabBar />
     <!-- 工具栏（仅 WYSIWYG 模式 + 用户开启时显示） -->
     <Toolbar v-if="showToolbar && mode === 'wysiwyg'" />
-    <EditorContainer ref="editorContainerRef" />
+    <!-- Main content area: editor + optional outline sidebar -->
+    <div class="main-content">
+      <EditorContainer ref="editorContainerRef" />
+      <OutlinePanel v-if="showOutline" @close="showOutline = false" />
+    </div>
     <!-- 状态栏 -->
     <StatusBar />
     <!-- 设置面板 -->
@@ -446,4 +463,9 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.main-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
 </style>
