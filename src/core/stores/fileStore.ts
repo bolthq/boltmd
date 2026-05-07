@@ -12,6 +12,11 @@ import type { RecentFileItem } from '../types/config'
 
 const MAX_RECENT_FILES = 30
 
+// ── Recent files reactive state ─────────────────────────────────────────────
+// A Vue ref that mirrors configService 'recentFiles' so that computed properties
+// (in MenuBar, CommandPalette, etc.) can reactively track mutations.
+const _recentFiles = ref<RecentFileItem[]>(configService.get('recentFiles'))
+
 // ── 状态 ────────────────────────────────────────────────────────────────────
 
 const _path = ref<string | null>(null)
@@ -45,10 +50,11 @@ function applyFileInfo(info: { path: string | null; name: string; content: strin
 
 /** Record a file path in the recent files list (most recent first, deduped). */
 function addRecentFile(path: string): void {
-  const list = configService.get('recentFiles').filter((item) => item.path !== path)
+  const list = _recentFiles.value.filter((item) => item.path !== path)
   const entry: RecentFileItem = { path, openedAt: Date.now() }
   list.unshift(entry)
   if (list.length > MAX_RECENT_FILES) list.length = MAX_RECENT_FILES
+  _recentFiles.value = list
   configService.set('recentFiles', list)
 }
 
@@ -56,23 +62,25 @@ function addRecentFile(path: string): void {
 
 /** Get the recent files list (most recent first). */
 export function getRecentFiles(): RecentFileItem[] {
-  return configService.get('recentFiles')
+  return _recentFiles.value
 }
 
 /** Remove a single entry from the recent files list. */
 export function removeRecentFile(path: string): void {
-  const list = configService.get('recentFiles').filter((item) => item.path !== path)
+  const list = _recentFiles.value.filter((item) => item.path !== path)
+  _recentFiles.value = list
   configService.set('recentFiles', list)
 }
 
 /** Clear all recent files history. */
 export function clearRecentFiles(): void {
+  _recentFiles.value = []
   configService.set('recentFiles', [])
 }
 
 /** Check which recent file paths still exist on disk. Returns a Map<path, exists>. */
 export async function checkRecentFilesExist(): Promise<Map<string, boolean>> {
-  const list = configService.get('recentFiles')
+  const list = _recentFiles.value
   if (list.length === 0) return new Map()
   const paths = list.map((item) => item.path)
   try {

@@ -34,6 +34,7 @@ const props = defineProps<{
 // 当前展开的菜单（null 表示全部收起）
 const openMenu = ref<string | null>(null)
 const currentLocale = ref<SupportedLocale>(getLocale())
+let suppressClickOutside = false
 
 function toggleMenu(menu: string) {
   openMenu.value = openMenu.value === menu ? null : menu
@@ -80,7 +81,13 @@ function handleClearRecent() {
 
 function handleRemoveRecent(path: string, e: MouseEvent) {
   e.stopPropagation()
+  e.preventDefault()
   removeRecentFile(path)
+  // Keep the menu open — the reactive list will re-render without the item.
+  // Temporarily suppress the document click-outside handler that might fire
+  // because the DOM node is removed from under the cursor.
+  suppressClickOutside = true
+  setTimeout(() => { suppressClickOutside = false }, 0)
 }
 
 function doAction(action: () => void) {
@@ -102,6 +109,7 @@ function execEdit(cmd: string) {
 
 // 点击外部关闭菜单
 function handleClickOutside(e: MouseEvent) {
+  if (suppressClickOutside) return
   const target = e.target as HTMLElement
   if (!target.closest('.menubar')) {
     closeMenus()
