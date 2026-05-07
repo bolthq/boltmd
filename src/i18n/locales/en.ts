@@ -164,6 +164,7 @@ export default {
     themeSystem: 'Theme: Follow System',
     placeholder: 'Type a command...',
     recentPlaceholder: 'Search recent files...',
+    headingsPlaceholder: 'Go to heading...',
     noMatch: 'No matching commands',
   },
 

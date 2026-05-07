@@ -17,6 +17,7 @@ const SettingsPanel = defineAsyncComponent(() => import('./components/settings/S
 const CommandPalette = defineAsyncComponent(() => import('./components/common/CommandPalette.vue'))
 const AboutDialog = defineAsyncComponent(() => import('./components/common/AboutDialog.vue'))
 import { useEditorManager } from './core/editor/EditorManager'
+import { parseHeadings } from './core/services/OutlineService'
 import { useAutoSave } from './core/editor/useAutoSave'
 import { tabs, activeTab, activeTabId, initTabs, createTab, closeTab, switchTab, openBundledDocTab, saveSession, restoreSession, reloadTab } from './core/stores/tabStore'
 import { saveFile, saveFileAs, openFile, openFilePath, getRecentFiles } from './core/stores/fileStore'
@@ -28,7 +29,7 @@ import { loadBundledDoc, type BundledDocName } from './core/services/BundledDocs
 import type { WindowState } from './core/types/config'
 import type { Command } from './components/common/CommandPalette.vue'
 
-const { mode, cycleMode, switchMode } = useEditorManager()
+const { mode, content, cycleMode, switchMode, getActiveEditor } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 const { t } = useI18n()
 
@@ -37,7 +38,7 @@ const showSettings = ref(false)
 const showCommandPalette = ref(false)
 const showAbout = ref(false)
 const showOutline = ref(configService.get('showOutline') ?? false)
-const paletteMode = ref<'commands' | 'recent'>('commands')
+const paletteMode = ref<'commands' | 'recent' | 'headings'>('commands')
 
 // Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
 const editorContainerRef = ref<InstanceType<typeof EditorContainer> | null>(null)
@@ -91,14 +92,33 @@ const recentFileCommands = computed<Command[]>(() => {
   })
 })
 
-// Active palette commands depend on mode
-const paletteCommands = computed(() =>
-  paletteMode.value === 'recent' ? recentFileCommands.value : commands.value
-)
+// Headings as command palette entries for quick jump (Ctrl+Shift+O)
+const headingCommands = computed<Command[]>(() => {
+  const headings = parseHeadings(content.value)
+  return headings.map((item, index) => ({
+    id: `heading:${index}`,
+    label: `${'  '.repeat(item.level - 1)}${item.text}`,
+    action: () => {
+      const editor = getActiveEditor()
+      if (!editor) return
+      editor.setCursorPosition({ line: item.line + 1, column: 0, offset: 0 })
+      editor.focus()
+    },
+  }))
+})
 
-const palettePlaceholder = computed(() =>
-  paletteMode.value === 'recent' ? t('commands.recentPlaceholder') : undefined
-)
+// Active palette commands depend on mode
+const paletteCommands = computed(() => {
+  if (paletteMode.value === 'recent') return recentFileCommands.value
+  if (paletteMode.value === 'headings') return headingCommands.value
+  return commands.value
+})
+
+const palettePlaceholder = computed(() => {
+  if (paletteMode.value === 'recent') return t('commands.recentPlaceholder')
+  if (paletteMode.value === 'headings') return t('commands.headingsPlaceholder')
+  return undefined
+})
 
 let unlistenDragDrop: (() => void) | null = null
 let unlistenSingleInstance: (() => void) | null = null
@@ -193,6 +213,14 @@ function handleKeydown(e: KeyboardEvent) {
   if (ctrl && !e.shiftKey && e.key === 'r') {
     e.preventDefault()
     paletteMode.value = 'recent'
+    showCommandPalette.value = !showCommandPalette.value
+    return
+  }
+
+  // Ctrl+Shift+O 快速跳转到标题
+  if (ctrl && e.shiftKey && e.key === 'O') {
+    e.preventDefault()
+    paletteMode.value = 'headings'
     showCommandPalette.value = !showCommandPalette.value
     return
   }

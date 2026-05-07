@@ -164,6 +164,7 @@ export default {
     themeSystem: '主题：跟随系统',
     placeholder: '输入命令...',
     recentPlaceholder: '搜索最近文件...',
+    headingsPlaceholder: '跳转到标题...',
     noMatch: '没有匹配的命令',
   },
 
