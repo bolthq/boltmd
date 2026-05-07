@@ -4,11 +4,12 @@ import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { fileEncoding } from '../../core/stores/fileStore'
 import { themeService } from '../../core/services/ThemeService'
+import { parseHeadings } from '../../core/services/OutlineService'
 import type { ThemeName } from '../../core/types/config'
 import type { CursorPosition, WordCount } from '../../core/editor/types'
 
 const { t } = useI18n()
-const { mode, switchMode, getActiveEditor } = useEditorManager()
+const { mode, content, cursorLine, switchMode, getActiveEditor } = useEditorManager()
 
 // Mode and theme labels (reactive for language switching).
 const modeLabels = computed<Record<string, string>>(() => ({
@@ -69,6 +70,45 @@ function handleThemeClick() {
   currentTheme.value = next
 }
 
+// Breadcrumb: compute the heading ancestry for the current cursor position.
+const breadcrumb = computed(() => {
+  const headings = parseHeadings(content.value)
+  const line = cursorLine.value // 1-based
+  if (headings.length === 0) return []
+
+  // Find the active heading index (last heading with line+1 <= cursorLine).
+  let activeIdx = -1
+  for (let i = 0; i < headings.length; i++) {
+    if (headings[i].line + 1 <= line) {
+      activeIdx = i
+    } else {
+      break
+    }
+  }
+  if (activeIdx < 0) return []
+
+  // Walk backwards to build the ancestry path.
+  const path: { text: string; line: number }[] = []
+  let currentLevel = headings[activeIdx].level
+  path.unshift({ text: headings[activeIdx].text, line: headings[activeIdx].line })
+
+  for (let i = activeIdx - 1; i >= 0; i--) {
+    if (headings[i].level < currentLevel) {
+      path.unshift({ text: headings[i].text, line: headings[i].line })
+      currentLevel = headings[i].level
+      if (currentLevel === 1) break
+    }
+  }
+  return path
+})
+
+function jumpToBreadcrumb(line: number) {
+  const editor = getActiveEditor()
+  if (!editor) return
+  editor.setCursorPosition({ line: line + 1, column: 0, offset: 0 })
+  editor.focus()
+}
+
 onMounted(() => {
   scheduleRefresh()
 })
@@ -86,6 +126,15 @@ onUnmounted(() => {
       <span class="statusbar-item">{{ wordCount.lines }} {{ t('statusbar.lines') }}</span>
       <span class="statusbar-sep">|</span>
       <span class="statusbar-item">{{ wordCount.words }} {{ t('statusbar.words') }}</span>
+      <template v-if="breadcrumb.length > 0">
+        <span class="statusbar-sep">|</span>
+        <span class="statusbar-breadcrumb">
+          <template v-for="(crumb, idx) in breadcrumb" :key="idx">
+            <span v-if="idx > 0" class="breadcrumb-sep">&rsaquo;</span>
+            <span class="breadcrumb-item" @click="jumpToBreadcrumb(crumb.line)">{{ crumb.text }}</span>
+          </template>
+        </span>
+      </template>
     </div>
     <div class="statusbar-right">
       <span class="statusbar-item">{{ t('statusbar.ln') }} {{ cursor.line + 1 }}, {{ t('statusbar.col') }} {{ cursor.column + 1 }}</span>
@@ -140,6 +189,35 @@ onUnmounted(() => {
 }
 
 .statusbar-clickable:hover {
+  background: var(--bg-hover);
+  color: var(--accent-primary);
+}
+
+.statusbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  max-width: 300px;
+}
+
+.breadcrumb-sep {
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-size: 10px;
+}
+
+.breadcrumb-item {
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.breadcrumb-item:hover {
   background: var(--bg-hover);
   color: var(--accent-primary);
 }
