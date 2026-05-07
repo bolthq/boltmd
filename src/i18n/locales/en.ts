@@ -34,6 +34,7 @@ export default {
     replace: 'Replace...',
     // View menu
     toggleToolbar: 'Toolbar',
+    toggleOutline: 'Outline',
     modeWysiwyg: 'WYSIWYG Mode',
     modeSource: 'Source Mode',
     modeSplit: 'Split Mode',
@@ -156,6 +157,7 @@ export default {
     modeSource: 'Switch to Source Mode',
     modeSplit: 'Switch to Split Mode',
     toggleToolbar: 'Toggle Toolbar',
+    toggleOutline: 'Toggle Outline',
     openSettings: 'Open Settings',
     themeLight: 'Theme: Light',
     themeDark: 'Theme: Dark',
@@ -168,6 +170,12 @@ export default {
   editor: {
     placeholder: 'Start writing...',
     loading: 'Loading file...',
+  },
+
+  outline: {
+    title: 'Outline',
+    close: 'Close outline',
+    empty: 'No headings found',
   },
 
   findReplace: {

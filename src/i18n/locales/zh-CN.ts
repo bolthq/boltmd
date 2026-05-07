@@ -34,6 +34,7 @@ export default {
     replace: '替换...',
     // 视图菜单
     toggleToolbar: '工具栏',
+    toggleOutline: '大纲',
     modeWysiwyg: '所见即所得模式',
     modeSource: '源码模式',
     modeSplit: '分屏模式',
@@ -156,6 +157,7 @@ export default {
     modeSource: '切换到源码模式',
     modeSplit: '切换到分屏模式',
     toggleToolbar: '切换工具栏',
+    toggleOutline: '切换大纲面板',
     openSettings: '打开设置',
     themeLight: '主题：浅色',
     themeDark: '主题：深色',
@@ -168,6 +170,12 @@ export default {
   editor: {
     placeholder: '开始写作...',
     loading: '正在加载文件...',
+  },
+
+  outline: {
+    title: '大纲',
+    close: '关闭大纲',
+    empty: '未找到标题',
   },
 
   findReplace: {

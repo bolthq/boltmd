@@ -1,0 +1,122 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useEditorManager } from '../../core/editor/EditorManager'
+import { parseHeadings, type HeadingItem } from '../../core/services/OutlineService'
+
+const { content } = useEditorManager()
+const { t } = useI18n()
+
+const headings = computed<HeadingItem[]>(() => parseHeadings(content.value))
+
+const emit = defineEmits<{
+  (e: 'close'): void
+}>()
+</script>
+
+<template>
+  <aside class="outline-panel">
+    <div class="outline-header">
+      <span class="outline-title">{{ t('outline.title') }}</span>
+      <button class="outline-close" @click="emit('close')" :title="t('outline.close')">&times;</button>
+    </div>
+    <div class="outline-body">
+      <template v-if="headings.length > 0">
+        <div
+          v-for="(item, index) in headings"
+          :key="index"
+          class="outline-item"
+          :class="`outline-level-${item.level}`"
+          :title="item.text"
+        >
+          <span class="outline-item-text">{{ item.text }}</span>
+        </div>
+      </template>
+      <div v-else class="outline-empty">
+        {{ t('outline.empty') }}
+      </div>
+    </div>
+  </aside>
+</template>
+
+<style scoped>
+.outline-panel {
+  width: 220px;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-primary);
+  user-select: none;
+}
+
+.outline-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.outline-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.outline-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.outline-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.outline-item {
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 3px;
+  margin: 0 4px;
+}
+
+.outline-item:hover {
+  background: var(--bg-hover);
+}
+
+/* Indent by heading level */
+.outline-level-1 { padding-left: 10px; font-weight: 600; }
+.outline-level-2 { padding-left: 22px; }
+.outline-level-3 { padding-left: 34px; }
+.outline-level-4 { padding-left: 46px; }
+.outline-level-5 { padding-left: 58px; }
+.outline-level-6 { padding-left: 70px; }
+
+.outline-empty {
+  padding: 16px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+</style>
