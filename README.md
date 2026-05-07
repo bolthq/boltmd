@@ -72,7 +72,24 @@ Headings, bold, italic, strikethrough, inline code, ordered/unordered lists, tas
 
 ### Command Palette
 
-`Ctrl+Shift+P` — fuzzy search all available commands and actions.
+- `Ctrl+Shift+P` — fuzzy search all available commands and actions
+- `Ctrl+R` — search and open recent files
+
+### Recent Files
+
+- File → Recent Files submenu (up to 30 entries, most recent first)
+- Missing files grayed out, hover × to remove single entry
+- Clear all history option
+
+### External File Change Detection
+
+Real-time file watcher detects edits made outside BoltMD. Automatically reloads clean files; prompts before overwriting unsaved changes.
+
+### Multi-File Batch Open
+
+- Drag multiple files from Explorer into the window
+- `Ctrl+O` file dialog supports multi-select
+- CLI: `boltmd a.md b.md c.md` opens all files as tabs
 
 ### Auto-Save
 
@@ -86,12 +103,11 @@ Configurable debounce delay, toggle on/off in settings. Never lose work.
 ### Other
 
 - Encoding auto-detection (UTF-8, GBK, Latin-1)
-- Single instance mode — reuses existing window
+- Single instance mode — second launch forwards files to existing window
 - File association for `.md` / `.markdown`
-- CLI support: `boltmd file.md`
-- Drag & drop files onto the window
 - Window state memory (size, position, maximized)
-- Welcome page on first launch
+- Welcome page and Markdown Guide on first launch
+- Startup performance optimized (config caching, parallel restore, lazy-loaded views)
 
 ### Swappable Editor Engine
 
@@ -148,6 +164,7 @@ pnpm tauri build
 │  EditorManager · TabManager             │
 │  ConfigService · ThemeService           │
 │  FileService · ImageService · AutoSave  │
+│  FileWatcherService · UpdateService     │
 ├──────────┬──────────────────────────────┤
 │ IEditor  │  WysiwygEditor (Tiptap)      │
 │ interface│  SourceEditor (CodeMirror)   │
@@ -156,6 +173,7 @@ pnpm tauri build
 ├─────────────────────────────────────────┤
 │  Rust Backend                           │
 │  File I/O · Encoding · Config · Images  │
+│  File Watcher · Single Instance · CLI   │
 └─────────────────────────────────────────┘
 ```
 
@@ -178,8 +196,10 @@ See [docs/01-architecture.md](docs/01-architecture.md) for details.
 
 ## Roadmap
 
+- [x] Recent files history & search
+- [x] Multi-file batch open (drag, dialog, CLI)
+- [x] External file change detection
 - [ ] Document outline & heading navigation
-- [ ] Recent files
 - [ ] Smart paste (URL → link, HTML → Markdown)
 - [ ] Zen mode (distraction-free writing)
 - [ ] Markdown formatter
@@ -198,13 +218,14 @@ See [TASKS.md](TASKS.md) for the full breakdown.
 | Shortcut | Action |
 |---|---|
 | `Ctrl+N` | New file |
-| `Ctrl+O` | Open file |
+| `Ctrl+O` | Open file (multi-select) |
 | `Ctrl+S` | Save |
 | `Ctrl+W` | Close tab |
 | `Ctrl+/` | Switch editing mode |
 | `Ctrl+Tab` | Next tab |
 | `Ctrl+F` | Find |
 | `Ctrl+H` | Replace |
+| `Ctrl+R` | Recent files search |
 | `Ctrl+Shift+P` | Command palette |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
