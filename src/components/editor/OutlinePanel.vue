@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { parseHeadings, type HeadingItem } from '../../core/services/OutlineService'
 
-const { content } = useEditorManager()
+const { content, getActiveEditor } = useEditorManager()
 const { t } = useI18n()
 
 const headings = computed<HeadingItem[]>(() => parseHeadings(content.value))
@@ -12,6 +12,15 @@ const headings = computed<HeadingItem[]>(() => parseHeadings(content.value))
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
+
+/** Jump the editor cursor to the given heading's line. */
+function jumpToHeading(item: HeadingItem): void {
+  const editor = getActiveEditor()
+  if (!editor) return
+  // line is 0-based from OutlineService; setCursorPosition expects 1-based line.
+  editor.setCursorPosition({ line: item.line + 1, column: 0, offset: 0 })
+  editor.focus()
+}
 </script>
 
 <template>
@@ -28,6 +37,7 @@ const emit = defineEmits<{
           class="outline-item"
           :class="`outline-level-${item.level}`"
           :title="item.text"
+          @click="jumpToHeading(item)"
         >
           <span class="outline-item-text">{{ item.text }}</span>
         </div>
