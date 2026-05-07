@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { parseHeadings, type HeadingItem } from '../../core/services/OutlineService'
+import { configService } from '../../core/services/ConfigService'
 
 const { content, cursorLine, getActiveEditor } = useEditorManager()
 const { t } = useI18n()
@@ -90,10 +91,43 @@ function jumpToHeading(item: HeadingItem): void {
   editor.setCursorPosition({ line: item.line + 1, column: 0, offset: 0 })
   editor.focus()
 }
+
+// --- Resizable width ---
+const MIN_WIDTH = 140
+const MAX_WIDTH = 400
+const panelWidth = ref(configService.get('outlineWidth') ?? 220)
+
+function onResizeStart(e: MouseEvent) {
+  e.preventDefault()
+  const startX = e.clientX
+  const startWidth = panelWidth.value
+
+  function onMove(ev: MouseEvent) {
+    // Panel is on the right side; dragging left edge means: width increases when mouse moves left.
+    const delta = startX - ev.clientX
+    const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta))
+    panelWidth.value = newWidth
+  }
+
+  function onUp() {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+    // Persist width
+    configService.set('outlineWidth', panelWidth.value)
+  }
+
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+})
 </script>
 
 <template>
-  <aside class="outline-panel">
+  <aside class="outline-panel" :style="{ width: panelWidth + 'px' }">
+    <div class="outline-resize-handle" @mousedown="onResizeStart"></div>
     <div class="outline-header">
       <span class="outline-title">{{ t('outline.title') }}</span>
       <button class="outline-close" @click="emit('close')" :title="t('outline.close')">&times;</button>
@@ -127,13 +161,30 @@ function jumpToHeading(item: HeadingItem): void {
 
 <style scoped>
 .outline-panel {
-  width: 220px;
+  position: relative;
   min-width: 140px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   overflow: hidden;
+}
+
+.outline-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.outline-resize-handle:hover,
+.outline-resize-handle:active {
+  background: var(--accent-primary);
+  opacity: 0.4;
 }
 
 .outline-header {

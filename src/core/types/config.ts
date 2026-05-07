@@ -45,6 +45,7 @@ export interface AppConfig {
   showLineNumbers: boolean
   showToolbar: boolean
   showOutline: boolean
+  outlineWidth: number
   imageStorePath: 'relative' | 'absolute'
   language: string
   tabSession: TabSession | null
@@ -70,6 +71,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   showLineNumbers: true,
   showToolbar: false,
   showOutline: false,
+  outlineWidth: 220,
   imageStorePath: 'relative',
   language: 'en',
   tabSession: null,
