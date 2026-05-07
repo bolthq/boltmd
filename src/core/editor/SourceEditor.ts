@@ -9,6 +9,7 @@ import { tags } from '@lezer/highlight'
 import { eventBus } from '../events/EventBus'
 import { AppEvent } from '../events/events'
 import { themeService } from '../services/ThemeService'
+import { reportCursorLine } from './EditorManager'
 import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
 
 /** 暗色语法高亮样式 */
@@ -45,6 +46,11 @@ export class SourceEditor implements IEditor {
       if (update.docChanged) {
         const content = this.view.state.doc.toString()
         this.contentChangeCallbacks.forEach(cb => cb(content))
+      }
+      if (update.selectionSet || update.docChanged) {
+        const pos = update.state.selection.main.head
+        const line = update.state.doc.lineAt(pos).number // 1-based
+        reportCursorLine(line)
       }
     })
 

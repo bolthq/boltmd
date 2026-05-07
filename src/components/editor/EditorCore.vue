@@ -2,7 +2,7 @@
 import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor, onLowlightReady, isLowlightLoaded } from '../../core/editor/WysiwygEditor'
-import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor } from '../../core/editor/EditorManager'
+import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine } from '../../core/editor/EditorManager'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { activeTab } from '../../core/stores/tabStore'
 import type { IEditor } from '../../core/editor/types'
@@ -53,6 +53,11 @@ const tiptapEditor = useEditor({
     setTimeout(() => {
       try { (editor.storage as any).markdown?.getMarkdown() } catch { /* ignore */ }
     }, 0)
+  },
+  onSelectionUpdate() {
+    if (editorWrapper) {
+      reportCursorLine(editorWrapper.getCursorPosition().line)
+    }
   },
   editorProps: {
     attributes: {

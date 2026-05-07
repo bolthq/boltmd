@@ -4,10 +4,28 @@ import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { parseHeadings, type HeadingItem } from '../../core/services/OutlineService'
 
-const { content, getActiveEditor } = useEditorManager()
+const { content, cursorLine, getActiveEditor } = useEditorManager()
 const { t } = useI18n()
 
 const headings = computed<HeadingItem[]>(() => parseHeadings(content.value))
+
+/** Index of the heading that contains the current cursor position. */
+const activeIndex = computed(() => {
+  const line = cursorLine.value // 1-based
+  const list = headings.value
+  if (list.length === 0) return -1
+  // Find the last heading whose line is <= current cursor line.
+  // headings[].line is 0-based, cursorLine is 1-based.
+  let idx = -1
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].line + 1 <= line) {
+      idx = i
+    } else {
+      break
+    }
+  }
+  return idx
+})
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -35,7 +53,7 @@ function jumpToHeading(item: HeadingItem): void {
           v-for="(item, index) in headings"
           :key="index"
           class="outline-item"
-          :class="`outline-level-${item.level}`"
+          :class="[`outline-level-${item.level}`, { 'outline-active': index === activeIndex }]"
           :title="item.text"
           @click="jumpToHeading(item)"
         >
@@ -113,6 +131,12 @@ function jumpToHeading(item: HeadingItem): void {
 
 .outline-item:hover {
   background: var(--bg-hover);
+}
+
+.outline-active {
+  background: var(--bg-hover);
+  color: var(--accent-primary);
+  font-weight: 500;
 }
 
 /* Indent by heading level */
