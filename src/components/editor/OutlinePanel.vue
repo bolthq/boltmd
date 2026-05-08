@@ -5,7 +5,7 @@ import { useEditorManager } from '../../core/editor/EditorManager'
 import { parseHeadings, type HeadingItem } from '../../core/services/OutlineService'
 import { configService } from '../../core/services/ConfigService'
 
-const { content, cursorLine, getActiveEditor } = useEditorManager()
+const { content, activeHeadingIndex, getActiveEditor } = useEditorManager()
 const { t } = useI18n()
 
 // Debounced headings: re-parse only after 300ms of inactivity.
@@ -63,20 +63,11 @@ const visibleIndices = computed(() => {
 
 /** Index of the heading that contains the current cursor position. */
 const activeIndex = computed(() => {
-  const line = cursorLine.value // 1-based
   const list = headings.value
   if (list.length === 0) return -1
-  // Find the last heading whose line is <= current cursor line.
-  // headings[].line is 0-based, cursorLine is 1-based.
-  let idx = -1
-  for (let i = 0; i < list.length; i++) {
-    if (list[i].line + 1 <= line) {
-      idx = i
-    } else {
-      break
-    }
-  }
-  return idx
+  // activeHeadingIndex is directly reported by the editor (0-based heading index).
+  const idx = activeHeadingIndex.value
+  return idx >= 0 && idx < list.length ? idx : -1
 })
 
 const emit = defineEmits<{
@@ -87,8 +78,13 @@ const emit = defineEmits<{
 function jumpToHeading(item: HeadingItem): void {
   const editor = getActiveEditor()
   if (!editor) return
-  // line is 0-based from OutlineService; setCursorPosition expects 1-based line.
-  editor.setCursorPosition({ line: item.line + 1, column: 0, offset: 0 })
+  // Compute the character offset of the heading line from the source text.
+  const lines = content.value.split('\n')
+  let offset = 0
+  for (let i = 0; i < item.line && i < lines.length; i++) {
+    offset += lines[i].length + 1 // +1 for '\n'
+  }
+  editor.setCursorPosition({ line: item.line, column: 0, offset })
   editor.focus()
 }
 
@@ -103,8 +99,8 @@ function onResizeStart(e: MouseEvent) {
   const startWidth = panelWidth.value
 
   function onMove(ev: MouseEvent) {
-    // Panel is on the right side; dragging left edge means: width increases when mouse moves left.
-    const delta = startX - ev.clientX
+    // Panel is on the left side; dragging right edge means: width increases when mouse moves right.
+    const delta = ev.clientX - startX
     const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta))
     panelWidth.value = newWidth
   }
@@ -166,14 +162,14 @@ onUnmounted(() => {
   max-width: 400px;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border-primary);
+  border-right: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   overflow: hidden;
 }
 
 .outline-resize-handle {
   position: absolute;
-  left: 0;
+  right: 0;
   top: 0;
   bottom: 0;
   width: 4px;

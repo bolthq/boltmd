@@ -101,7 +101,13 @@ const headingCommands = computed<Command[]>(() => {
     action: () => {
       const editor = getActiveEditor()
       if (!editor) return
-      editor.setCursorPosition({ line: item.line + 1, column: 0, offset: 0 })
+      // Compute character offset from content lines.
+      const lines = content.value.split('\n')
+      let offset = 0
+      for (let i = 0; i < item.line && i < lines.length; i++) {
+        offset += lines[i].length + 1
+      }
+      editor.setCursorPosition({ line: item.line, column: 0, offset })
       editor.focus()
     },
   }))
@@ -476,8 +482,8 @@ onUnmounted(() => {
     <Toolbar v-if="showToolbar && mode === 'wysiwyg'" />
     <!-- Main content area: editor + optional outline sidebar -->
     <div class="main-content">
-      <EditorContainer ref="editorContainerRef" />
       <OutlinePanel v-if="showOutline" @close="showOutline = false" />
+      <EditorContainer ref="editorContainerRef" />
     </div>
     <!-- 状态栏 -->
     <StatusBar />

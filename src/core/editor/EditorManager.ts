@@ -36,6 +36,10 @@ const content = ref('')
 // Current cursor line (1-based). Updated by editors on selection change.
 const cursorLine = ref(1)
 
+// Index of the heading that the cursor is currently within (-1 = none).
+// Updated by editors on selection change.
+const activeHeadingIndex = ref(-1)
+
 /**
  * 注册当前活跃的编辑器实例
  * 由 EditorContainer 中的子组件 mounted 时调用
@@ -182,6 +186,14 @@ export function reportCursorLine(line: number): void {
 }
 
 /**
+ * Report the index of the heading the cursor is currently within.
+ * Called by editor components when selection changes.
+ */
+export function reportActiveHeadingIndex(index: number): void {
+  activeHeadingIndex.value = index
+}
+
+/**
  * Sync content ref from editor without pushing back to the editor.
  * Called by EditorContainer on every content change event so that
  * observers (e.g. OutlinePanel) can react to edits in real-time.
@@ -263,6 +275,7 @@ export function useEditorManager() {
     mode: readonly(mode) as DeepReadonly<Ref<EditorMode>>,
     content: readonly(content) as DeepReadonly<Ref<string>>,
     cursorLine: readonly(cursorLine) as DeepReadonly<Ref<number>>,
+    activeHeadingIndex: readonly(activeHeadingIndex) as DeepReadonly<Ref<number>>,
     switchMode,
     cycleMode,
     saveSnapshot,
@@ -271,6 +284,7 @@ export function useEditorManager() {
     getContent,
     getActiveEditor,
     reportCursorLine,
+    reportActiveHeadingIndex,
     syncContent,
     registerEditor,
     unregisterEditor,

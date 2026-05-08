@@ -134,9 +134,85 @@ export class WysiwygEditor implements IEditor {
   }
 
   setCursorPosition(pos: CursorPosition): void {
-    const docSize = this.editor.state.doc.content.size
-    const offset = Math.min(pos.offset, docSize)
+    const doc = this.editor.state.doc
+    const docSize = doc.content.size
+    let offset = pos.offset
+
+    if (offset > 0) {
+      // Find the heading node at position corresponding to source line.
+      // Strategy: count headings in the document sequentially and find the one
+      // matching the source line hint. We use the heading text from source to
+      // locate the correct node.
+      // Alternatively, iterate all top-level nodes and match by heading order.
+      let headingCount = 0
+      let targetPos = -1
+      // Count how many headings precede this line in the source to get heading index.
+      const sourceLines = (this.editor.storage as any).markdown?.getMarkdown()?.split('\n') ?? []
+      let headingIndex = 0
+      for (let i = 0; i < pos.line && i < sourceLines.length; i++) {
+        if (/^#{1,6}\s+/.test(sourceLines[i])) {
+          headingIndex++
+        }
+      }
+      // Now find the Nth heading node in the ProseMirror document.
+      doc.descendants((node, nodePos) => {
+        if (targetPos >= 0) return false
+        if (node.type.name === 'heading') {
+          if (headingCount === headingIndex) {
+            targetPos = nodePos + 1 // +1 to enter the node content
+            return false
+          }
+          headingCount++
+        }
+        return true
+      })
+      if (targetPos >= 0) {
+        offset = Math.min(targetPos, docSize)
+      } else {
+        // Fallback: use block index approach.
+        const blockIndex = Math.min(pos.line, doc.childCount - 1)
+        let blockOffset = 0
+        for (let i = 0; i < blockIndex; i++) {
+          blockOffset += doc.child(i).nodeSize
+        }
+        offset = Math.min(blockOffset + 1, docSize)
+      }
+    } else if (pos.line > 0) {
+      // No offset provided, resolve from block index as fallback.
+      const blockIndex = Math.min(pos.line, doc.childCount - 1)
+      let blockOffset = 0
+      for (let i = 0; i < blockIndex; i++) {
+        blockOffset += doc.child(i).nodeSize
+      }
+      offset = Math.min(blockOffset + 1, docSize)
+    }
+
+    offset = Math.min(offset, docSize)
     this.editor.commands.setTextSelection(offset)
+    // Scroll the target to the vertical center instantly.
+    // Use scrollIntoView first to ensure the DOM node is rendered,
+    // then immediately adjust to center position.
+    this.editor.commands.scrollIntoView()
+    // Use setTimeout(0) to let ProseMirror finish its scroll, then override to center.
+    setTimeout(() => {
+      try {
+        const dom = this.editor.view.domAtPos(offset)
+        const node = dom.node instanceof HTMLElement ? dom.node : dom.node.parentElement
+        if (node) {
+          const container = this.editor.view.dom.closest('.editor-mount') as HTMLElement
+          if (container) {
+            const nodeRect = node.getBoundingClientRect()
+            const containerRect = container.getBoundingClientRect()
+            const targetTop = nodeRect.top - containerRect.top + container.scrollTop
+            container.scrollTop = targetTop - container.clientHeight / 2
+          } else {
+            node.scrollIntoView({ block: 'center' })
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }, 0)
   }
 
   getScrollPosition(): number {

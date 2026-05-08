@@ -9,7 +9,7 @@ import { tags } from '@lezer/highlight'
 import { eventBus } from '../events/EventBus'
 import { AppEvent } from '../events/events'
 import { themeService } from '../services/ThemeService'
-import { reportCursorLine } from './EditorManager'
+import { reportCursorLine, reportActiveHeadingIndex } from './EditorManager'
 import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
 
 /** 暗色语法高亮样式 */
@@ -51,6 +51,16 @@ export class SourceEditor implements IEditor {
         const pos = update.state.selection.main.head
         const line = update.state.doc.lineAt(pos).number // 1-based
         reportCursorLine(line)
+        // Compute which heading the cursor is within (by scanning lines above).
+        const doc = update.state.doc
+        let headingIdx = -1
+        for (let ln = 1; ln <= line; ln++) {
+          const lineText = doc.line(ln).text
+          if (/^#{1,6}\s+/.test(lineText)) {
+            headingIdx++
+          }
+        }
+        reportActiveHeadingIndex(headingIdx)
       }
     })
 
@@ -190,11 +200,21 @@ export class SourceEditor implements IEditor {
   }
 
   setCursorPosition(pos: CursorPosition): void {
+    let offset = pos.offset
+    // If no offset given but line > 0, compute offset from line number.
+    // pos.line is 0-based; CodeMirror lines are 1-based.
+    if (offset <= 0 && pos.line > 0) {
+      const lineInfo = this.view.state.doc.line(pos.line + 1)
+      offset = lineInfo.from + pos.column
+    }
     const docSize = this.view.state.doc.length
-    const offset = Math.min(pos.offset, docSize)
+    offset = Math.min(offset, docSize)
+    // Scroll such that the target line ends up at the vertical center.
+    // We use a large y-margin (half the viewport) to push it to center.
+    const halfViewport = Math.floor(this.view.scrollDOM.clientHeight / 2)
     this.view.dispatch({
       selection: { anchor: offset },
-      scrollIntoView: true,
+      effects: EditorView.scrollIntoView(offset, { y: 'center', yMargin: halfViewport }),
     })
   }
 

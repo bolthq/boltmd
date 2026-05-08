@@ -9,7 +9,7 @@ import type { ThemeName } from '../../core/types/config'
 import type { CursorPosition, WordCount } from '../../core/editor/types'
 
 const { t } = useI18n()
-const { mode, content, cursorLine, switchMode, getActiveEditor } = useEditorManager()
+const { mode, content, activeHeadingIndex, switchMode, getActiveEditor } = useEditorManager()
 
 // Mode and theme labels (reactive for language switching).
 const modeLabels = computed<Record<string, string>>(() => ({
@@ -73,19 +73,10 @@ function handleThemeClick() {
 // Breadcrumb: compute the heading ancestry for the current cursor position.
 const breadcrumb = computed(() => {
   const headings = parseHeadings(content.value)
-  const line = cursorLine.value // 1-based
   if (headings.length === 0) return []
 
-  // Find the active heading index (last heading with line+1 <= cursorLine).
-  let activeIdx = -1
-  for (let i = 0; i < headings.length; i++) {
-    if (headings[i].line + 1 <= line) {
-      activeIdx = i
-    } else {
-      break
-    }
-  }
-  if (activeIdx < 0) return []
+  const activeIdx = activeHeadingIndex.value
+  if (activeIdx < 0 || activeIdx >= headings.length) return []
 
   // Walk backwards to build the ancestry path.
   const path: { text: string; line: number }[] = []
@@ -105,7 +96,13 @@ const breadcrumb = computed(() => {
 function jumpToBreadcrumb(line: number) {
   const editor = getActiveEditor()
   if (!editor) return
-  editor.setCursorPosition({ line: line + 1, column: 0, offset: 0 })
+  // Compute character offset from content lines.
+  const lines = content.value.split('\n')
+  let offset = 0
+  for (let i = 0; i < line && i < lines.length; i++) {
+    offset += lines[i].length + 1
+  }
+  editor.setCursorPosition({ line, column: 0, offset })
   editor.focus()
 }
 

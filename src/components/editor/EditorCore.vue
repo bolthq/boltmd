@@ -2,7 +2,7 @@
 import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor, onLowlightReady, isLowlightLoaded } from '../../core/editor/WysiwygEditor'
-import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine } from '../../core/editor/EditorManager'
+import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine, reportActiveHeadingIndex } from '../../core/editor/EditorManager'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { activeTab } from '../../core/stores/tabStore'
 import type { IEditor } from '../../core/editor/types'
@@ -54,10 +54,22 @@ const tiptapEditor = useEditor({
       try { (editor.storage as any).markdown?.getMarkdown() } catch { /* ignore */ }
     }, 0)
   },
-  onSelectionUpdate() {
+  onSelectionUpdate({ editor }) {
     if (editorWrapper) {
-      reportCursorLine(editorWrapper.getCursorPosition().line)
+      reportCursorLine(editorWrapper.getCursorPosition().line + 1)
     }
+    // Compute which heading the cursor is within by counting heading nodes
+    // that appear before the current selection position.
+    const pos = editor.state.selection.from
+    let headingIdx = -1
+    editor.state.doc.descendants((node, nodePos) => {
+      if (nodePos >= pos) return false
+      if (node.type.name === 'heading') {
+        headingIdx++
+      }
+      return true
+    })
+    reportActiveHeadingIndex(headingIdx)
   },
   editorProps: {
     attributes: {
