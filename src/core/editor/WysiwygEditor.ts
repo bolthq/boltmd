@@ -15,6 +15,7 @@ import type { Editor } from '@tiptap/core'
 import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
 import { t } from '../../i18n'
 import { SearchAndReplace, searchPluginKey } from './extensions/SearchAndReplace'
+import { HeadingHighlight } from './extensions/HeadingHighlight'
 
 // 懒初始化 lowlight，避免模块加载时同步解析所有语言语法
 let _lowlight: any = null
@@ -90,6 +91,7 @@ export function createWysiwygExtensions(): Extensions {
       transformPastedText: true,
     }),
     SearchAndReplace,
+    HeadingHighlight,
   ]
 }
 
@@ -137,13 +139,10 @@ export class WysiwygEditor implements IEditor {
     const doc = this.editor.state.doc
     const docSize = doc.content.size
     let offset = pos.offset
+    let headingNodePos = -1 // Track the heading node's start position for DOM lookup.
 
     if (offset > 0) {
       // Find the heading node at position corresponding to source line.
-      // Strategy: count headings in the document sequentially and find the one
-      // matching the source line hint. We use the heading text from source to
-      // locate the correct node.
-      // Alternatively, iterate all top-level nodes and match by heading order.
       let headingCount = 0
       let targetPos = -1
       // Count how many headings precede this line in the source to get heading index.
@@ -160,6 +159,7 @@ export class WysiwygEditor implements IEditor {
         if (node.type.name === 'heading') {
           if (headingCount === headingIndex) {
             targetPos = nodePos + 1 // +1 to enter the node content
+            headingNodePos = nodePos
             return false
           }
           headingCount++
@@ -194,6 +194,7 @@ export class WysiwygEditor implements IEditor {
     // then immediately adjust to center position.
     this.editor.commands.scrollIntoView()
     // Use setTimeout(0) to let ProseMirror finish its scroll, then override to center.
+    const savedHeadingNodePos = headingNodePos
     setTimeout(() => {
       try {
         const dom = this.editor.view.domAtPos(offset)
@@ -208,6 +209,13 @@ export class WysiwygEditor implements IEditor {
           } else {
             node.scrollIntoView({ block: 'center' })
           }
+        }
+        // Visual highlight flash via Decoration (framework-managed).
+        if (savedHeadingNodePos >= 0) {
+          this.editor.commands.flashHeading(savedHeadingNodePos)
+          setTimeout(() => {
+            this.editor.commands.clearHeadingHighlight()
+          }, 1500)
         }
       } catch {
         // ignore

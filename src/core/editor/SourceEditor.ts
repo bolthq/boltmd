@@ -1,5 +1,5 @@
-import { EditorState, Compartment } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
+import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, Decoration, type DecorationSet } from '@codemirror/view'
 import { defaultKeymap, historyKeymap, history, indentWithTab, undo, redo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
@@ -11,6 +11,30 @@ import { AppEvent } from '../events/events'
 import { themeService } from '../services/ThemeService'
 import { reportCursorLine, reportActiveHeadingIndex } from './EditorManager'
 import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
+
+// --- Heading jump highlight (line decoration that auto-clears after animation) ---
+const addJumpHighlight = StateEffect.define<number>()
+const clearJumpHighlight = StateEffect.define<null>()
+
+const jumpHighlightDeco = Decoration.line({ class: 'cm-heading-jump-highlight' })
+
+const jumpHighlightField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none
+  },
+  update(decos, tr) {
+    for (const e of tr.effects) {
+      if (e.is(addJumpHighlight)) {
+        return Decoration.set([jumpHighlightDeco.range(e.value)])
+      }
+      if (e.is(clearJumpHighlight)) {
+        return Decoration.none
+      }
+    }
+    return decos
+  },
+  provide: (f) => EditorView.decorations.from(f),
+})
 
 /** 暗色语法高亮样式 */
 const darkHighlightStyle = HighlightStyle.define([
@@ -97,6 +121,7 @@ export class SourceEditor implements IEditor {
       ]),
       EditorView.lineWrapping,
       updateListener,
+      jumpHighlightField,
       SourceEditor.theme(),
     ]
 
@@ -212,10 +237,18 @@ export class SourceEditor implements IEditor {
     // Scroll such that the target line ends up at the vertical center.
     // We use a large y-margin (half the viewport) to push it to center.
     const halfViewport = Math.floor(this.view.scrollDOM.clientHeight / 2)
+    const line = this.view.state.doc.lineAt(offset)
     this.view.dispatch({
       selection: { anchor: offset },
-      effects: EditorView.scrollIntoView(offset, { y: 'center', yMargin: halfViewport }),
+      effects: [
+        EditorView.scrollIntoView(offset, { y: 'center', yMargin: halfViewport }),
+        addJumpHighlight.of(line.from),
+      ],
     })
+    // Auto-clear the decoration after the CSS animation completes.
+    setTimeout(() => {
+      this.view.dispatch({ effects: clearJumpHighlight.of(null) })
+    }, 1500)
   }
 
   getScrollPosition(): number {

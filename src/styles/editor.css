@@ -332,3 +332,14 @@
   background-color: color-mix(in srgb, var(--accent-primary) 55%, transparent);
   outline: 1px solid var(--accent-primary);
 }
+
+/* ---- Heading jump highlight flash ---- */
+.heading-jump-highlight {
+  animation: heading-flash 1.5s ease-out forwards;
+  border-radius: 3px;
+}
+
+@keyframes heading-flash {
+  0%, 15% { background-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
+  100% { background-color: transparent; }
+}

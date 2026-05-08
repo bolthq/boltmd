@@ -98,6 +98,12 @@
   padding: 0 40px;
 }
 
+/* ---- Heading jump highlight flash (source mode) ---- */
+.cm-heading-jump-highlight {
+  animation: heading-flash 1.5s ease-out forwards;
+  border-radius: 3px;
+}
+
 /* Split view layout */
 .split-view {
   flex: 1;
