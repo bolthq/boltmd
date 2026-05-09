@@ -122,6 +122,7 @@ pub fn run() {
             commands::watcher::watch_file,
             commands::watcher::unwatch_file,
             commands::watcher::suppress_watcher,
+            commands::web::fetch_page_title,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

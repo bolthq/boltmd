@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor, onLowlightReady, isLowlightLoaded } from '../../core/editor/WysiwygEditor'
 import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine, reportActiveHeadingIndex } from '../../core/editor/EditorManager'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
+import { tryConvertTsvToTable, isSingleUrl, fetchPageTitle, tryWrapAsCodeBlock } from '../../core/services/SmartPasteService'
 import { activeTab } from '../../core/stores/tabStore'
 import type { IEditor } from '../../core/editor/types'
 
@@ -102,6 +103,51 @@ const tiptapEditor = useEditor({
       if (isImageUrl(text)) {
         event.preventDefault()
         tiptapEditor.value?.chain().focus().setImage({ src: text.trim() }).run()
+        return true
+      }
+
+      // Smart paste: single URL → insert as link with fetched title.
+      if (isSingleUrl(text)) {
+        event.preventDefault()
+        const url = text.trim()
+        const ed = tiptapEditor.value
+        if (!ed) return true
+        // Insert the bare URL as text immediately.
+        ed.chain().focus().insertContent(url).run()
+        // Record the position right after insertion for async replacement.
+        const insertEnd = ed.state.selection.from
+        const insertStart = insertEnd - url.length
+        // Async: fetch title and replace with markdown link.
+        fetchPageTitle(url).then((title) => {
+          if (!title || !tiptapEditor.value) return
+          const editor = tiptapEditor.value
+          // Verify the text at the recorded position still matches.
+          const { doc } = editor.state
+          const slice = doc.textBetween(insertStart, insertEnd, '')
+          if (slice === url) {
+            // Replace with markdown link text — tiptap-markdown will parse it.
+            editor.chain()
+              .setTextSelection({ from: insertStart, to: insertEnd })
+              .insertContent(`[${title}](${url})`)
+              .run()
+          }
+        })
+        return true
+      }
+
+      // Smart paste: TSV (Excel/Sheets) → Markdown table
+      const table = tryConvertTsvToTable(text)
+      if (table) {
+        event.preventDefault()
+        tiptapEditor.value?.commands.insertContent(table)
+        return true
+      }
+
+      // Smart paste: code detection → fenced code block
+      const codeBlock = tryWrapAsCodeBlock(text)
+      if (codeBlock) {
+        event.preventDefault()
+        tiptapEditor.value?.commands.insertContent(codeBlock)
         return true
       }
 

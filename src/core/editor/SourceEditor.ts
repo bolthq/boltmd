@@ -57,14 +57,22 @@ const darkHighlightStyle = HighlightStyle.define([
   { tag: tags.invalid, color: '#ffffff', backgroundColor: '#e06c75' },
 ])
 
+/**
+ * Paste handler callback type. Return true to prevent CM6's default paste
+ * handling, false to let CM6 process the paste normally.
+ */
+export type PasteHandler = (event: ClipboardEvent, editor: SourceEditor) => boolean
+
 // 源码编辑器（CodeMirror 6）实现 IEditor 接口
 export class SourceEditor implements IEditor {
   private view: EditorView
   private contentChangeCallbacks: ((markdown: string) => void)[] = []
   private highlightCompartment = new Compartment()
   private themeHandler: ((...args: unknown[]) => void) | null = null
+  private pasteHandler: PasteHandler | null = null
 
-  constructor(container: HTMLElement, initialContent = '') {
+  constructor(container: HTMLElement, initialContent = '', pasteHandler?: PasteHandler) {
+    this.pasteHandler = pasteHandler ?? null
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged) {
@@ -120,6 +128,14 @@ export class SourceEditor implements IEditor {
         indentWithTab,
       ]),
       EditorView.lineWrapping,
+      EditorView.domEventHandlers({
+        paste: (event: ClipboardEvent) => {
+          if (this.pasteHandler) {
+            return this.pasteHandler(event, this)
+          }
+          return false
+        },
+      }),
       updateListener,
       jumpHighlightField,
       SourceEditor.theme(),
@@ -268,6 +284,30 @@ export class SourceEditor implements IEditor {
     this.view.dispatch(
       this.view.state.replaceSelection(text)
     )
+  }
+
+  /**
+   * Get the absolute character offset of the cursor (main selection head).
+   */
+  getCursorOffset(): number {
+    return this.view.state.selection.main.from
+  }
+
+  /**
+   * Replace text in the given character range [from, to).
+   * Used for async replacement (e.g. URL → [title](url)).
+   */
+  replaceRange(from: number, to: number, text: string): void {
+    this.view.dispatch({
+      changes: { from, to, insert: text },
+    })
+  }
+
+  /**
+   * Read a slice of the document by character range.
+   */
+  sliceDoc(from: number, to: number): string {
+    return this.view.state.doc.sliceString(from, to)
   }
 
   undo(): void {

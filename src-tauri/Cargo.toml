@@ -31,4 +31,5 @@ tauri-plugin-process = "2.3.1"
 tauri-plugin-single-instance = "2"
 notify = { version = "7", default-features = false, features = ["macos_kqueue"] }
 dunce = "1"
+reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
 
