@@ -39,6 +39,7 @@ const showCommandPalette = ref(false)
 const showAbout = ref(false)
 const showOutline = ref(configService.get('showOutline') ?? false)
 const paletteMode = ref<'commands' | 'recent' | 'headings'>('commands')
+const zenMode = ref(false)
 
 // Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
 const editorContainerRef = ref<InstanceType<typeof EditorContainer> | null>(null)
@@ -60,6 +61,18 @@ async function openHelpDoc(name: BundledDocName): Promise<void> {
 // showToolbar 变化时持久化
 watch(showToolbar, (val) => { configService.set('showToolbar', val) })
 watch(showOutline, (val) => { configService.set('showOutline', val) })
+
+// ── Zen Mode ────────────────────────────────────────────────────────────────
+
+async function toggleZenMode(): Promise<void> {
+  const win = getCurrentWindow()
+  zenMode.value = !zenMode.value
+  if (zenMode.value) {
+    await win.setFullscreen(true)
+  } else {
+    await win.setFullscreen(false)
+  }
+}
 
 // 命令面板命令列表（computed 以支持语言切换）
 const commands = computed<Command[]>(() => [
@@ -197,6 +210,20 @@ function handleKeydown(e: KeyboardEvent) {
   // Note: Ctrl+R is handled below as "open recent files" (which also prevents refresh).
   if (e.key === 'F5') {
     e.preventDefault()
+    return
+  }
+
+  // F11: toggle Zen mode (fullscreen + hide chrome)
+  if (e.key === 'F11') {
+    e.preventDefault()
+    toggleZenMode()
+    return
+  }
+
+  // Escape: exit Zen mode first, then close overlays
+  if (e.key === 'Escape' && zenMode.value) {
+    e.preventDefault()
+    toggleZenMode()
     return
   }
 
@@ -455,9 +482,10 @@ onUnmounted(() => {
 <template>
   <div class="app-shell" style="height: 100vh; display: flex; flex-direction: column;">
     <!-- 自定义标题栏 -->
-    <TitleBar />
+    <TitleBar v-show="!zenMode" />
     <!-- 菜单栏 -->
     <MenuBar
+      v-show="!zenMode"
       :show-toolbar="showToolbar"
       :show-outline="showOutline"
       @new-tab="createTab()"
@@ -477,16 +505,16 @@ onUnmounted(() => {
       @open-about="showAbout = true"
     />
     <!-- 标签栏 -->
-    <TabBar />
+    <TabBar v-show="!zenMode" />
     <!-- 工具栏（仅 WYSIWYG 模式 + 用户开启时显示） -->
-    <Toolbar v-if="showToolbar && mode === 'wysiwyg'" />
+    <Toolbar v-if="showToolbar && mode === 'wysiwyg' && !zenMode" />
     <!-- Main content area: editor + optional outline sidebar -->
     <div class="main-content">
-      <OutlinePanel v-if="showOutline" @close="showOutline = false" />
+      <OutlinePanel v-if="showOutline && !zenMode" @close="showOutline = false" />
       <EditorContainer ref="editorContainerRef" />
     </div>
     <!-- 状态栏 -->
-    <StatusBar />
+    <StatusBar v-show="!zenMode" />
     <!-- 设置面板 -->
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
     <!-- 命令面板 -->
