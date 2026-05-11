@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Instant;
 
-use notify::{RecommendedWatcher, RecursiveMode, Watcher, Event, EventKind};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher, Event, EventKind, event::ModifyKind};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Managed state for the file watcher subsystem.
@@ -45,9 +45,15 @@ fn ensure_watcher(app: &AppHandle, inner: &mut WatcherInner) {
         };
 
         // We only care about data modifications and renames (atomic save).
+        // Ignore pure metadata changes (e.g. access time, indexing, antivirus scans)
+        // which are common on Windows and don't indicate content changes.
         let dominated = matches!(
             event.kind,
-            EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
+            EventKind::Modify(ModifyKind::Data(_))
+                | EventKind::Modify(ModifyKind::Any)
+                | EventKind::Modify(ModifyKind::Name(_))
+                | EventKind::Create(_)
+                | EventKind::Remove(_)
         );
         if !dominated {
             return;

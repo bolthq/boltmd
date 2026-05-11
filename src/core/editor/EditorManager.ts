@@ -154,6 +154,8 @@ export function restoreFromSnapshot(snapshot: EditorSnapshot): void {
  * 设置内容（外部调用，如打开文件时）
  */
 export function setContent(markdown: string): void {
+  // Skip if content is already identical (avoids unnecessary DOM rebuild).
+  if (markdown === content.value) return
   content.value = markdown
   if (activeEditor) {
     activeEditor.setContent(markdown)

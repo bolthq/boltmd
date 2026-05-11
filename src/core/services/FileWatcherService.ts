@@ -21,6 +21,8 @@ class FileWatcherServiceImpl {
   private unlisten: UnlistenFn | null = null
   private reloadHandler: ReloadHandler | null = null
   private dirtyChecker: ((path: string) => boolean) | null = null
+  /** Debounce timers per file path to coalesce rapid duplicate events. */
+  private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   /**
    * Initialize the event listener.  Call once at app startup.
@@ -37,7 +39,7 @@ class FileWatcherServiceImpl {
     this.unlisten = await listen<FileChangedPayload>(
       'file-changed-externally',
       (event) => {
-        this.handleChange(event.payload.path)
+        this.scheduleChange(event.payload.path)
       },
     )
   }
@@ -46,6 +48,10 @@ class FileWatcherServiceImpl {
   dispose(): void {
     this.unlisten?.()
     this.unlisten = null
+    for (const timer of this.debounceTimers.values()) {
+      clearTimeout(timer)
+    }
+    this.debounceTimers.clear()
   }
 
   /** Start watching a file path for external changes. */
@@ -73,6 +79,21 @@ class FileWatcherServiceImpl {
     } catch (e) {
       console.warn('[FileWatcher] Failed to suppress:', path, e)
     }
+  }
+
+  /**
+   * Debounce file change events — coalesce multiple events for the same path
+   * within a 500ms window into a single handleChange call.
+   */
+  private scheduleChange(path: string): void {
+    if (this.debounceTimers.has(path)) {
+      clearTimeout(this.debounceTimers.get(path)!)
+    }
+    const timer = setTimeout(() => {
+      this.debounceTimers.delete(path)
+      this.handleChange(path)
+    }, 500)
+    this.debounceTimers.set(path, timer)
   }
 
   /** Handle an external file change event. */

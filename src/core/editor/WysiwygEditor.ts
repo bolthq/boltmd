@@ -66,7 +66,7 @@ export function createWysiwygExtensions(): Extensions {
     }),
     TaskList,
     TaskItem.configure({ nested: true }),
-    Table.configure({ resizable: true }),
+    Table.configure({ resizable: false }),
     TableRow,
     TableCell,
     TableHeader,
@@ -118,6 +118,10 @@ export class WysiwygEditor implements IEditor {
   }
 
   setContent(markdown: string): void {
+    // Skip if the editor's current markdown is already identical to avoid
+    // unnecessary full document rebuild (which causes table/layout flicker).
+    const current = (this.editor.storage as any).markdown?.getMarkdown() ?? ''
+    if (current === markdown) return
     this.editor.commands.setContent(markdown)
   }
 

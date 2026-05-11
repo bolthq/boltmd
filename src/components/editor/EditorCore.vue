@@ -18,13 +18,20 @@ const emit = defineEmits<{
 
 let editorWrapper: IEditor | null = null
 
+// Track the last content emitted by this editor so we can detect when a prop
+// change is merely an echo of our own output (and skip the redundant setContent).
+let lastEmittedContent = ''
+
 const tiptapEditor = useEditor({
   extensions: createWysiwygExtensions(),
   content: props.content ?? '',
   onCreate({ editor }) {
     // Tiptap 创建完成后，包装为 IEditor 并注册
     editorWrapper = new WysiwygEditor(editor)
-    editorWrapper.onContentChange((md) => emit('change', md))
+    editorWrapper.onContentChange((md) => {
+      lastEmittedContent = md
+      emit('change', md)
+    })
     registerEditor(editorWrapper)
     registerTiptapEditor(editor)
 
@@ -174,6 +181,8 @@ const tiptapEditor = useEditor({
 
 // 外部 content prop 变化时同步到编辑器
 watch(() => props.content, (newContent) => {
+  // Skip if this prop value matches what we last emitted (it's just our echo).
+  if (newContent === lastEmittedContent) return
   if (newContent !== undefined && tiptapEditor.value) {
     const current = (tiptapEditor.value.storage as any).markdown?.getMarkdown() ?? ''
     if (newContent !== current) {

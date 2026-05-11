@@ -105,6 +105,10 @@ export async function reloadTab(filePath: string): Promise<void> {
 
   try {
     const info = await fileService.openFilePath(filePath)
+
+    // Skip if content hasn't actually changed (avoids unnecessary re-render).
+    if (info.content === tab.content) return
+
     // Update internal tab state directly via TabManager's underlying array.
     tab.content = info.content
     tab.cleanContent = info.content
