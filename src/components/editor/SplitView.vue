@@ -52,7 +52,7 @@ function onSourceChange(md: string) {
 // 源码区滚动 → 同步预览区（按滚动比例）
 function onSourceScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
   if (isSyncingScroll) return
-  const previewEl = previewMount.value?.querySelector('.ProseMirror') as HTMLElement | null
+  const previewEl = previewMount.value?.querySelector('.editor-mount') as HTMLElement | null
   if (!previewEl) return
 
   const ratio = scrollHeight <= clientHeight
