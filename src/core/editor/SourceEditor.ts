@@ -1,4 +1,4 @@
-import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/state'
+import { EditorState, Compartment, StateEffect, StateField, Transaction } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, Decoration, type DecorationSet } from '@codemirror/view'
 import { defaultKeymap, historyKeymap, history, indentWithTab, undo, redo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
@@ -223,6 +223,9 @@ export class SourceEditor implements IEditor {
         to: this.view.state.doc.length,
         insert: markdown,
       },
+      // Exclude from undo history so Ctrl+Z on a freshly opened/switched
+      // file doesn't clear the content back to empty.
+      annotations: Transaction.addToHistory.of(false),
     })
   }
 

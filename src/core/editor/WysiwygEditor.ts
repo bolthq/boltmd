@@ -11,6 +11,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { Highlight } from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
+import { DOMParser as PmDOMParser } from '@tiptap/pm/model'
 import type { Editor } from '@tiptap/core'
 import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
 import { t } from '../../i18n'
@@ -122,7 +123,65 @@ export class WysiwygEditor implements IEditor {
     // unnecessary full document rebuild (which causes table/layout flicker).
     const current = (this.editor.storage as any).markdown?.getMarkdown() ?? ''
     if (current === markdown) return
-    this.editor.commands.setContent(markdown)
+
+    // Use a transaction with addToHistory:false so that externally-driven
+    // content replacement (tab switch, file reload) doesn't pollute the
+    // undo stack — otherwise Ctrl+Z on a freshly opened file clears it.
+    const parser = (this.editor.storage as any).markdown?.parser
+    if (parser) {
+      // tiptap-markdown parser.parse() returns an HTML string.
+      const html: string = parser.parse(markdown)
+      // Parse HTML into a ProseMirror document node, then replace content
+      // via a transaction that won't be recorded in undo history.
+      const { schema } = this.editor.state
+      const wrapper = document.createElement('div')
+      wrapper.innerHTML = html
+      const doc = PmDOMParser.fromSchema(schema).parse(wrapper)
+      const { tr } = this.editor.state
+      tr.replaceWith(0, tr.doc.content.size, doc.content)
+      tr.setMeta('addToHistory', false)
+      tr.setMeta('preventUpdate', false)
+      this.editor.view.dispatch(tr)
+    } else {
+      // Fallback: let Tiptap handle it (will add to history).
+      this.editor.commands.setContent(markdown)
+    }
+
+    // Clear undo/redo history after replacing the document content.
+    // The editor instance is shared across tabs, so stale history from a
+    // previous tab's document would corrupt the current document on undo.
+    this.clearUndoHistory()
+  }
+
+  /** Reset the prosemirror-history plugin state to empty. */
+  private clearUndoHistory(): void {
+    // Find the history plugin by its key prefix (prosemirror-history uses key "history$").
+    const historyPlugin = this.editor.state.plugins.find(
+      (p) => (p as any).key === 'history$',
+    )
+    if (!historyPlugin) return
+
+    // Get current history state; skip if already empty.
+    const currentHist = historyPlugin.getState(this.editor.state)
+    if (!currentHist || (currentHist.done.eventCount === 0 && currentHist.undone.eventCount === 0)) {
+      return
+    }
+
+    // Dispatch a transaction with a meta value that the history plugin's
+    // apply function recognises as a direct state override.
+    // prosemirror-history: if tr.getMeta(plugin) has `historyState`, it adopts it.
+    const { tr } = this.editor.state
+    const BranchClass = currentHist.done.constructor
+    const emptyHist = {
+      done: BranchClass.empty,
+      undone: BranchClass.empty,
+      prevRanges: null,
+      prevTime: 0,
+      prevComposition: -1,
+    }
+    tr.setMeta(historyPlugin, { redo: false, historyState: emptyHist })
+    tr.setMeta('addToHistory', false)
+    this.editor.view.dispatch(tr)
   }
 
   focus(): void {

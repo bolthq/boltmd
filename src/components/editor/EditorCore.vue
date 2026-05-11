@@ -183,11 +183,8 @@ const tiptapEditor = useEditor({
 watch(() => props.content, (newContent) => {
   // Skip if this prop value matches what we last emitted (it's just our echo).
   if (newContent === lastEmittedContent) return
-  if (newContent !== undefined && tiptapEditor.value) {
-    const current = (tiptapEditor.value.storage as any).markdown?.getMarkdown() ?? ''
-    if (newContent !== current) {
-      tiptapEditor.value.commands.setContent(newContent)
-    }
+  if (newContent !== undefined && editorWrapper) {
+    editorWrapper.setContent(newContent)
   }
 })
 
