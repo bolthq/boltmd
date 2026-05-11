@@ -40,6 +40,9 @@ const showAbout = ref(false)
 const showOutline = ref(configService.get('showOutline') ?? false)
 const paletteMode = ref<'commands' | 'recent' | 'headings'>('commands')
 const zenMode = ref(false)
+const zenShowTop = ref(false)
+const zenShowBottom = ref(false)
+let zenEdgeTimer: ReturnType<typeof setTimeout> | null = null
 
 // Ref to EditorContainer so MenuBar Find/Replace entries can open the panel
 const editorContainerRef = ref<InstanceType<typeof EditorContainer> | null>(null)
@@ -71,6 +74,32 @@ async function toggleZenMode(): Promise<void> {
     await win.setFullscreen(true)
   } else {
     await win.setFullscreen(false)
+    zenShowTop.value = false
+    zenShowBottom.value = false
+  }
+}
+
+function handleZenMouseMove(e: MouseEvent): void {
+  if (!zenMode.value) return
+
+  const EDGE_SIZE = 6
+  const y = e.clientY
+  const height = window.innerHeight
+
+  if (y <= EDGE_SIZE) {
+    zenShowTop.value = true
+    if (zenEdgeTimer) clearTimeout(zenEdgeTimer)
+  } else if (y >= height - EDGE_SIZE) {
+    zenShowBottom.value = true
+    if (zenEdgeTimer) clearTimeout(zenEdgeTimer)
+  } else {
+    if (zenShowTop.value || zenShowBottom.value) {
+      if (zenEdgeTimer) clearTimeout(zenEdgeTimer)
+      zenEdgeTimer = setTimeout(() => {
+        zenShowTop.value = false
+        zenShowBottom.value = false
+      }, 1500)
+    }
   }
 }
 
@@ -349,6 +378,7 @@ function handleKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('mousemove', handleZenMouseMove)
 
   // 初始化主题
   themeService.init()
@@ -472,21 +502,23 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('mousemove', handleZenMouseMove)
   stopAutoSave()
   fileWatcherService.dispose()
   unlistenDragDrop?.()
   unlistenSingleInstance?.()
   if (titleTimer) clearTimeout(titleTimer)
+  if (zenEdgeTimer) clearTimeout(zenEdgeTimer)
 })
 </script>
 
 <template>
-  <div class="app-shell" style="height: 100vh; display: flex; flex-direction: column;">
+  <div class="app-shell" :class="{ 'zen-mode': zenMode }" style="height: 100vh; display: flex; flex-direction: column;">
     <!-- 自定义标题栏 -->
     <TitleBar v-show="!zenMode" />
     <!-- 菜单栏 -->
     <MenuBar
-      v-show="!zenMode"
+      v-show="!zenMode || zenShowTop"
       :show-toolbar="showToolbar"
       :show-outline="showOutline"
       @new-tab="createTab()"
@@ -516,7 +548,7 @@ onUnmounted(() => {
       <EditorContainer ref="editorContainerRef" />
     </div>
     <!-- 状态栏 -->
-    <StatusBar v-show="!zenMode" />
+    <StatusBar v-show="!zenMode || zenShowBottom" />
     <!-- 设置面板 -->
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
     <!-- 命令面板 -->
@@ -531,5 +563,24 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   min-height: 0;
+}
+
+/* Zen mode: edge-revealed menu/status float over editor */
+.zen-mode :deep(.menubar) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.zen-mode :deep(.statusbar) {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
 }
 </style>
