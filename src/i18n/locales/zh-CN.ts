@@ -35,6 +35,7 @@ export default {
     // 视图菜单
     toggleToolbar: '工具栏',
     toggleOutline: '大纲',
+    zenMode: '专注模式',
     modeWysiwyg: '所见即所得模式',
     modeSource: '源码模式',
     modeSplit: '分屏模式',
@@ -158,6 +159,7 @@ export default {
     modeSplit: '切换到分屏模式',
     toggleToolbar: '切换工具栏',
     toggleOutline: '切换大纲面板',
+    zenMode: '专注模式',
     openSettings: '打开设置',
     themeLight: '主题：浅色',
     themeDark: '主题：深色',

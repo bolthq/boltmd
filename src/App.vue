@@ -86,6 +86,7 @@ const commands = computed<Command[]>(() => [
   { id: 'mode-split', label: t('commands.modeSplit'), action: () => switchMode('split') },
   { id: 'toggle-toolbar', label: t('commands.toggleToolbar'), shortcut: 'Ctrl+Shift+T', action: () => { showToolbar.value = !showToolbar.value } },
   { id: 'toggle-outline', label: t('commands.toggleOutline'), shortcut: 'Ctrl+Shift+L', action: () => { showOutline.value = !showOutline.value } },
+  { id: 'zen-mode', label: t('commands.zenMode'), shortcut: 'F11', action: () => toggleZenMode() },
   { id: 'settings', label: t('commands.openSettings'), shortcut: 'Ctrl+,', action: () => { showSettings.value = true } },
   { id: 'theme-light', label: t('commands.themeLight'), action: () => themeService.setTheme('light') },
   { id: 'theme-dark', label: t('commands.themeDark'), action: () => themeService.setTheme('dark') },
@@ -495,6 +496,7 @@ onUnmounted(() => {
       @close-tab="activeTabId && closeTab(activeTabId)"
       @toggle-toolbar="showToolbar = !showToolbar"
       @toggle-outline="showOutline = !showOutline"
+      @zen-mode="toggleZenMode()"
       @open-settings="showSettings = true"
       @open-command-palette="showCommandPalette = true"
       @check-update="updateService.checkForUpdates()"

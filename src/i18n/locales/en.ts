@@ -35,6 +35,7 @@ export default {
     // View menu
     toggleToolbar: 'Toolbar',
     toggleOutline: 'Outline',
+    zenMode: 'Zen Mode',
     modeWysiwyg: 'WYSIWYG Mode',
     modeSource: 'Source Mode',
     modeSplit: 'Split Mode',
@@ -158,6 +159,7 @@ export default {
     modeSplit: 'Switch to Split Mode',
     toggleToolbar: 'Toggle Toolbar',
     toggleOutline: 'Toggle Outline',
+    zenMode: 'Zen Mode',
     openSettings: 'Open Settings',
     themeLight: 'Theme: Light',
     themeDark: 'Theme: Dark',

@@ -18,6 +18,7 @@ const emit = defineEmits<{
   (e: 'closeTab'): void
   (e: 'toggleToolbar'): void
   (e: 'toggleOutline'): void
+  (e: 'zenMode'): void
   (e: 'openSettings'): void
   (e: 'openCommandPalette'): void
   (e: 'checkUpdate'): void
@@ -254,6 +255,10 @@ onUnmounted(() => {
             {{ t('menu.toggleOutline') }}
           </span>
           <span class="menu-shortcut">Ctrl+Shift+L</span>
+        </div>
+        <div class="menu-entry" @click="doAction(() => emit('zenMode'))">
+          <span>{{ t('menu.zenMode') }}</span>
+          <span class="menu-shortcut">F11</span>
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => switchMode('wysiwyg'))">
