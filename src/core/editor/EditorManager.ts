@@ -148,6 +148,23 @@ export function restoreFromSnapshot(snapshot: EditorSnapshot): void {
   pendingCursor = snapshot.cursor
   pendingScroll = snapshot.scroll
   mode.value = snapshot.mode
+
+  // If the editor is already mounted (same mode, component not re-created),
+  // registerEditor won't fire again.  Push content + scroll directly.
+  if (activeEditor) {
+    activeEditor.setContent(snapshot.content)
+    // Clear pending so registerEditor (if it fires later) won't double-apply.
+    pendingCursor = null
+    // Delay scroll restoration by one frame so the DOM has reflowed after
+    // content replacement.
+    const scrollTarget = pendingScroll
+    pendingScroll = 0
+    requestAnimationFrame(() => {
+      try {
+        activeEditor?.setScrollPosition(scrollTarget)
+      } catch { /* ignore */ }
+    })
+  }
 }
 
 /**
