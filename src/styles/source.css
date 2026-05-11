@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   /* 作为 FindReplacePanel (position: absolute) 的定位参考 */
   position: relative;
 }
@@ -47,7 +48,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 48px 40px;
-  width: clamp(480px, 80%, 800px);
+  width: clamp(min(480px, 100%), 80%, 800px);
   margin: 0 auto;
   background: var(--bg-editor);
 }
@@ -75,6 +76,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   background: var(--bg-editor);
 }
 
@@ -93,7 +95,7 @@
 }
 
 .source-view .cm-editor .cm-content {
-  width: clamp(480px, 80%, 800px);
+  width: clamp(min(480px, 100%), 80%, 800px);
   margin: 0 auto;
   padding: 0 40px;
 }
@@ -109,6 +111,7 @@
   flex: 1;
   display: flex;
   min-height: 0;
+  min-width: 0;
 }
 
 .split-view .split-pane {
