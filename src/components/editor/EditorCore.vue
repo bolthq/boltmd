@@ -2,7 +2,7 @@
 import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor, onLowlightReady, isLowlightLoaded } from '../../core/editor/WysiwygEditor'
-import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine, reportActiveHeadingIndex } from '../../core/editor/EditorManager'
+import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine, reportActiveHeadingIndex, typewriterMode } from '../../core/editor/EditorManager'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { tryConvertTsvToTable, isSingleUrl, fetchPageTitle, tryWrapAsCodeBlock } from '../../core/services/SmartPasteService'
 import { activeTab } from '../../core/stores/tabStore'
@@ -21,6 +21,31 @@ let editorWrapper: IEditor | null = null
 // Track the last content emitted by this editor so we can detect when a prop
 // change is merely an echo of our own output (and skip the redundant setContent).
 let lastEmittedContent = ''
+
+/**
+ * Helper for typewriter-mode scroll props.
+ * Returns ~45% of the .editor-mount visible height so PM's scrollRectIntoView
+ * keeps the caret near the vertical center.
+ */
+function editorMountHalfHeight(): number {
+  const el = document.querySelector('.editor-mount') as HTMLElement
+  return el ? el.clientHeight * 0.45 : 300
+}
+
+// Typewriter mode: dynamic scrollThreshold / scrollMargin objects with getters
+// so ProseMirror re-evaluates them on every scroll-into-view call.
+const typewriterScrollThreshold = {
+  get top() { return typewriterMode.value ? 10000 : 0 },
+  get bottom() { return typewriterMode.value ? 10000 : 0 },
+  left: 0,
+  right: 0,
+}
+const typewriterScrollMargin = {
+  get top() { return typewriterMode.value ? editorMountHalfHeight() : 5 },
+  get bottom() { return typewriterMode.value ? editorMountHalfHeight() : 5 },
+  left: 5,
+  right: 5,
+}
 
 const tiptapEditor = useEditor({
   extensions: createWysiwygExtensions(),
@@ -85,6 +110,10 @@ const tiptapEditor = useEditor({
       autocorrect: 'off',
       autocapitalize: 'off',
     },
+    // Typewriter mode: use large scrollThreshold + scrollMargin so PM's own
+    // scrollRectIntoView keeps the cursor near the vertical center.
+    scrollThreshold: typewriterScrollThreshold,
+    scrollMargin: typewriterScrollMargin,
     handlePaste(_view, event) {
       const items = event.clipboardData?.items
       if (!items) return false

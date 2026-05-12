@@ -33,6 +33,9 @@ let pendingScroll: number = 0
 const mode = ref<EditorMode>('wysiwyg')
 const content = ref('')
 
+// Typewriter mode: keep cursor line vertically centered.
+export const typewriterMode = ref(false)
+
 // Current cursor line (1-based). Updated by editors on selection change.
 const cursorLine = ref(1)
 
@@ -295,6 +298,7 @@ export function useEditorManager() {
     content: readonly(content) as DeepReadonly<Ref<string>>,
     cursorLine: readonly(cursorLine) as DeepReadonly<Ref<number>>,
     activeHeadingIndex: readonly(activeHeadingIndex) as DeepReadonly<Ref<number>>,
+    typewriterMode,
     switchMode,
     cycleMode,
     saveSnapshot,

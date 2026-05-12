@@ -132,3 +132,10 @@
 .split-view .preview-pane {
   overflow-y: auto;
 }
+
+/* Typewriter / Zen mode: CM6 scroller scroll-padding + extra bottom space */
+.zen-mode .source-view .cm-editor .cm-scroller {
+  scroll-padding-top: 50%;
+  scroll-padding-bottom: 50%;
+  padding-bottom: 50vh;
+}

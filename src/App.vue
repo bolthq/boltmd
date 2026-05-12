@@ -29,7 +29,7 @@ import { loadBundledDoc, type BundledDocName } from './core/services/BundledDocs
 import type { WindowState } from './core/types/config'
 import type { Command } from './components/common/CommandPalette.vue'
 
-const { mode, content, cycleMode, switchMode, getActiveEditor } = useEditorManager()
+const { mode, content, cycleMode, switchMode, getActiveEditor, typewriterMode } = useEditorManager()
 const { stop: stopAutoSave } = useAutoSave()
 const { t } = useI18n()
 
@@ -70,6 +70,7 @@ watch(showOutline, (val) => { configService.set('showOutline', val) })
 async function toggleZenMode(): Promise<void> {
   const win = getCurrentWindow()
   zenMode.value = !zenMode.value
+  typewriterMode.value = zenMode.value
   if (zenMode.value) {
     await win.setFullscreen(true)
   } else {

@@ -345,3 +345,8 @@
   0%, 15% { background-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
   100% { background-color: transparent; }
 }
+
+/* Typewriter / Zen mode: extra bottom padding so the last line can scroll to center */
+.zen-mode .ProseMirror {
+  padding-bottom: 50vh;
+}
