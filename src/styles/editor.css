@@ -341,6 +341,12 @@
   border-radius: 3px;
 }
 
+/* ---- Cursor block highlight flash (mode switch) ---- */
+.cursor-block-highlight {
+  animation: heading-flash 1.5s ease-out forwards;
+  border-radius: 3px;
+}
+
 @keyframes heading-flash {
   0%, 15% { background-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
   100% { background-color: transparent; }

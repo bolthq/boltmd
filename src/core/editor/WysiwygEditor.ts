@@ -487,6 +487,17 @@ export class WysiwygEditor implements IEditor {
     }, 0)
   }
 
+  flashCursorLine(): void {
+    try {
+      this.editor.commands.flashCursorBlock()
+      setTimeout(() => {
+        this.editor.commands.clearHeadingHighlight()
+      }, 1500)
+    } catch {
+      // ignore
+    }
+  }
+
   getScrollPosition(): number {
     const el = this.editor.view.dom.closest('.editor-mount') as HTMLElement
     return el?.scrollTop ?? 0

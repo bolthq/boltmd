@@ -62,6 +62,9 @@ export interface IEditor {
   // Optional: clear undo history for tab switch (not mode switch)
   resetForTabSwitch?(): void
 
+  // Optional: flash the cursor's current line/block after mode switch
+  flashCursorLine?(): void
+
   // 查找/替换
   search(query: string, options: SearchOptions): SearchState
   gotoNextMatch(): SearchState

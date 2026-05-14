@@ -293,6 +293,17 @@ export class SourceEditor implements IEditor {
     }, 1500)
   }
 
+  flashCursorLine(): void {
+    const pos = this.view.state.selection.main.head
+    const line = this.view.state.doc.lineAt(pos)
+    this.view.dispatch({
+      effects: addJumpHighlight.of(line.from),
+    })
+    setTimeout(() => {
+      this.view.dispatch({ effects: clearJumpHighlight.of(null) })
+    }, 1500)
+  }
+
   getScrollPosition(): number {
     return this.view.scrollDOM.scrollTop
   }

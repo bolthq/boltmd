@@ -73,6 +73,12 @@ export function registerEditor(editor: IEditor): void {
       })
     }
     pendingPosition = null
+
+    // Flash the cursor line/block after position restoration so the user
+    // can quickly locate where the cursor landed in the new mode.
+    requestAnimationFrame(() => {
+      editor.flashCursorLine?.()
+    })
   }
 
   // Focus the editor.
