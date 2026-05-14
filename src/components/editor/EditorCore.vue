@@ -10,6 +10,7 @@ import type { IEditor } from '../../core/editor/types'
 
 const props = defineProps<{
   content?: string
+  active?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -21,6 +22,9 @@ let editorWrapper: IEditor | null = null
 // Track the last content emitted by this editor so we can detect when a prop
 // change is merely an echo of our own output (and skip the redundant setContent).
 let lastEmittedContent = ''
+
+// Whether the editor has been created (for v-show pattern: created once, stays alive).
+let editorCreated = false
 
 /**
  * Helper for typewriter-mode scroll props.
@@ -54,11 +58,18 @@ const tiptapEditor = useEditor({
     // Tiptap 创建完成后，包装为 IEditor 并注册
     editorWrapper = new WysiwygEditor(editor)
     editorWrapper.onContentChange((md) => {
+      // Only emit changes when this editor is the active one.
+      if (!props.active) return
       lastEmittedContent = md
       emit('change', md)
     })
-    registerEditor(editorWrapper)
-    registerTiptapEditor(editor)
+    editorCreated = true
+
+    // Only register if we're the active editor (v-show mode).
+    if (props.active !== false) {
+      registerEditor(editorWrapper)
+      registerTiptapEditor(editor)
+    }
 
     // When lowlight finishes lazy-loading, force CodeBlockLowlight to
     // recompute syntax highlighting by touching every codeBlock node.
@@ -208,13 +219,62 @@ const tiptapEditor = useEditor({
   },
 })
 
+// Whether this editor was active on the PREVIOUS render cycle. Used to
+// detect the inactive→active transition and defer to the active watcher.
+let wasActive = props.active !== false
+
+// Content snapshot taken when this editor is deactivated.  Compared on
+// reactivation to determine whether another mode actually modified content
+// (avoids false positives from tiptap-markdown serialisation differences).
+let contentWhenDeactivated: string | null = null
+
 // 外部 content prop 变化时同步到编辑器
 watch(() => props.content, (newContent) => {
+  // Skip when editor is hidden (another mode is active). Content will be
+  // synced when this editor becomes active again via the `active` watcher.
+  if (!props.active) return
+  // Skip during the transition from inactive→active (handled by active watcher
+  // which records in history for proper undo support).
+  if (!wasActive) return
   // Skip if this prop value matches what we last emitted (it's just our echo).
   if (newContent === lastEmittedContent) return
   if (newContent !== undefined && editorWrapper) {
     editorWrapper.setContent(newContent)
   }
+})
+
+// Watch active prop: register/unregister editor when shown/hidden.
+watch(() => props.active, (isActive) => {
+  if (!editorCreated || !editorWrapper || !tiptapEditor.value) return
+
+  if (isActive) {
+    // Becoming active: check whether content was modified while hidden.
+    // Use the snapshot taken at deactivation to avoid false positives from
+    // tiptap-markdown serialisation differences (trailing newlines, etc.).
+    const contentReallyChanged =
+      contentWhenDeactivated !== null
+        ? props.content !== contentWhenDeactivated
+        : props.content !== editorWrapper.getContent()
+    contentWhenDeactivated = null
+
+    if (contentReallyChanged && props.content !== undefined) {
+      // Record in history so existing undo steps are preserved below this
+      // replacement.  The user can Ctrl+Z past the mode-switch change and
+      // continue undoing their own earlier edits.
+      editorWrapper.setContent(props.content, true)
+    }
+    lastEmittedContent = editorWrapper.getContent()
+    registerEditor(editorWrapper)
+    registerTiptapEditor(tiptapEditor.value)
+  } else {
+    // Becoming inactive: snapshot current content for later comparison.
+    contentWhenDeactivated = props.content ?? null
+    // Becoming inactive: unregister so EditorManager doesn't route to us.
+    unregisterEditor(editorWrapper)
+    unregisterTiptapEditor()
+  }
+
+  wasActive = !!isActive
 })
 
 onUnmounted(() => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, defineAsyncComponent, h } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, defineAsyncComponent, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorManager, syncContent } from '../../core/editor/EditorManager'
 import { activeTabId, updateTabContent } from '../../core/stores/tabStore'
@@ -41,6 +41,33 @@ const SplitView = defineAsyncComponent({
 
 const { mode, content, getSelectionInEditor } = useEditorManager()
 const { t } = useI18n()
+
+// Once the WYSIWYG editor has been mounted, it stays alive (v-show pattern).
+// This flag flips to true the first time mode is 'wysiwyg' and never goes back.
+const wysiwygMounted = ref(false)
+const wysiwygActive = computed(() => mode.value === 'wysiwyg')
+
+// Same v-show pattern for Source editor — keeps CM6 undo history alive.
+const sourceMounted = ref(false)
+const sourceActive = computed(() => mode.value === 'source')
+
+// Flip wysiwygMounted to true the first time we enter a mode that needs it.
+// `immediate: true` handles the case where the app starts in wysiwyg mode.
+const _stopWysiwygWatch = watch(wysiwygActive, (active) => {
+  if (active && !wysiwygMounted.value) {
+    wysiwygMounted.value = true
+    // Use nextTick to stop the watcher safely (can't call stop() synchronously
+    // inside the immediate callback before the variable is assigned).
+    Promise.resolve().then(() => _stopWysiwygWatch())
+  }
+}, { immediate: true })
+
+const _stopSourceWatch = watch(sourceActive, (active) => {
+  if (active && !sourceMounted.value) {
+    sourceMounted.value = true
+    Promise.resolve().then(() => _stopSourceWatch())
+  }
+}, { immediate: true })
 
 // 查找/替换面板当前模式；null = 关闭
 const findPanelMode = ref<'find' | 'replace' | null>(null)
@@ -167,17 +194,21 @@ defineExpose({
       <span class="editor-loading-text">{{ t('editor.loading') }}</span>
     </div>
 
-    <!-- WYSIWYG 模式 -->
+    <!-- WYSIWYG 模式 (kept alive with v-show to preserve undo history) -->
     <EditorCore
-      v-if="mode === 'wysiwyg'"
+      v-if="wysiwygMounted"
+      v-show="wysiwygActive"
       :content="content"
+      :active="wysiwygActive"
       @change="handleChange"
     />
 
-    <!-- 源码模式 -->
+    <!-- 源码模式 (kept alive with v-show to preserve undo history) -->
     <SourceView
-      v-if="mode === 'source'"
+      v-if="sourceMounted"
+      v-show="sourceActive"
       :content="content"
+      :active="sourceActive"
       @change="handleChange"
     />
 

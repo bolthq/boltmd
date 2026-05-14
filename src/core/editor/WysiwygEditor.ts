@@ -101,13 +101,18 @@ export class WysiwygEditor implements IEditor {
   private editor: Editor
   private contentChangeCallbacks: ((markdown: string) => void)[] = []
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
+  /** When true, the onUpdate callback is suppressed so that programmatic
+   *  setContent() calls don't trigger a normalised-markdown writeback. */
+  private suppressUpdate = false
 
   constructor(editor: Editor) {
     this.editor = editor
-    // 防抖 getMarkdown()：避免每次按键都遍历整棵 AST
+    // Debounced getMarkdown(): avoid traversing the full AST on every keystroke.
     this.editor.on('update', () => {
+      if (this.suppressUpdate) return
       if (this.debounceTimer) clearTimeout(this.debounceTimer)
       this.debounceTimer = setTimeout(() => {
+        if (this.suppressUpdate) return
         const md = (this.editor.storage as any).markdown.getMarkdown()
         this.contentChangeCallbacks.forEach(cb => cb(md))
       }, 150)
@@ -118,28 +123,35 @@ export class WysiwygEditor implements IEditor {
     return (this.editor.storage as any).markdown.getMarkdown()
   }
 
-  setContent(markdown: string): void {
+  setContent(markdown: string, recordInHistory = false): void {
     // Skip if the editor's current markdown is already identical to avoid
     // unnecessary full document rebuild (which causes table/layout flicker).
     const current = (this.editor.storage as any).markdown?.getMarkdown() ?? ''
     if (current === markdown) return
 
-    // Use a transaction with addToHistory:false so that externally-driven
-    // content replacement (tab switch, file reload) doesn't pollute the
-    // undo stack — otherwise Ctrl+Z on a freshly opened file clears it.
+    // Suppress the onUpdate → getMarkdown() callback so that tiptap's
+    // internal normalisation doesn't fire onChange back to tabStore.
+    this.suppressUpdate = true
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+    }
+
     const parser = (this.editor.storage as any).markdown?.parser
     if (parser) {
       // tiptap-markdown parser.parse() returns an HTML string.
       const html: string = parser.parse(markdown)
       // Parse HTML into a ProseMirror document node, then replace content
-      // via a transaction that won't be recorded in undo history.
+      // via a transaction.
       const { schema } = this.editor.state
       const wrapper = document.createElement('div')
       wrapper.innerHTML = html
       const doc = PmDOMParser.fromSchema(schema).parse(wrapper)
       const { tr } = this.editor.state
       tr.replaceWith(0, tr.doc.content.size, doc.content)
-      tr.setMeta('addToHistory', false)
+      if (!recordInHistory) {
+        tr.setMeta('addToHistory', false)
+      }
       tr.setMeta('preventUpdate', false)
       this.editor.view.dispatch(tr)
     } else {
@@ -147,9 +159,16 @@ export class WysiwygEditor implements IEditor {
       this.editor.commands.setContent(markdown)
     }
 
-    // Clear undo/redo history after replacing the document content.
-    // The editor instance is shared across tabs, so stale history from a
-    // previous tab's document would corrupt the current document on undo.
+    // Re-enable update callbacks after a delay that exceeds the 150ms
+    // debounce timer, ensuring no stale callback sneaks through.
+    setTimeout(() => {
+      this.suppressUpdate = false
+    }, 200)
+  }
+
+  /** Clear undo history when switching tabs (not mode switches).
+   *  Called externally by EditorManager on tab switch. */
+  resetForTabSwitch(): void {
     this.clearUndoHistory()
   }
 
@@ -191,72 +210,255 @@ export class WysiwygEditor implements IEditor {
   getCursorPosition(): CursorPosition {
     const { from } = this.editor.state.selection
     const resolved = this.editor.state.doc.resolve(from)
+    const blockIndex = resolved.depth > 0 ? resolved.index(0) : 0
+
+    // Compute the actual source line number by mapping block index to
+    // serialized markdown lines.  Block index alone is wrong because
+    // tables, code blocks, lists each span multiple source lines.
+    const md: string = (this.editor.storage as any).markdown.getMarkdown()
+    let sourceLine = this.blockToSourceLine(md, blockIndex)
+
+    // Add intra-block offset for compound blocks (lists, tables, code blocks).
+    const topNode = this.editor.state.doc.maybeChild(blockIndex)
+    if (topNode) {
+      sourceLine += this.computeIntraBlockOffset(topNode, resolved)
+    }
+
     return {
-      line: resolved.depth > 0 ? resolved.index(0) : 0,
+      line: sourceLine,
       column: resolved.parentOffset,
       offset: from,
     }
+  }
+
+  /** Compute how many extra source lines into a compound block the cursor is.
+   *  For simple blocks (paragraph, heading) this is always 0. */
+  private computeIntraBlockOffset(topNode: any, resolved: any): number {
+    const nodeType: string = topNode.type.name
+
+    if (nodeType === 'bulletList' || nodeType === 'orderedList') {
+      // Each list item is one source line (for tight lists).
+      // resolved.index(1) gives the listItem index within the list.
+      if (resolved.depth >= 2) {
+        return resolved.index(1)
+      }
+    }
+
+    if (nodeType === 'table') {
+      // Table serialization: row 0 = header (line 0), separator (line 1),
+      // row N (N>0) = line N+1.  resolved.index(1) = tableRow index.
+      if (resolved.depth >= 2) {
+        const rowIndex = resolved.index(1)
+        return rowIndex === 0 ? 0 : rowIndex + 1
+      }
+    }
+
+    if (nodeType === 'codeBlock') {
+      // Opening fence is line 0 of the block. Code content starts at line 1.
+      // Count newlines in the text content up to the cursor's parentOffset.
+      const textOffset = resolved.depth >= 1 ? resolved.parentOffset : 0
+      const text = topNode.textContent.slice(0, textOffset)
+      const newlines = (text.match(/\n/g) || []).length
+      return newlines + 1 // +1 for the opening fence line
+    }
+
+    return 0
+  }
+
+  /** Map a PM top-level block index to the corresponding source line number.
+   *  Walks through the serialized markdown counting block boundaries
+   *  (blank lines between blocks, respecting fenced code blocks). */
+  private blockToSourceLine(markdown: string, blockIndex: number): number {
+    if (blockIndex <= 0) return 0
+
+    const lines = markdown.split('\n')
+    let block = 0
+    let inFence = false
+
+    for (let i = 0; i < lines.length; i++) {
+      if (block >= blockIndex) return i
+
+      const line = lines[i]
+
+      // Track fenced code blocks (opening)
+      if (!inFence && /^(`{3,}|~{3,})/.test(line)) {
+        inFence = true
+        continue
+      }
+      // Track fenced code blocks (closing)
+      if (inFence) {
+        if (/^(`{3,}|~{3,})\s*$/.test(line)) {
+          inFence = false
+        }
+        continue
+      }
+
+      // A blank line after non-blank content marks a block boundary
+      if (line === '' && i > 0 && lines[i - 1] !== '') {
+        block++
+      }
+    }
+
+    return lines.length - 1
+  }
+
+  /** Inverse of blockToSourceLine: given a source line number, find which
+   *  PM top-level block it belongs to. */
+  private sourceLineToBlock(markdown: string, targetLine: number): number {
+    const lines = markdown.split('\n')
+    let block = 0
+    let inFence = false
+
+    for (let i = 0; i < lines.length && i < targetLine; i++) {
+      const line = lines[i]
+
+      if (!inFence && /^(`{3,}|~{3,})/.test(line)) {
+        inFence = true
+        continue
+      }
+      if (inFence) {
+        if (/^(`{3,}|~{3,})\s*$/.test(line)) {
+          inFence = false
+        }
+        continue
+      }
+
+      if (line === '' && i > 0 && lines[i - 1] !== '') {
+        block++
+      }
+    }
+
+    return block
   }
 
   setCursorPosition(pos: CursorPosition): void {
     const doc = this.editor.state.doc
     const docSize = doc.content.size
     let offset = pos.offset
-    let headingNodePos = -1 // Track the heading node's start position for DOM lookup.
 
-    if (offset > 0) {
-      // Find the heading node at position corresponding to source line.
-      let headingCount = 0
-      let targetPos = -1
-      // Count how many headings precede this line in the source to get heading index.
-      const sourceLines = (this.editor.storage as any).markdown?.getMarkdown()?.split('\n') ?? []
-      let headingIndex = 0
-      for (let i = 0; i < pos.line && i < sourceLines.length; i++) {
-        if (/^#{1,6}\s+/.test(sourceLines[i])) {
-          headingIndex++
-        }
-      }
-      // Now find the Nth heading node in the ProseMirror document.
-      doc.descendants((node, nodePos) => {
-        if (targetPos >= 0) return false
-        if (node.type.name === 'heading') {
-          if (headingCount === headingIndex) {
-            targetPos = nodePos + 1 // +1 to enter the node content
-            headingNodePos = nodePos
-            return false
-          }
-          headingCount++
-        }
-        return true
-      })
-      if (targetPos >= 0) {
-        offset = Math.min(targetPos, docSize)
-      } else {
-        // Fallback: use block index approach.
-        const blockIndex = Math.min(pos.line, doc.childCount - 1)
-        let blockOffset = 0
-        for (let i = 0; i < blockIndex; i++) {
-          blockOffset += doc.child(i).nodeSize
-        }
-        offset = Math.min(blockOffset + 1, docSize)
-      }
+    if (offset > 0 && offset <= docSize) {
+      // Valid PM offset provided (e.g. restoring same-mode position).
+      // Just use it directly.
     } else if (pos.line > 0) {
-      // No offset provided, resolve from block index as fallback.
-      const blockIndex = Math.min(pos.line, doc.childCount - 1)
+      // Resolve from source line number → PM block index → PM offset.
+      const md: string = (this.editor.storage as any).markdown?.getMarkdown() ?? ''
+      const blockIndex = this.sourceLineToBlock(md, pos.line)
+      const clampedBlock = Math.min(blockIndex, doc.childCount - 1)
       let blockOffset = 0
-      for (let i = 0; i < blockIndex; i++) {
+      for (let i = 0; i < clampedBlock; i++) {
         blockOffset += doc.child(i).nodeSize
       }
       offset = Math.min(blockOffset + 1, docSize)
+
+      // Compute intra-block offset: if the target line is inside a compound
+      // block (list, table, code block), navigate to the right sub-position.
+      const topNode = doc.maybeChild(clampedBlock)
+      if (topNode) {
+        const blockFirstLine = this.blockToSourceLine(md, clampedBlock)
+        const lineWithinBlock = pos.line - blockFirstLine
+        if (lineWithinBlock > 0) {
+          const intraOffset = this.resolveIntraBlockPosition(topNode, lineWithinBlock, blockOffset)
+          if (intraOffset >= 0) {
+            offset = Math.min(intraOffset, docSize)
+          }
+        }
+      }
+    } else {
+      offset = 1 // Beginning of first block
     }
 
-    offset = Math.min(offset, docSize)
+    offset = Math.min(Math.max(offset, 0), docSize)
     this.editor.commands.setTextSelection(offset)
-    // Scroll the target to the vertical center instantly.
-    // Use scrollIntoView first to ensure the DOM node is rendered,
-    // then immediately adjust to center position.
     this.editor.commands.scrollIntoView()
-    // Use setTimeout(0) to let ProseMirror finish its scroll, then override to center.
+  }
+
+  /** Given a compound top-level node and a line offset within it, return
+   *  the PM position to place the cursor at. Returns -1 if not applicable. */
+  private resolveIntraBlockPosition(topNode: any, lineWithinBlock: number, blockStartOffset: number): number {
+    const nodeType: string = topNode.type.name
+
+    if (nodeType === 'bulletList' || nodeType === 'orderedList') {
+      // lineWithinBlock corresponds to the Nth list item (0-indexed).
+      const targetItem = Math.min(lineWithinBlock, topNode.childCount - 1)
+      // Walk list items to find the offset of the target item.
+      let pos = blockStartOffset + 1 // +1 to enter the list node
+      for (let i = 0; i < targetItem; i++) {
+        pos += topNode.child(i).nodeSize
+      }
+      return pos + 2 // +1 enter listItem, +1 enter paragraph
+    }
+
+    if (nodeType === 'table') {
+      // lineWithinBlock: 0=header, 1=separator(skip), 2+=data rows
+      // Map to row index: line 0→row 0, line 1→row 0(sep), line 2+→row N-1
+      let targetRow = 0
+      if (lineWithinBlock >= 2) {
+        targetRow = lineWithinBlock - 1
+      }
+      targetRow = Math.min(targetRow, topNode.childCount - 1)
+      // Walk table rows to find the position of the target row.
+      let pos = blockStartOffset + 1 // +1 to enter the table node
+      for (let i = 0; i < targetRow; i++) {
+        pos += topNode.child(i).nodeSize
+      }
+      return pos + 3 // +1 enter tableRow, +1 enter tableCell, +1 enter paragraph
+    }
+
+    if (nodeType === 'codeBlock') {
+      // lineWithinBlock includes +1 for the fence line, so actual text line
+      // is lineWithinBlock - 1.
+      const targetTextLine = lineWithinBlock - 1
+      if (targetTextLine < 0) return blockStartOffset + 1
+      // Count newlines in text to find the offset of the target line.
+      const text = topNode.textContent
+      let charOffset = 0
+      let lineCount = 0
+      for (let i = 0; i < text.length; i++) {
+        if (lineCount >= targetTextLine) break
+        if (text[i] === '\n') lineCount++
+        charOffset = i + 1
+      }
+      return blockStartOffset + 1 + charOffset
+    }
+
+    return -1
+  }
+
+  /**
+   * Jump to a specific heading by its index in the document.
+   * Used by OutlinePanel for heading navigation with center-scroll + highlight.
+   */
+  jumpToHeading(headingIndex: number): void {
+    const doc = this.editor.state.doc
+    const docSize = doc.content.size
+    let headingCount = 0
+    let targetPos = -1
+    let headingNodePos = -1
+
+    doc.descendants((node, nodePos) => {
+      if (targetPos >= 0) return false
+      if (node.type.name === 'heading') {
+        if (headingCount === headingIndex) {
+          targetPos = nodePos + 1
+          headingNodePos = nodePos
+          return false
+        }
+        headingCount++
+      }
+      return true
+    })
+
+    let offset: number
+    if (targetPos >= 0) {
+      offset = Math.min(targetPos, docSize)
+    } else {
+      offset = 1
+    }
+
+    this.editor.commands.setTextSelection(offset)
+    this.editor.commands.scrollIntoView()
+
+    // Scroll to center and flash highlight.
     const savedHeadingNodePos = headingNodePos
     setTimeout(() => {
       try {
@@ -273,7 +475,6 @@ export class WysiwygEditor implements IEditor {
             node.scrollIntoView({ block: 'center' })
           }
         }
-        // Visual highlight flash via Decoration (framework-managed).
         if (savedHeadingNodePos >= 0) {
           this.editor.commands.flashHeading(savedHeadingNodePos)
           setTimeout(() => {

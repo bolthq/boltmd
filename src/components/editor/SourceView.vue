@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { SourceEditor, type PasteHandler } from '../../core/editor/SourceEditor'
 import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
@@ -10,6 +10,8 @@ const props = defineProps<{
   content?: string
   /** 为 true 时不注册到 EditorManager（SplitView 内嵌时使用） */
   noRegister?: boolean
+  /** When using v-show pattern, indicates whether this editor is the active mode. */
+  active?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +22,10 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLElement | null>(null)
 let editor: SourceEditor | null = null
 let scrollEl: HTMLElement | null = null
+
+// Content snapshot taken when this editor is deactivated (v-show pattern).
+// Compared on reactivation to determine whether another mode modified content.
+let contentWhenDeactivated: string | null = null
 
 function handleScroll() {
   if (!scrollEl) return
@@ -122,7 +128,11 @@ function handleDrop(event: DragEvent) {
 onMounted(() => {
   if (!containerRef.value) return
   editor = new SourceEditor(containerRef.value, props.content ?? '', pasteHandler)
-  editor.onContentChange((md) => emit('change', md))
+  editor.onContentChange((md) => {
+    // Only emit changes when this editor is the active one.
+    if (props.active === false) return
+    emit('change', md)
+  })
 
   // CodeMirror 的滚动容器是 .cm-scroller
   scrollEl = containerRef.value.querySelector('.cm-scroller') as HTMLElement | null
@@ -131,8 +141,32 @@ onMounted(() => {
   containerRef.value.addEventListener('drop', handleDrop)
 
   // 注册到 EditorManager（SplitView 内嵌时由 SplitView 负责注册）
-  if (!props.noRegister) {
+  if (!props.noRegister && props.active !== false) {
     registerEditor(editor)
+  }
+})
+
+// Watch active prop: register/unregister editor when shown/hidden (v-show pattern).
+watch(() => props.active, (isActive) => {
+  if (!editor || props.noRegister) return
+
+  if (isActive) {
+    // Becoming active: sync content if it changed while hidden.
+    const contentActuallyChanged =
+      contentWhenDeactivated !== null && props.content !== contentWhenDeactivated
+    contentWhenDeactivated = null
+
+    if (contentActuallyChanged && props.content !== undefined) {
+      // Content was modified in another mode. Record in history so existing
+      // undo steps are preserved below this replacement (Ctrl+Z first reverts
+      // the cross-mode change, then continues with Source's own history).
+      editor.setContent(props.content, true)
+    }
+    registerEditor(editor)
+  } else {
+    // Becoming inactive: snapshot content for later comparison.
+    contentWhenDeactivated = props.content ?? null
+    unregisterEditor(editor)
   }
 })
 

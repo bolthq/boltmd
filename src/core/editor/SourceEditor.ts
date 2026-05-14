@@ -216,16 +216,19 @@ export class SourceEditor implements IEditor {
     return this.view.state.doc.toString()
   }
 
-  setContent(markdown: string): void {
+  setContent(markdown: string, recordInHistory?: boolean): void {
     this.view.dispatch({
       changes: {
         from: 0,
         to: this.view.state.doc.length,
         insert: markdown,
       },
-      // Exclude from undo history so Ctrl+Z on a freshly opened/switched
-      // file doesn't clear the content back to empty.
-      annotations: Transaction.addToHistory.of(false),
+      // Default: exclude from undo history so Ctrl+Z on a freshly opened/
+      // switched file doesn't clear the content back to empty.
+      // When recordInHistory is true (cross-mode content sync), record the
+      // replacement so existing undo steps are preserved below it and don't
+      // get corrupted by lossy position mapping through a full-doc replace.
+      annotations: Transaction.addToHistory.of(!!recordInHistory),
     })
   }
 
@@ -245,26 +248,46 @@ export class SourceEditor implements IEditor {
 
   setCursorPosition(pos: CursorPosition): void {
     let offset = pos.offset
-    // If no offset given but line > 0, compute offset from line number.
+    // If no valid offset given but line > 0, compute offset from line number.
     // pos.line is 0-based; CodeMirror lines are 1-based.
-    if (offset <= 0 && pos.line > 0) {
-      const lineInfo = this.view.state.doc.line(pos.line + 1)
-      offset = lineInfo.from + pos.column
-    }
     const docSize = this.view.state.doc.length
-    offset = Math.min(offset, docSize)
-    // Scroll such that the target line ends up at the vertical center.
-    // We use a large y-margin (half the viewport) to push it to center.
+    if ((offset <= 0 || offset > docSize) && pos.line > 0) {
+      const lineNum = Math.min(pos.line + 1, this.view.state.doc.lines)
+      const lineInfo = this.view.state.doc.line(lineNum)
+      offset = lineInfo.from + Math.min(pos.column, lineInfo.length)
+    }
+    offset = Math.min(Math.max(offset, 0), docSize)
+    this.view.dispatch({
+      selection: { anchor: offset },
+      effects: EditorView.scrollIntoView(offset, { y: 'center' }),
+    })
+  }
+
+  jumpToHeading(headingIndex: number): void {
+    // Find the Nth heading line (0-based index) in the document.
+    const doc = this.view.state.doc
+    let count = 0
+    let targetLine = 1
+    for (let ln = 1; ln <= doc.lines; ln++) {
+      const text = doc.line(ln).text
+      if (/^#{1,6}\s+/.test(text)) {
+        if (count === headingIndex) {
+          targetLine = ln
+          break
+        }
+        count++
+      }
+    }
+    const lineInfo = doc.line(targetLine)
+    const offset = lineInfo.from
     const halfViewport = Math.floor(this.view.scrollDOM.clientHeight / 2)
-    const line = this.view.state.doc.lineAt(offset)
     this.view.dispatch({
       selection: { anchor: offset },
       effects: [
         EditorView.scrollIntoView(offset, { y: 'center', yMargin: halfViewport }),
-        addJumpHighlight.of(line.from),
+        addJumpHighlight.of(lineInfo.from),
       ],
     })
-    // Auto-clear the decoration after the CSS animation completes.
     setTimeout(() => {
       this.view.dispatch({ effects: clearJumpHighlight.of(null) })
     }, 1500)

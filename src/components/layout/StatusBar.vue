@@ -96,13 +96,14 @@ const breadcrumb = computed(() => {
 function jumpToBreadcrumb(line: number) {
   const editor = getActiveEditor()
   if (!editor) return
-  // Compute character offset from content lines.
-  const lines = content.value.split('\n')
-  let offset = 0
-  for (let i = 0; i < line && i < lines.length; i++) {
-    offset += lines[i].length + 1
+  // Find the heading index by matching its line number.
+  const headings = parseHeadings(content.value)
+  const headingIdx = headings.findIndex(h => h.line === line)
+  if (headingIdx >= 0) {
+    editor.jumpToHeading(headingIdx)
+  } else {
+    editor.setCursorPosition({ line, column: 0, offset: 0 })
   }
-  editor.setCursorPosition({ line, column: 0, offset })
   editor.focus()
 }
 

@@ -78,13 +78,14 @@ const emit = defineEmits<{
 function jumpToHeading(item: HeadingItem): void {
   const editor = getActiveEditor()
   if (!editor) return
-  // Compute the character offset of the heading line from the source text.
-  const lines = content.value.split('\n')
-  let offset = 0
-  for (let i = 0; i < item.line && i < lines.length; i++) {
-    offset += lines[i].length + 1 // +1 for '\n'
+  // Find the heading's index in the parsed heading list.
+  const idx = headings.value.indexOf(item)
+  if (idx >= 0) {
+    editor.jumpToHeading(idx)
+  } else {
+    // Fallback: position by line number.
+    editor.setCursorPosition({ line: item.line, column: 0, offset: 0 })
   }
-  editor.setCursorPosition({ line: item.line, column: 0, offset })
   editor.focus()
 }
 

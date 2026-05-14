@@ -25,9 +25,16 @@ let activeEditor: IEditor | null = null
 // Tiptap 原始 Editor 引用（仅 WYSIWYG 模式，供 Toolbar 使用）
 let tiptapEditor: Editor | null = null
 
-// 切换前保存的光标和滚动位置（用于恢复）
-let pendingCursor: CursorPosition | null = null
-let pendingScroll: number = 0
+// Per-mode cursor & scroll history.  Each mode independently remembers its
+// own position so switching back restores where you left off.
+// Cross-mode transfer uses line number (the one shared coordinate system).
+interface ModePosition {
+  cursor: CursorPosition
+  scroll: number
+}
+
+// Pending position to restore when a new editor registers after mode switch.
+let pendingPosition: ModePosition | null = null
 
 // 响应式状态
 const mode = ref<EditorMode>('wysiwyg')
@@ -50,30 +57,25 @@ const activeHeadingIndex = ref(-1)
 export function registerEditor(editor: IEditor): void {
   activeEditor = editor
 
-  // 如果有待恢复的光标位置，恢复它
-  if (pendingCursor) {
+  // Restore this mode's last known position (if any).
+  if (pendingPosition) {
     try {
-      editor.setCursorPosition(pendingCursor)
+      editor.setCursorPosition(pendingPosition.cursor)
     } catch {
-      // 光标位置可能在新编辑器中无效，忽略
+      // Position may be invalid after content changes — ignore.
     }
-    pendingCursor = null
+    const scrollTarget = pendingPosition.scroll
+    if (scrollTarget > 0) {
+      requestAnimationFrame(() => {
+        try {
+          editor.setScrollPosition(scrollTarget)
+        } catch { /* ignore */ }
+      })
+    }
+    pendingPosition = null
   }
 
-  // 恢复滚动位置
-  if (pendingScroll > 0) {
-    // 延迟一帧让编辑器完成布局后再设置滚动
-    requestAnimationFrame(() => {
-      try {
-        editor.setScrollPosition(pendingScroll)
-      } catch {
-        // 忽略
-      }
-      pendingScroll = 0
-    })
-  }
-
-  // 聚焦编辑器
+  // Focus the editor.
   requestAnimationFrame(() => {
     editor.focus()
   })
@@ -91,21 +93,27 @@ export function unregisterEditor(editor: IEditor): void {
 
 /**
  * 切换编辑模式
- * 1. 从当前编辑器获取内容和光标
+ * 1. 从当前编辑器获取内容和光标行号
  * 2. 更新 content ref（供新编辑器初始化用）
- * 3. 更新 mode ref（触发组件切换）
+ * 3. 将光标行号传给新模式（跨模式唯一共通坐标）
+ * 4. 更新 mode ref（触发组件切换）
  */
 export function switchMode(newMode: EditorMode): void {
   if (newMode === mode.value) return
 
-  // 从当前编辑器抓取最新状态
+  // Grab cursor line from the current editor and transfer to new mode.
   if (activeEditor) {
     content.value = activeEditor.getContent()
-    pendingCursor = activeEditor.getCursorPosition()
-    pendingScroll = activeEditor.getScrollPosition()
+    const cursorPos = activeEditor.getCursorPosition()
+    // Transfer by line number — the only shared coordinate across modes.
+    // offset=0 forces the new editor to resolve position from line number.
+    pendingPosition = {
+      cursor: { line: cursorPos.line, column: 0, offset: 0 },
+      scroll: 0,
+    }
   }
 
-  // 更新模式 → 触发 EditorContainer 重新渲染
+  // Update mode → triggers EditorContainer re-render.
   mode.value = newMode
 }
 
@@ -148,23 +156,24 @@ export function saveSnapshot(): EditorSnapshot {
  */
 export function restoreFromSnapshot(snapshot: EditorSnapshot): void {
   content.value = snapshot.content
-  pendingCursor = snapshot.cursor
-  pendingScroll = snapshot.scroll
+  pendingPosition = { cursor: snapshot.cursor, scroll: snapshot.scroll }
   mode.value = snapshot.mode
 
   // If the editor is already mounted (same mode, component not re-created),
   // registerEditor won't fire again.  Push content + scroll directly.
   if (activeEditor) {
     activeEditor.setContent(snapshot.content)
+    // Clear undo history because we're switching to a different tab's document.
+    activeEditor.resetForTabSwitch?.()
     // Clear pending so registerEditor (if it fires later) won't double-apply.
-    pendingCursor = null
+    const pos = pendingPosition
+    pendingPosition = null
+    try { activeEditor.setCursorPosition(pos.cursor) } catch { /* ignore */ }
     // Delay scroll restoration by one frame so the DOM has reflowed after
     // content replacement.
-    const scrollTarget = pendingScroll
-    pendingScroll = 0
     requestAnimationFrame(() => {
       try {
-        activeEditor?.setScrollPosition(scrollTarget)
+        activeEditor?.setScrollPosition(pos.scroll)
       } catch { /* ignore */ }
     })
   }

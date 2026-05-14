@@ -42,7 +42,7 @@ export interface SearchState {
 // 编辑器实例统一接口
 export interface IEditor {
   getContent(): string
-  setContent(markdown: string): void
+  setContent(markdown: string, recordInHistory?: boolean): void
   focus(): void
   getCursorPosition(): CursorPosition
   setCursorPosition(pos: CursorPosition): void
@@ -55,6 +55,12 @@ export interface IEditor {
   destroy(): void
   onContentChange(callback: (markdown: string) => void): void
   getWordCount(): WordCount
+
+  // Heading navigation (used by OutlinePanel / command palette)
+  jumpToHeading(headingIndex: number): void
+
+  // Optional: clear undo history for tab switch (not mode switch)
+  resetForTabSwitch?(): void
 
   // 查找/替换
   search(query: string, options: SearchOptions): SearchState
