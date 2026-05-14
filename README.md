@@ -74,6 +74,27 @@ Headings, bold, italic, strikethrough, inline code, ordered/unordered lists, tas
 
 - `Ctrl+Shift+P` — fuzzy search all available commands and actions
 - `Ctrl+R` — search and open recent files
+- `Ctrl+Shift+O` — quick jump to headings
+
+### Document Outline
+
+- Sidebar panel with collapsible H1–H6 heading tree, auto-updated on edit
+- Click to jump, current heading highlighted in real time
+- Breadcrumb navigation in status bar (H1 > H2 > H3)
+- Resizable panel width, toggle via shortcut or settings
+
+### Smart Paste
+
+- Paste a URL → auto-fetches page title, inserts `[title](url)`
+- Paste HTML (from browser) → converts to Markdown
+- Paste TSV (from Excel / Google Sheets) → converts to Markdown table
+- Paste code → auto-detects language, wraps in fenced code block
+
+### Zen Mode
+
+- `F11` — fullscreen distraction-free editing (hides all UI chrome)
+- Typewriter mode — current line stays vertically centered
+- Edge hover — move mouse to top/bottom edge to temporarily reveal menu/status bar
 
 ### Recent Files
 
@@ -199,10 +220,10 @@ See [docs/01-architecture.md](docs/01-architecture.md) for details.
 - [x] Recent files history & search
 - [x] Multi-file batch open (drag, dialog, CLI)
 - [x] External file change detection
-- [ ] Document outline & heading navigation
-- [ ] Smart paste (URL → link, HTML → Markdown)
-- [ ] Zen mode (distraction-free writing)
-- [ ] Markdown formatter
+- [x] Document outline & heading navigation
+- [x] Smart paste (URL → link, HTML → Markdown, TSV → table, code detection)
+- [x] Zen mode (distraction-free writing, typewriter mode)
+- [ ] Multi-cursor editing (Source mode)
 - [ ] Export PDF / HTML
 - [ ] Plugin system
 - [ ] Local version history
@@ -227,6 +248,8 @@ See [TASKS.md](TASKS.md) for the full breakdown.
 | `Ctrl+H` | Replace |
 | `Ctrl+R` | Recent files search |
 | `Ctrl+Shift+P` | Command palette |
+| `Ctrl+Shift+O` | Quick jump to heading |
+| `F11` | Toggle Zen mode |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / Redo |

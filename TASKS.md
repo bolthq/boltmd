@@ -143,6 +143,7 @@
 - [x] **[Bug/P2] 代码块首次打开无语法高亮** — 打开含代码块的文件时高亮不生效，需编辑后才触发。可能是 lowlight 懒加载完成前编辑器已渲染，需在 lowlight ready 后重新触发高亮
 - [x] **[Bug/P2] 复制代码块单行自动包裹 ``` ** — 在 WYSIWYG 模式复制代码块中的某一行，粘贴时内容被额外包裹为代码块。需排查 tiptap-markdown 的 transformCopiedText 逻辑
 - [x] **[Bug/P3] Ctrl+R 刷新后新打开的文件丢失** — WebView 刷新导致前端状态重置，新打开但未保存到 session 的标签被丢弃
+- [ ] **[UX/P3] Cross-mode undo granularity** — Switching modes after edits records a full-doc replacement as a single undo step, so Ctrl+Z reverts all changes from the other mode at once instead of incrementally. Future optimization: use diff-based partial replacements in setContent to produce finer-grained undo steps
 
 ---
 
@@ -171,10 +172,10 @@
 - [x] P13-15: 面包屑导航（状态栏显示当前所在标题路径 H1 > H2 > H3）
 
 ### P13-C: 智能粘贴
-- [ ] P13-16: 粘贴 URL → 自动获取网页标题，转为 `[标题](url)`（获取失败则保留裸链接）
-- [ ] P13-17: 粘贴 HTML（从网页复制）→ 自动转 Markdown
-- [ ] P13-18: 粘贴表格数据（从 Excel / Google Sheets）→ 自动转 Markdown 表格
-- [ ] P13-19: 粘贴代码 → 自动检测语言并包裹代码块
+- [x] P13-16: 粘贴 URL → 自动获取网页标题，转为 `[标题](url)`（获取失败则保留裸链接）
+- [x] P13-17: 粘贴 HTML（从网页复制）→ 自动转 Markdown
+- [x] P13-18: 粘贴表格数据（从 Excel / Google Sheets）→ 自动转 Markdown 表格
+- [x] P13-19: 粘贴代码 → 自动检测语言并包裹代码块
 
 ### P13-D: 多文件批量打开
 - [x] P13-20: 从资源管理器拖入多个文件 → 全部打开为标签页
@@ -188,21 +189,17 @@
 > 提升专业度和写作体验的功能
 
 ### P14-A: Zen Mode（专注模式）
-- [ ] P14-1: 快捷键 F11 进入/退出专注模式（隐藏标题栏/标签栏/工具栏/状态栏，全屏纯编辑区）
-- [ ] P14-2: 打字机模式（可选：当前行始终居中）
-- [ ] P14-3: 专注模式下鼠标移到顶部/底部边缘时临时显示工具栏/状态栏
+- [x] P14-1: 快捷键 F11 进入/退出专注模式（隐藏标题栏/标签栏/工具栏/状态栏，全屏纯编辑区）
+- [x] P14-2: 打字机模式（可选：当前行始终居中）
+- [x] P14-3: 专注模式下鼠标移到顶部/底部边缘时临时显示工具栏/状态栏
 
-### P14-B: Markdown 格式化
-- [ ] P14-4: 一键格式化（Ctrl+Shift+F）：统一空行、标题间距、列表缩进规范化
-- [ ] P14-5: 表格自动对齐（列宽补齐，对齐标记符统一）
-- [ ] P14-6: 可配置格式化规则（compact vs spacious 风格偏好）
-- [ ] P14-7: 保存时自动格式化（可选开关，默认关闭）
+### ~~P14-B: Markdown 格式化~~ (Dropped — no meaningful value after researching competing editors)
 
 ### P14-C: 多光标编辑（源码模式）
 - [ ] P14-8: Ctrl+D 选中下一个相同文本
 - [ ] P14-9: Alt+Click 添加多个光标
 - [ ] P14-10: CodeMirror 6 多光标配置（原生支持，需启用+快捷键绑定）
-> 注：仅源码模式，WYSIWYG 模式 Tiptap 暂不支持多光标
+> 注：仅源码模式，WYSIWYG 模式 Tiptap 暂不支持多光标。CM6 原生支持，配置量极小。
 
 ### P14-D: 导出 PDF
 - [ ] P14-11: 菜单 File → Export PDF（调用系统打印 API，Ctrl+Shift+E）
@@ -320,8 +317,8 @@
 ```
 v0.2.0  核心体验补全    P13-A 文件打开历史 + P13-D 多文件批量打开
 v0.3.0  文档导航        P13-B 文档结构树 + Outline + 面包屑
-v0.4.0  编辑增强        P13-C 智能粘贴 + P14-A Zen Mode + P14-B Markdown 格式化
-v0.5.0  导出 + 多光标   P14-C 多光标编辑 + P14-D 导出 PDF/HTML
+v0.4.0  编辑增强        P13-C 智能粘贴 + P14-A Zen Mode + bug fixes
+v0.5.0  多光标+导出     P14-C 多光标编辑 + P14-D 导出 PDF/HTML
 v1.0.0  插件系统        P15 插件架构 + P16 本地版本控制插件
 ```
 
