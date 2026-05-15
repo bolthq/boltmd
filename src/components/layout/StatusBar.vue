@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { fileEncoding } from '../../core/stores/fileStore'
 import { themeService } from '../../core/services/ThemeService'
+import { updateService } from '../../core/services/UpdateService'
 import { parseHeadings } from '../../core/services/OutlineService'
 import type { ThemeName } from '../../core/types/config'
 import type { CursorPosition, WordCount } from '../../core/editor/types'
@@ -135,6 +136,16 @@ onUnmounted(() => {
       </template>
     </div>
     <div class="statusbar-right">
+      <span
+        v-if="updateService.updateAvailable.value"
+        class="statusbar-item statusbar-clickable statusbar-update"
+        :title="t('statusbar.updateAvailable', { version: updateService.updateVersion.value })"
+        @click="updateService.installPendingUpdate()"
+      >
+        <span class="update-dot"></span>
+        {{ t('statusbar.updateLabel', { version: updateService.updateVersion.value }) }}
+      </span>
+      <span v-if="updateService.updateAvailable.value" class="statusbar-sep">|</span>
       <span class="statusbar-item">{{ t('statusbar.ln') }} {{ cursor.line + 1 }}, {{ t('statusbar.col') }} {{ cursor.column + 1 }}</span>
       <span class="statusbar-sep">|</span>
       <span class="statusbar-item statusbar-clickable" @click="handleModeClick" :title="t('statusbar.switchMode')">
@@ -218,5 +229,21 @@ onUnmounted(() => {
 .breadcrumb-item:hover {
   background: var(--bg-hover);
   color: var(--accent-primary);
+}
+
+.statusbar-update {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-primary);
+}
+
+.update-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  flex-shrink: 0;
 }
 </style>

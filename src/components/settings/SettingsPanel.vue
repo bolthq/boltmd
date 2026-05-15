@@ -22,6 +22,7 @@ const tabSize = ref(configService.get('tabSize'))
 const wordWrap = ref(configService.get('wordWrap'))
 const autoSave = ref(configService.get('autoSave'))
 const autoSaveDelay = ref(configService.get('autoSaveDelay'))
+const autoCheckUpdate = ref(configService.get('autoCheckUpdate'))
 const defaultMode = ref<EditorMode>(configService.get('defaultMode'))
 const showLineNumbers = ref(configService.get('showLineNumbers'))
 
@@ -73,6 +74,11 @@ async function updateAutoSaveDelay(value: number) {
   const v = clamp(value, 500, 30000)
   autoSaveDelay.value = v
   await configService.set('autoSaveDelay', v)
+}
+
+async function updateAutoCheckUpdate(value: boolean) {
+  autoCheckUpdate.value = value
+  await configService.set('autoCheckUpdate', value)
 }
 
 async function updateDefaultMode(value: EditorMode) {
@@ -196,6 +202,11 @@ function handleOverlayClick(e: MouseEvent) {
               <input class="settings-input" type="number" :value="autoSaveDelay" min="500" max="30000" step="500" @change="updateAutoSaveDelay(Number(($event.target as HTMLInputElement).value))" />
               <span class="settings-unit">{{ t('settings.ms') }}</span>
             </div>
+          </div>
+
+          <div class="settings-row">
+            <label class="settings-label">{{ t('settings.autoCheckUpdate') }}</label>
+            <input class="settings-checkbox" type="checkbox" :checked="autoCheckUpdate" @change="updateAutoCheckUpdate(($event.target as HTMLInputElement).checked)" />
           </div>
         </section>
 

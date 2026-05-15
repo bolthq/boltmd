@@ -503,6 +503,9 @@ onMounted(async () => {
     }
   })
 
+  // Silent update check after a 30-second delay (non-blocking).
+  setTimeout(() => { updateService.silentCheck() }, 30_000)
+
   // Intercept window close: persist session, warn about unsaved changes.
   getCurrentWindow().onCloseRequested(async (event) => {
     await saveSession()

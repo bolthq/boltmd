@@ -84,6 +84,8 @@ export default {
     themeLight: 'Light',
     themeDark: 'Dark',
     themeSystem: 'System',
+    updateAvailable: 'Update available: v{version}',
+    updateLabel: 'v{version} available',
   },
 
   toolbar: {
@@ -135,6 +137,7 @@ export default {
     file: 'File',
     autoSave: 'Auto Save',
     autoSaveDelay: 'Auto Save Delay',
+    autoCheckUpdate: 'Auto Check Updates',
     ms: 'ms',
 
     shortcuts: 'Keyboard Shortcuts',

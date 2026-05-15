@@ -52,6 +52,7 @@ export interface AppConfig {
   windowState: WindowState | null
   firstLaunch: boolean
   recentFiles: RecentFileItem[]
+  autoCheckUpdate: boolean
 }
 
 export const CONFIG_VERSION = 2
@@ -78,4 +79,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   windowState: null,
   firstLaunch: true,
   recentFiles: [],
+  autoCheckUpdate: true,
 }

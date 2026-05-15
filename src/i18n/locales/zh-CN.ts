@@ -84,6 +84,8 @@ export default {
     themeLight: '浅色',
     themeDark: '深色',
     themeSystem: '跟随系统',
+    updateAvailable: '有新版本：v{version}',
+    updateLabel: 'v{version} 可更新',
   },
 
   toolbar: {
@@ -135,6 +137,7 @@ export default {
     file: '文件',
     autoSave: '自动保存',
     autoSaveDelay: '自动保存延迟',
+    autoCheckUpdate: '自动检查更新',
     ms: '毫秒',
 
     shortcuts: '键盘快捷键',
