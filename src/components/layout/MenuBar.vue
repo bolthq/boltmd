@@ -15,6 +15,8 @@ const emit = defineEmits<{
   (e: 'openFile'): void
   (e: 'save'): void
   (e: 'saveAs'): void
+  (e: 'exportHtml'): void
+  (e: 'exportPdf'): void
   (e: 'closeTab'): void
   (e: 'toggleToolbar'): void
   (e: 'toggleOutline'): void
@@ -187,6 +189,14 @@ onUnmounted(() => {
         <div class="menu-entry" @click="doAction(() => emit('saveAs'))">
           <span>{{ t('menu.saveAs') }}</span>
           <span class="menu-shortcut">Ctrl+Shift+S</span>
+        </div>
+        <div class="menu-separator" />
+        <div class="menu-entry" @click="doAction(() => emit('exportHtml'))">
+          <span>{{ t('menu.exportHtml') }}</span>
+        </div>
+        <div class="menu-entry" @click="doAction(() => emit('exportPdf'))">
+          <span>{{ t('menu.exportPdf') }}</span>
+          <span class="menu-shortcut">Ctrl+P</span>
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => emit('closeTab'))">

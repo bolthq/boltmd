@@ -26,6 +26,7 @@ import { themeService } from './core/services/ThemeService'
 import { configService } from './core/services/ConfigService'
 import { updateService } from './core/services/UpdateService'
 import { loadBundledDoc, type BundledDocName } from './core/services/BundledDocs'
+import { exportHtml, exportPdf } from './core/services/ExportService'
 import type { WindowState } from './core/types/config'
 import type { Command } from './components/common/CommandPalette.vue'
 
@@ -59,6 +60,18 @@ async function openHelpDoc(name: BundledDocName): Promise<void> {
   } catch (err) {
     console.error('[App] Failed to open bundled doc', name, err)
   }
+}
+
+function doExportHtml(): void {
+  const md = getActiveEditor()?.getContent() ?? content.value
+  const fileName = activeTab.value?.fileName ?? 'untitled.md'
+  exportHtml(md, fileName)
+}
+
+function doExportPdf(): void {
+  const md = getActiveEditor()?.getContent() ?? content.value
+  const fileName = activeTab.value?.fileName ?? 'untitled.md'
+  exportPdf(md, fileName)
 }
 
 // showToolbar 变化时持久化
@@ -121,6 +134,8 @@ const commands = computed<Command[]>(() => [
   { id: 'theme-light', label: t('commands.themeLight'), action: () => themeService.setTheme('light') },
   { id: 'theme-dark', label: t('commands.themeDark'), action: () => themeService.setTheme('dark') },
   { id: 'theme-system', label: t('commands.themeSystem'), action: () => themeService.setTheme('system') },
+  { id: 'export-html', label: t('commands.exportHtml'), action: () => doExportHtml() },
+  { id: 'export-pdf', label: t('commands.exportPdf'), shortcut: 'Ctrl+P', action: () => doExportPdf() },
 ])
 
 // Recent files as command palette entries
@@ -297,6 +312,13 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
+  // Ctrl+P 导出 PDF (also blocks browser default print)
+  if (ctrl && !e.shiftKey && e.key === 'p') {
+    e.preventDefault()
+    doExportPdf()
+    return
+  }
+
   // Ctrl+, 打开/关闭设置面板
   if (ctrl && e.key === ',') {
     e.preventDefault()
@@ -374,6 +396,23 @@ function handleKeydown(e: KeyboardEvent) {
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('mousemove', handleZenMouseMove)
+
+  // Block the WebView default context menu (which includes "Print") on
+  // non-editor areas (padding, menubar, titlebar, etc.).  Editor areas
+  // (contenteditable WYSIWYG, CodeMirror source, textarea, input) keep their
+  // native Copy/Paste/… context menu.
+  window.addEventListener('contextmenu', (e: MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (
+      target.closest('[contenteditable="true"]') ||
+      target.closest('textarea') ||
+      target.closest('input') ||
+      target.closest('.cm-editor')
+    ) {
+      return
+    }
+    e.preventDefault()
+  })
 
   // 初始化主题
   themeService.init()
@@ -520,6 +559,8 @@ onUnmounted(() => {
       @open-file="openFile()"
       @save="saveFile()"
       @save-as="saveFileAs()"
+      @export-html="doExportHtml()"
+      @export-pdf="doExportPdf()"
       @close-tab="activeTabId && closeTab(activeTabId)"
       @toggle-toolbar="showToolbar = !showToolbar"
       @toggle-outline="showOutline = !showOutline"
