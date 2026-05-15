@@ -1,9 +1,9 @@
-import { EditorState, Compartment, StateEffect, StateField, Transaction } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, Decoration, type DecorationSet } from '@codemirror/view'
+import { EditorState, EditorSelection, Compartment, StateEffect, StateField, Transaction } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, Decoration, type DecorationSet } from '@codemirror/view'
 import { defaultKeymap, historyKeymap, history, indentWithTab, undo, redo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
-import { highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, replaceNext, replaceAll, getSearchQuery, search } from '@codemirror/search'
+import { highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, replaceNext, replaceAll, getSearchQuery, search, selectNextOccurrence } from '@codemirror/search'
 import { indentOnInput, foldGutter, foldKeymap, syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { eventBus } from '../events/EventBus'
@@ -99,6 +99,8 @@ export class SourceEditor implements IEditor {
     const isDark = themeService.getResolvedTheme() === 'dark'
 
     const extensions = [
+      EditorState.allowMultipleSelections.of(true),
+      drawSelection(),
       lineNumbers(),
       highlightActiveLineGutter(),
       highlightActiveLine(),
@@ -122,6 +124,7 @@ export class SourceEditor implements IEditor {
         createPanel: () => ({ dom: document.createElement('div') }),
       }),
       keymap.of([
+        { key: 'Mod-d', run: selectNextOccurrence, preventDefault: true },
         ...defaultKeymap,
         ...historyKeymap,
         ...foldKeymap,
@@ -129,6 +132,34 @@ export class SourceEditor implements IEditor {
       ]),
       EditorView.lineWrapping,
       EditorView.domEventHandlers({
+        mousedown: (event: MouseEvent, view: EditorView) => {
+          // Alt+Click: add a new cursor at the clicked position (VS Code style)
+          if (event.altKey && !event.ctrlKey && !event.shiftKey && event.button === 0) {
+            const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+            if (pos != null) {
+              event.preventDefault()
+              view.dispatch({
+                selection: view.state.selection.addRange(
+                  EditorSelection.cursor(pos)
+                ),
+              })
+              view.focus()
+              return true
+            }
+          }
+          // Ctrl+Click: override CM6's built-in multi-cursor behavior;
+          // just move cursor to clicked position (single cursor).
+          if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.button === 0) {
+            const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+            if (pos != null) {
+              event.preventDefault()
+              view.dispatch({ selection: EditorSelection.cursor(pos) })
+              view.focus()
+              return true
+            }
+          }
+          return false
+        },
         paste: (event: ClipboardEvent) => {
           if (this.pasteHandler) {
             return this.pasteHandler(event, this)
@@ -189,13 +220,16 @@ export class SourceEditor implements IEditor {
         backgroundColor: 'var(--bg-hover)',
       },
       '.cm-activeLine': {
-        backgroundColor: 'var(--bg-hover)',
+        backgroundColor: 'color-mix(in srgb, var(--bg-hover) 60%, transparent)',
       },
       '.cm-selectionBackground, ::selection': {
         backgroundColor: 'var(--selection-bg)',
       },
       '.cm-focused .cm-selectionBackground': {
         backgroundColor: 'var(--selection-bg)',
+      },
+      '.cm-selectionMatch': {
+        backgroundColor: 'color-mix(in srgb, var(--accent-primary) 25%, transparent)',
       },
       '.cm-cursor': {
         borderLeftColor: 'var(--accent-primary)',

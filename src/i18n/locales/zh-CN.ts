@@ -146,6 +146,8 @@ export default {
     shortcutNextTab: '下一个标签',
     shortcutPrevTab: '上一个标签',
     shortcutJumpTab: '跳转到标签',
+    shortcutSelectNextOccurrence: '选中下一个相同文本（源码模式）',
+    shortcutAddCursor: '添加光标（源码模式）',
   },
 
   commands: {

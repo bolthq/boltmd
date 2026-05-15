@@ -146,6 +146,8 @@ export default {
     shortcutNextTab: 'Next tab',
     shortcutPrevTab: 'Previous tab',
     shortcutJumpTab: 'Jump to tab',
+    shortcutSelectNextOccurrence: 'Select next occurrence (Source)',
+    shortcutAddCursor: 'Add cursor (Source)',
   },
 
   commands: {

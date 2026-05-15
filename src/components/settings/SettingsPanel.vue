@@ -97,6 +97,8 @@ const shortcuts = [
   { keys: 'Ctrl+Tab', descKey: 'settings.shortcutNextTab' },
   { keys: 'Ctrl+Shift+Tab', descKey: 'settings.shortcutPrevTab' },
   { keys: 'Ctrl+1~9', descKey: 'settings.shortcutJumpTab' },
+  { keys: 'Ctrl+D', descKey: 'settings.shortcutSelectNextOccurrence' },
+  { keys: 'Alt+Click', descKey: 'settings.shortcutAddCursor' },
 ]
 
 // 点击遮罩关闭
