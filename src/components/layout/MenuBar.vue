@@ -5,10 +5,13 @@ import { SUPPORTED_LOCALES, getLocale, setLocale, type SupportedLocale } from '.
 import { useEditorManager } from '../../core/editor/EditorManager'
 import { themeService } from '../../core/services/ThemeService'
 import { updateService } from '../../core/services/UpdateService'
+import { configService } from '../../core/services/ConfigService'
 import { getRecentFiles, clearRecentFiles, removeRecentFile, checkRecentFilesExist, openFilePath } from '../../core/stores/fileStore'
+import type { ThemeName } from '../../core/types/config'
 
 const { t } = useI18n()
 const { mode, switchMode } = useEditorManager()
+const currentTheme = ref<ThemeName>(configService.get('theme'))
 
 const emit = defineEmits<{
   (e: 'newTab'): void
@@ -253,18 +256,18 @@ onUnmounted(() => {
       <span class="menu-label">{{ t('menu.view') }}</span>
       <div v-if="openMenu === 'view'" class="menu-dropdown">
         <div class="menu-entry" @click="doAction(() => emit('toggleToolbar'))">
-          <span>
+          <span>{{ t('menu.toggleToolbar') }}</span>
+          <span class="menu-right">
             <span class="menu-check">{{ props.showToolbar ? '✓' : '' }}</span>
-            {{ t('menu.toggleToolbar') }}
+            <span class="menu-shortcut">Ctrl+Shift+T</span>
           </span>
-          <span class="menu-shortcut">Ctrl+Shift+T</span>
         </div>
         <div class="menu-entry" @click="doAction(() => emit('toggleOutline'))">
-          <span>
+          <span>{{ t('menu.toggleOutline') }}</span>
+          <span class="menu-right">
             <span class="menu-check">{{ props.showOutline ? '✓' : '' }}</span>
-            {{ t('menu.toggleOutline') }}
+            <span class="menu-shortcut">Ctrl+Shift+L</span>
           </span>
-          <span class="menu-shortcut">Ctrl+Shift+L</span>
         </div>
         <div class="menu-entry" @click="doAction(() => emit('zenMode'))">
           <span>{{ t('menu.zenMode') }}</span>
@@ -272,32 +275,29 @@ onUnmounted(() => {
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => switchMode('wysiwyg'))">
-          <span>
-            <span class="menu-check">{{ mode === 'wysiwyg' ? '●' : '' }}</span>
-            {{ t('menu.modeWysiwyg') }}
-          </span>
+          <span>{{ t('menu.modeWysiwyg') }}</span>
+          <span class="menu-check">{{ mode === 'wysiwyg' ? '●' : '' }}</span>
         </div>
         <div class="menu-entry" @click="doAction(() => switchMode('source'))">
-          <span>
-            <span class="menu-check">{{ mode === 'source' ? '●' : '' }}</span>
-            {{ t('menu.modeSource') }}
-          </span>
+          <span>{{ t('menu.modeSource') }}</span>
+          <span class="menu-check">{{ mode === 'source' ? '●' : '' }}</span>
         </div>
         <div class="menu-entry" @click="doAction(() => switchMode('split'))">
-          <span>
-            <span class="menu-check">{{ mode === 'split' ? '●' : '' }}</span>
-            {{ t('menu.modeSplit') }}
-          </span>
+          <span>{{ t('menu.modeSplit') }}</span>
+          <span class="menu-check">{{ mode === 'split' ? '●' : '' }}</span>
         </div>
         <div class="menu-separator" />
-        <div class="menu-entry" @click="doAction(() => themeService.setTheme('light'))">
+        <div class="menu-entry" @click="doAction(() => { themeService.setTheme('light'); currentTheme = 'light' })">
           <span>{{ t('menu.themeLight') }}</span>
+          <span class="menu-check">{{ currentTheme === 'light' ? '●' : '' }}</span>
         </div>
-        <div class="menu-entry" @click="doAction(() => themeService.setTheme('dark'))">
+        <div class="menu-entry" @click="doAction(() => { themeService.setTheme('dark'); currentTheme = 'dark' })">
           <span>{{ t('menu.themeDark') }}</span>
+          <span class="menu-check">{{ currentTheme === 'dark' ? '●' : '' }}</span>
         </div>
-        <div class="menu-entry" @click="doAction(() => themeService.setTheme('system'))">
+        <div class="menu-entry" @click="doAction(() => { themeService.setTheme('system'); currentTheme = 'system' })">
           <span>{{ t('menu.themeSystem') }}</span>
+          <span class="menu-check">{{ currentTheme === 'system' ? '●' : '' }}</span>
         </div>
         <div class="menu-separator" />
         <!-- 语言子菜单 -->
@@ -311,10 +311,8 @@ onUnmounted(() => {
               class="menu-entry"
               @click="switchLanguage(loc.value)"
             >
-              <span>
-                <span class="menu-check">{{ currentLocale === loc.value ? '●' : '' }}</span>
-                {{ loc.label }}
-              </span>
+              <span>{{ loc.label }}</span>
+              <span class="menu-check">{{ currentLocale === loc.value ? '●' : '' }}</span>
             </div>
           </div>
         </div>
@@ -447,6 +445,10 @@ onUnmounted(() => {
   opacity: 0.8;
 }
 
+.menu-entry:hover .menu-check {
+  color: white;
+}
+
 .menu-separator {
   height: 1px;
   background: var(--border-primary);
@@ -458,6 +460,19 @@ onUnmounted(() => {
   width: 16px;
   text-align: center;
   font-size: 10px;
+  margin-left: 12px;
+  flex-shrink: 0;
+  color: var(--accent-primary);
+}
+
+.menu-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.menu-right .menu-shortcut {
+  margin-left: 0;
 }
 
 .menu-arrow {
