@@ -121,6 +121,24 @@ Configurable debounce delay, toggle on/off in settings. Never lose work.
 - Light / Dark / Follow system
 - English + 中文 built-in
 
+### Multi-Cursor Editing (Source Mode)
+
+- `Ctrl+D` — select next occurrence of current selection
+- `Alt+Click` — add cursor at click position
+- Full CodeMirror 6 multi-cursor support
+
+### Export PDF / HTML
+
+- `Ctrl+P` — export to PDF via system print dialog
+- File → Export HTML — standalone `.html` with inlined theme styles
+- Uses current editor theme (light/dark) for exported output
+
+### Auto-Update Detection
+
+- Silent background check 30 seconds after launch
+- Non-intrusive status bar indicator (dot + version) when update available
+- Click to confirm and install; configurable on/off in Settings
+
 ### Other
 
 - Encoding auto-detection (UTF-8, GBK, Latin-1)
@@ -223,8 +241,9 @@ See [docs/01-architecture.md](docs/01-architecture.md) for details.
 - [x] Document outline & heading navigation
 - [x] Smart paste (URL → link, HTML → Markdown, TSV → table, code detection)
 - [x] Zen mode (distraction-free writing, typewriter mode)
-- [ ] Multi-cursor editing (Source mode)
-- [ ] Export PDF / HTML
+- [x] Multi-cursor editing (Source mode)
+- [x] Export PDF / HTML
+- [x] Auto-update detection (silent background check, configurable)
 - [ ] Plugin system
 - [ ] Local version history
 - [ ] Cloud sync (plugin, self-hostable)
@@ -249,6 +268,9 @@ See [TASKS.md](TASKS.md) for the full breakdown.
 | `Ctrl+R` | Recent files search |
 | `Ctrl+Shift+P` | Command palette |
 | `Ctrl+Shift+O` | Quick jump to heading |
+| `Ctrl+P` | Export PDF |
+| `Ctrl+D` | Select next occurrence (Source) |
+| `Alt+Click` | Add cursor (Source) |
 | `F11` | Toggle Zen mode |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |

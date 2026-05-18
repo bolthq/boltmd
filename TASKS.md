@@ -196,21 +196,19 @@
 ### ~~P14-B: Markdown 格式化~~ (Dropped — no meaningful value after researching competing editors)
 
 ### P14-C: 多光标编辑（源码模式）
-- [ ] P14-8: Ctrl+D 选中下一个相同文本
-- [ ] P14-9: Alt+Click 添加多个光标
-- [ ] P14-10: CodeMirror 6 多光标配置（原生支持，需启用+快捷键绑定）
+- [x] P14-8: Ctrl+D 选中下一个相同文本
+- [x] P14-9: Alt+Click 添加多个光标
+- [x] P14-10: CodeMirror 6 多光标配置（原生支持，需启用+快捷键绑定）
 > 注：仅源码模式，WYSIWYG 模式 Tiptap 暂不支持多光标。CM6 原生支持，配置量极小。
 
-### P14-D: 导出 PDF
-- [ ] P14-11: 菜单 File → Export PDF（调用系统打印 API，Ctrl+Shift+E）
-- [ ] P14-12: 打印预览 / 页边距配置
-- [ ] P14-13: 导出时主题选择（亮色/暗色/跟随当前）
-- [ ] P14-14: 导出 HTML 文件（内联样式，完整 HTML 文档）
+### P14-D: 导出 PDF / HTML
+- [x] P14-11: 菜单 File → Export PDF / Export HTML（Ctrl+P 触发 PDF 导出）
+- [x] P14-14: 导出 HTML 文件（内联样式，完整 HTML 文档）
 
 ### P14-E: 自动更新检测
-- [ ] P14-15: 启动后延迟 30 秒异步查询 GitHub Release API（不阻塞任何 UI）
-- [ ] P14-16: 有新版时状态栏显示不打扰的提示（小圆点+点击查看更新说明）
-- [ ] P14-17: 可配置关闭更新检测（设置面板开关）
+- [x] P14-15: 启动后延迟 30 秒异步查询 GitHub Release API（不阻塞任何 UI）
+- [x] P14-16: 有新版时状态栏显示不打扰的提示（小圆点+点击查看更新说明）
+- [x] P14-17: 可配置关闭更新检测（设置面板开关）
 
 ### P14-X: 用户反馈入口（待定）
 > 备注：降低非 GitHub 用户反馈门槛。方案候选：应用内表单+轻量后端（Cloudflare Workers）收集，或先跳转外部问卷过渡。待 Dio 决定是否上。
@@ -318,7 +316,7 @@
 v0.2.0  核心体验补全    P13-A 文件打开历史 + P13-D 多文件批量打开
 v0.3.0  文档导航        P13-B 文档结构树 + Outline + 面包屑
 v0.4.0  编辑增强        P13-C 智能粘贴 + P14-A Zen Mode + bug fixes
-v0.5.0  多光标+导出     P14-C 多光标编辑 + P14-D 导出 PDF/HTML
+v0.5.0  多光标+导出     P14-C 多光标编辑 + P14-D 导出 PDF/HTML + P14-E 自动更新检测
 v1.0.0  插件系统        P15 插件架构 + P16 本地版本控制插件
 ```
 
