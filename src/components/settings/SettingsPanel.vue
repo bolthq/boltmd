@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { X } from 'lucide-vue-next'
 import { configService } from '../../core/services/ConfigService'
 import { themeService } from '../../core/services/ThemeService'
+import { pluginInstances } from '../../core/plugins'
 import type { ThemeName } from '../../core/types/config'
 import type { EditorMode } from '../../core/editor/types'
 
@@ -107,6 +108,32 @@ const shortcuts = [
   { keys: 'Ctrl+D', descKey: 'settings.shortcutSelectNextOccurrence' },
   { keys: 'Alt+Click', descKey: 'settings.shortcutAddCursor' },
 ]
+
+// ── Plugin management ────────────────────────────────────────────────────────
+
+const disabledPlugins = ref<string[]>(configService.get('disabledPlugins') ?? [])
+
+const pluginList = computed(() =>
+  pluginInstances.value.map(p => ({
+    id: p.manifest.id,
+    name: p.manifest.name,
+    version: p.manifest.version,
+    author: p.manifest.author,
+    description: p.manifest.description,
+    state: p.state,
+    error: p.error,
+    enabled: !disabledPlugins.value.includes(p.manifest.id),
+  }))
+)
+
+async function togglePlugin(pluginId: string, enabled: boolean) {
+  if (enabled) {
+    disabledPlugins.value = disabledPlugins.value.filter(id => id !== pluginId)
+  } else {
+    disabledPlugins.value = [...disabledPlugins.value, pluginId]
+  }
+  await configService.set('disabledPlugins', disabledPlugins.value)
+}
 
 // 点击遮罩关闭
 function handleOverlayClick(e: MouseEvent) {
@@ -218,6 +245,40 @@ function handleOverlayClick(e: MouseEvent) {
               <kbd class="shortcut-key">{{ s.keys }}</kbd>
               <span class="shortcut-desc">{{ t(s.descKey) }}</span>
             </div>
+          </div>
+        </section>
+
+        <!-- Plugins -->
+        <section class="settings-section">
+          <h3 class="settings-section-title">Plugins</h3>
+          <div v-if="pluginList.length === 0" class="plugin-empty">
+            No plugins installed. Place plugin folders in the app data plugins directory.
+          </div>
+          <div v-else class="plugin-list">
+            <div v-for="p in pluginList" :key="p.id" class="plugin-row">
+              <div class="plugin-info">
+                <div class="plugin-name">
+                  {{ p.name }}
+                  <span class="plugin-version">v{{ p.version }}</span>
+                  <span v-if="p.state === 'error'" class="plugin-badge plugin-badge-error">Error</span>
+                  <span v-else-if="p.state === 'active'" class="plugin-badge plugin-badge-active">Active</span>
+                  <span v-else class="plugin-badge plugin-badge-inactive">Inactive</span>
+                </div>
+                <div class="plugin-desc">{{ p.description }}</div>
+                <div class="plugin-author">by {{ p.author }}</div>
+                <div v-if="p.error" class="plugin-error">{{ p.error }}</div>
+              </div>
+              <input
+                class="settings-checkbox"
+                type="checkbox"
+                :checked="p.enabled"
+                @change="togglePlugin(p.id, ($event.target as HTMLInputElement).checked)"
+                title="Enable/Disable (requires reload)"
+              />
+            </div>
+          </div>
+          <div class="plugin-hint">
+            Changes take effect after reloading plugins (Ctrl+Shift+P → "Reload All Plugins").
           </div>
         </section>
       </div>
@@ -390,5 +451,96 @@ function handleOverlayClick(e: MouseEvent) {
 .shortcut-desc {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.plugin-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.plugin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plugin-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.plugin-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.plugin-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plugin-version {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.plugin-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.plugin-badge-active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.plugin-badge-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.plugin-badge-inactive {
+  background: rgba(156, 163, 175, 0.15);
+  color: var(--text-muted);
+}
+
+.plugin-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.plugin-author {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.plugin-error {
+  font-size: 11px;
+  color: #dc2626;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.plugin-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  font-style: italic;
 }
 </style>
