@@ -219,20 +219,27 @@
 
 > 核心原则：除了基础编辑体验，能走插件的都走插件
 > 先建好插件架构，后续版本控制/云同步等作为官方插件验证架构
+> 详细设计与拆分理由见 [docs/07-plugin-system.md](docs/07-plugin-system.md)
 
 ### P15-A: 插件架构
-- [ ] P15-1: 设计插件 API 文档（PluginContext：编辑器操作、文件系统、配置、UI 扩展点、事件总线）
-- [ ] P15-2: 插件加载机制（`%APPDATA%/boltmd/plugins/` 目录，每个插件一个文件夹+manifest.json）
-- [ ] P15-3: 插件生命周期（activate/deactivate/dispose）+ 依赖声明
-- [ ] P15-4: UI 扩展点：侧栏面板、工具栏按钮、右键菜单、状态栏、快捷键、编辑器 Markdown 扩展
-- [ ] P15-5: 插件配置 UI（设置面板 → 插件页签：列表/启用/禁用/卸载/配置）
-- [ ] P15-6: 插件沙箱（文件系统访问限制在工作区+插件目录、网络请求需声明）
-- [ ] P15-7: 内置插件脚手架工具（`boltmd create-plugin <name>`）
+
+开发顺序按代码依赖链排列，每步独立通过构建验证后提交：
+
+- [ ] P15-1: 类型定义 — `types.ts` + `index.ts`（PluginManifest, PluginContext, 所有子 API 接口；不含 toolbar 权限）
+- [ ] P15-2: Rust 插件目录扫描 — `plugin.rs` 中 `scan_plugins_dir` + ID 校验辅助函数
+- [ ] P15-3: PluginLoader — 调用 Rust 扫描、解析并校验 manifest（依赖 P15-1, P15-2）
+- [ ] P15-4: PluginManager — 响应式注册表（commands/statusbar/sidebar/shortcuts）+ 插件实例状态存储 + register/unregister 函数 + shortcut→commandId 映射表；不含激活编排逻辑（依赖 P15-1）
+- [ ] P15-5: Rust 插件配置 + 沙盒 FS — config 读写 + 文件系统 6 个命令 + 路径穿越防护（依赖 P15-2）
+- [ ] P15-6: PluginContext — 上下文工厂 + 权限检查 + 各子 API 委托实现 + 内部维护 disposer 列表（deactivate 时自动释放所有未清理的订阅）；需修改 EditorManager.ts 添加 getEditorMode() 导出（依赖 P15-1, P15-4, P15-5）
+- [ ] P15-7: App.vue 集成 — 启动加载 + 激活编排（创建 context → 传入 Manager，activation 异常标记 state=error）+ 关闭注销 + config 添加 disabledPlugins 字段 + handleKeydown 查询 shortcut 注册表执行插件命令 + 插件命令执行 wrap try-catch（依赖 P15-3, P15-4, P15-6）
+- [ ] P15-8: UI 扩展点：命令面板接入插件命令 + 内置 "Reload All Plugins" 命令（依赖 P15-7）
+- [ ] P15-9: UI 扩展点：状态栏接入插件项（依赖 P15-7）
+- [ ] P15-10: 插件配置 UI — 设置面板插件页签（列表/启用/禁用/错误状态显示）（依赖 P15-7）
 
 ### P15-B: 插件市场
-- [ ] P15-8: 插件仓库索引（GitHub repo，JSON manifest 列表）
-- [ ] P15-9: 应用内搜索/浏览/安装/更新插件
-- [ ] P15-10: 插件版本管理 + 自动更新提示
+- [ ] P15-11: 插件仓库索引（GitHub repo，JSON manifest 列表）
+- [ ] P15-12: 应用内搜索/浏览/安装/更新插件
+- [ ] P15-13: 插件版本管理 + 自动更新提示
 
 ---
 
