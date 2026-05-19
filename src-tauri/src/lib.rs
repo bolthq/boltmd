@@ -123,6 +123,7 @@ pub fn run() {
             commands::watcher::unwatch_file,
             commands::watcher::suppress_watcher,
             commands::web::fetch_page_title,
+            commands::plugin::scan_plugins_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
