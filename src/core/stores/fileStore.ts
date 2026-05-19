@@ -7,6 +7,8 @@ import { ErrorLevel } from '../services/ErrorService'
 import { getContent } from '../editor/EditorManager'
 import { openTab as tabOpenTab, markSaved as tabMarkSaved, activeTabId, activeTab } from './tabStore'
 import { configService } from '../services/ConfigService'
+import { eventBus } from '../events/EventBus'
+import { AppEvent } from '../events/events'
 import { t } from '../../i18n'
 import type { RecentFileItem } from '../types/config'
 
@@ -168,6 +170,7 @@ export async function saveFile(): Promise<boolean> {
       _dirty.value = false
       _lastSaved.value = Date.now()
       tabMarkSaved(tabId, path)
+      eventBus.emit(AppEvent.FileSaved, { path })
       return true
     } catch (e) {
       errorService.report({
@@ -199,6 +202,7 @@ export async function saveFileAs(): Promise<boolean> {
     }
     // Watch the new path for external changes.
     await fileWatcherService.watch(newPath)
+    eventBus.emit(AppEvent.FileSaved, { path: newPath })
     return true
   } catch (e) {
     errorService.report({

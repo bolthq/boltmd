@@ -13,6 +13,7 @@ import StatusBar from './components/layout/StatusBar.vue'
 import EditorContainer from './components/editor/EditorContainer.vue'
 const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
 const OutlinePanel = defineAsyncComponent(() => import('./components/editor/OutlinePanel.vue'))
+const PluginSidebarPanels = defineAsyncComponent(() => import('./components/editor/PluginSidebarPanels.vue'))
 const SettingsPanel = defineAsyncComponent(() => import('./components/settings/SettingsPanel.vue'))
 const CommandPalette = defineAsyncComponent(() => import('./components/common/CommandPalette.vue'))
 const AboutDialog = defineAsyncComponent(() => import('./components/common/AboutDialog.vue'))
@@ -532,12 +533,38 @@ async function reloadAllPlugins(): Promise<void> {
 }
 
 // Expose reloadAllPlugins for command palette (P15-8).
-// Also emit plugin events on key app lifecycle moments.
+// Bridge internal eventBus events to plugin event system.
+import { eventBus } from './core/events/EventBus'
+import { AppEvent } from './core/events/events'
+import type { PluginEventName } from './core/plugins'
+
+// Map internal AppEvent names to PluginEventName (they share the same strings).
+const BRIDGED_EVENTS: string[] = [
+  AppEvent.FileOpened,
+  AppEvent.FileSaved,
+  AppEvent.FileExternalChange,
+  AppEvent.EditorContentChange,
+  AppEvent.EditorModeChange,
+  AppEvent.TabSwitch,
+  AppEvent.TabClose,
+  AppEvent.ConfigChange,
+  AppEvent.ThemeChange,
+]
+
+function setupPluginEventBridge(): void {
+  for (const event of BRIDGED_EVENTS) {
+    eventBus.on(event, (...args: unknown[]) => {
+      emitPluginEvent(event as PluginEventName, ...args)
+    })
+  }
+}
+
+// Also emit file:opened on tab file path change (not covered by eventBus).
 watch(
   () => activeTab.value?.filePath,
   (newPath, oldPath) => {
     if (newPath && newPath !== oldPath) {
-      emitPluginEvent('file:opened', { path: newPath })
+      eventBus.emit(AppEvent.FileOpened, { path: newPath })
     }
   }
 )
@@ -656,6 +683,7 @@ onMounted(async () => {
   setTimeout(() => { updateService.silentCheck() }, 30_000)
 
   // ── Plugin system bootstrap ──────────────────────────────────────────────
+  setupPluginEventBridge()
   await bootstrapPlugins()
 
   // Intercept window close: persist session, warn about unsaved changes.
@@ -738,6 +766,7 @@ onUnmounted(() => {
     <div class="main-content">
       <OutlinePanel v-if="showOutline && !zenMode" @close="showOutline = false" />
       <EditorContainer ref="editorContainerRef" />
+      <PluginSidebarPanels v-if="!zenMode" />
     </div>
     <!-- 状态栏 -->
     <StatusBar v-show="!zenMode || zenShowBottom" />

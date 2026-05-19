@@ -6,6 +6,8 @@ import { setContent } from '../editor/EditorManager'
 import { configService } from '../services/ConfigService'
 import { fileService } from '../services/FileService'
 import { fileWatcherService } from '../services/FileWatcherService'
+import { eventBus } from '../events/EventBus'
+import { AppEvent } from '../events/events'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { ask } from '@tauri-apps/plugin-dialog'
 import { t } from '../../i18n'
@@ -71,11 +73,16 @@ export async function closeTab(tabId: string): Promise<boolean> {
   if (tab?.filePath) {
     await fileWatcherService.unwatch(tab.filePath)
   }
-  return tabManager.closeTab(tabId)
+  const result = await tabManager.closeTab(tabId)
+  if (result) {
+    eventBus.emit(AppEvent.TabClose, { tabId })
+  }
+  return result
 }
 
 export function switchTab(tabId: string): void {
   tabManager.switchTab(tabId)
+  eventBus.emit(AppEvent.TabSwitch, { tabId })
 }
 
 export function updateTabContent(tabId: string, content: string): void {
@@ -122,6 +129,9 @@ export async function reloadTab(filePath: string): Promise<void> {
 
     // Trigger reactivity sync.
     sync()
+
+    // Notify plugins about external file change.
+    eventBus.emit(AppEvent.FileExternalChange, { path: filePath })
   } catch (e) {
     console.warn('[tabStore] Failed to reload tab:', filePath, e)
   }

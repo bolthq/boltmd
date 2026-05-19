@@ -1,6 +1,8 @@
 import { ref, readonly, type Ref, type DeepReadonly } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { EditorMode, EditorSnapshot, IEditor, CursorPosition, SearchOptions, SearchState } from './types'
+import { eventBus } from '../events/EventBus'
+import { AppEvent } from '../events/events'
 
 // 模式循环顺序
 const MODE_CYCLE: EditorMode[] = ['wysiwyg', 'source', 'split']
@@ -121,6 +123,7 @@ export function switchMode(newMode: EditorMode): void {
 
   // Update mode → triggers EditorContainer re-render.
   mode.value = newMode
+  eventBus.emit(AppEvent.EditorModeChange, { mode: newMode })
 }
 
 /**
@@ -245,6 +248,8 @@ export function syncContent(markdown: string): void {
       console.error('[EditorManager] Error in content change listener:', err)
     }
   }
+  // Emit app event for eventBus bridge.
+  eventBus.emit(AppEvent.EditorContentChange)
 }
 
 // ---------------------------------------------------------------------------

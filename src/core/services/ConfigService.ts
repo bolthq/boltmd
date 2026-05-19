@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import type { AppConfig } from '../types/config'
 import { DEFAULT_CONFIG, CONFIG_VERSION } from '../types/config'
+import { eventBus } from '../events/EventBus'
+import { AppEvent } from '../events/events'
 
 export interface IConfigService {
   get<K extends keyof AppConfig>(key: K): AppConfig[K]
@@ -93,6 +95,9 @@ class ConfigServiceImpl implements IConfigService {
     // 通知监听者
     const list = this.handlers[key] as Array<(v: AppConfig[K]) => void> | undefined
     list?.forEach((fn) => fn(value))
+
+    // Emit config change event for plugin bridge.
+    eventBus.emit(AppEvent.ConfigChange, { key, value })
 
     // 防抖保存
     if (this.saveTimer !== null) clearTimeout(this.saveTimer)
