@@ -31,6 +31,12 @@ export interface ScanResult {
 
 const PLUGIN_API_VERSION = 1
 
+/** Allowed permission values — reject anything not in this set. */
+const VALID_PERMISSIONS: ReadonlySet<string> = new Set([
+  'editor', 'editor.readonly', 'commands', 'statusbar', 'sidebar',
+  'config', 'events', 'fs:read', 'fs:write', 'network',
+])
+
 /** Scan the plugins directory and validate all found manifests. */
 export async function scanPlugins(): Promise<ScanResult> {
   const raw = await invoke<RawScannedPlugin[]>('scan_plugins_dir')
@@ -85,8 +91,19 @@ function validateManifest(dirName: string, rawJson: string): ValidateResult {
     return { ok: false, reason: `Manifest "id" ("${obj.id}") does not match directory name ("${dirName}")` }
   }
 
-  // main: optional, default "index.js".
+  // main: optional, default "index.js". Must not escape plugin directory.
   const main = typeof obj.main === 'string' && obj.main.trim() !== '' ? obj.main as string : 'index.js'
+  // Security: reject path traversal attempts in the main field.
+  const normalizedMain = main.replace(/\\/g, '/')
+  if (
+    normalizedMain.startsWith('/') ||
+    normalizedMain.startsWith('..') ||
+    normalizedMain.includes('/../') ||
+    normalizedMain.includes('/..') ||
+    normalizedMain.includes(':')
+  ) {
+    return { ok: false, reason: `Invalid "main" path: "${main}" — must be a relative path within the plugin directory` }
+  }
 
   // minAppVersion: required string.
   if (typeof obj.minAppVersion !== 'string' || obj.minAppVersion.trim() === '') {
@@ -101,13 +118,16 @@ function validateManifest(dirName: string, rawJson: string): ValidateResult {
     return { ok: false, reason: `Plugin requires apiVersion ${obj.apiVersion}, but app supports up to ${PLUGIN_API_VERSION}` }
   }
 
-  // permissions: required array of strings.
+  // permissions: required array of strings from the allowed set.
   if (!Array.isArray(obj.permissions)) {
     return { ok: false, reason: 'Missing or invalid field: "permissions" (must be array)' }
   }
   for (const perm of obj.permissions) {
     if (typeof perm !== 'string') {
       return { ok: false, reason: `Invalid permission value: ${JSON.stringify(perm)}` }
+    }
+    if (!VALID_PERMISSIONS.has(perm)) {
+      return { ok: false, reason: `Unknown permission: "${perm}". Allowed: ${[...VALID_PERMISSIONS].join(', ')}` }
     }
   }
 
