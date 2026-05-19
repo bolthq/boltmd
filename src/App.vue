@@ -39,6 +39,7 @@ import {
   findCommandByShortcut,
   findCommandById,
   pluginInstances,
+  pluginCommands,
 } from './core/plugins'
 import { createPluginContext, emitPluginEvent, type PluginContextInternal } from './core/plugins'
 import type { WindowState } from './core/types/config'
@@ -185,7 +186,14 @@ const headingCommands = computed<Command[]>(() => {
 const paletteCommands = computed(() => {
   if (paletteMode.value === 'recent') return recentFileCommands.value
   if (paletteMode.value === 'headings') return headingCommands.value
-  return commands.value
+  // Merge built-in commands with plugin-registered commands.
+  const pluginCmds: Command[] = pluginCommands.value.map(pc => ({
+    id: pc.id,
+    label: pc.label,
+    shortcut: pc.shortcut,
+    action: pc.action,
+  }))
+  return [...commands.value, ...pluginCmds]
 })
 
 const palettePlaceholder = computed(() => {
