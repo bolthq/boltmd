@@ -17,6 +17,17 @@ import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } f
 import { t } from '../../i18n'
 import { SearchAndReplace, searchPluginKey } from './extensions/SearchAndReplace'
 import { HeadingHighlight } from './extensions/HeadingHighlight'
+import {
+  FormatHeading,
+  FormatBold,
+  FormatItalic,
+  FormatStrike,
+  FormatCode,
+  FormatBulletList,
+  FormatOrderedList,
+  FormatBlockquote,
+  FormatHorizontalRule,
+} from './extensions/FormatAttrs'
 
 // 懒初始化 lowlight，避免模块加载时同步解析所有语言语法
 let _lowlight: any = null
@@ -60,8 +71,28 @@ if (typeof requestIdleCallback !== 'undefined') {
 export function createWysiwygExtensions(): Extensions {
   return [
     StarterKit.configure({
+      // Disable extensions replaced by Format* variants with format-preserving attrs
+      heading: false,
+      bold: false,
+      italic: false,
+      strike: false,
+      code: false,
       codeBlock: false,
+      bulletList: false,
+      orderedList: false,
+      blockquote: false,
+      horizontalRule: false,
     }),
+    // Format-preserving extensions (add prefix/delimiter/marker/fence/syntax attrs)
+    FormatHeading,
+    FormatBold,
+    FormatItalic,
+    FormatStrike,
+    FormatCode,
+    FormatBulletList,
+    FormatOrderedList,
+    FormatBlockquote,
+    FormatHorizontalRule,
     Placeholder.configure({
       placeholder: () => t('editor.placeholder'),
     }),
@@ -71,11 +102,20 @@ export function createWysiwygExtensions(): Extensions {
     TableRow,
     TableCell,
     TableHeader,
-    // CodeBlockLowlight 会在 lowlight 预热完成后正常工作；
-    // 若预热未完成（极端情况），高亮会延迟但不阻塞输入
-    CodeBlockLowlight.configure({
+    // CodeBlockLowlight with format-preserving `fence` attr (``` or ~~~).
+    CodeBlockLowlight.extend({
+      addAttributes() {
+        return {
+          ...this.parent?.(),
+          fence: {
+            default: '```',
+            renderHTML: () => ({}),
+            parseHTML: () => '```',
+          },
+        }
+      },
+    }).configure({
       lowlight: {
-        // 代理对象：同步返回，内部转发到懒加载的实例
         listLanguages: () => _lowlight?.listLanguages() ?? [],
         highlight: (lang: string, code: string) =>
           _lowlight?.highlight(lang, code) ?? { type: 'root', children: [{ type: 'text', value: code }] } as any,
