@@ -22,3 +22,27 @@ export type {
 
 export { scanPlugins } from './PluginLoader'
 export type { LoadedPlugin, PluginValidationError, ScanResult } from './PluginLoader'
+
+export {
+  pluginCommands,
+  pluginStatusBarItems,
+  pluginSidebarPanels,
+  pluginInstances,
+  shortcutRegistry,
+  registerCommand,
+  unregisterCommand,
+  registerStatusBarItem,
+  updateStatusBarItem,
+  removeStatusBarItem,
+  registerSidebarPanel,
+  unregisterSidebarPanel,
+  addPluginInstance,
+  updatePluginState,
+  setPluginActivated,
+  setPluginDeactivated,
+  cleanupPlugin,
+  resetAll,
+  eventToShortcut,
+  findCommandByShortcut,
+  findCommandById,
+} from './PluginManager'
