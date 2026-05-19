@@ -124,6 +124,14 @@ pub fn run() {
             commands::watcher::suppress_watcher,
             commands::web::fetch_page_title,
             commands::plugin::scan_plugins_dir,
+            commands::plugin::read_plugin_config,
+            commands::plugin::write_plugin_config,
+            commands::plugin::plugin_read_file,
+            commands::plugin::plugin_write_file,
+            commands::plugin::plugin_file_exists,
+            commands::plugin::plugin_delete_file,
+            commands::plugin::plugin_list_dir,
+            commands::plugin::plugin_get_data_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
