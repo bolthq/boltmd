@@ -14,6 +14,7 @@ export default {
     edit: 'Edit',
     view: 'View',
     help: 'Help',
+    plugins: 'Plugins',
     // File menu
     newTab: 'New Tab',
     openFile: 'Open File...',
@@ -254,5 +255,21 @@ export default {
     conflictMessage: '"{name}" has been modified outside the editor. Reload from disk?',
     reload: 'Reload',
     keep: 'Keep Mine',
+  },
+
+  plugins: {
+    title: 'Plugins',
+    installed: 'Installed',
+    available: 'Available',
+    reload: 'Reload All Plugins',
+    noInstalled: 'No plugins installed.',
+    allInstalled: 'All official plugins are already installed.',
+    active: 'Active',
+    inactive: 'Inactive',
+    error: 'Error',
+    comingSoon: 'Coming Soon',
+    install: 'Install',
+    uninstall: 'Uninstall',
+    hint: 'Toggle switches take effect after reloading plugins.',
   },
 }

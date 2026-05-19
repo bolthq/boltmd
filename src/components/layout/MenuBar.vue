@@ -32,6 +32,7 @@ const emit = defineEmits<{
   (e: 'find'): void
   (e: 'replace'): void
   (e: 'openAbout'): void
+  (e: 'openPlugins'): void
 }>()
 
 const props = defineProps<{
@@ -330,6 +331,9 @@ onUnmounted(() => {
         <div class="menu-entry" @click="doAction(() => emit('openSettings'))">
           <span>{{ t('menu.settings') }}</span>
           <span class="menu-shortcut">Ctrl+,</span>
+        </div>
+        <div class="menu-entry" @click="doAction(() => emit('openPlugins'))">
+          <span>{{ t('menu.plugins') }}</span>
         </div>
         <div class="menu-separator" />
         <div class="menu-entry" @click="doAction(() => emit('openWelcome'))">

@@ -14,6 +14,7 @@ import EditorContainer from './components/editor/EditorContainer.vue'
 const Toolbar = defineAsyncComponent(() => import('./components/editor/Toolbar.vue'))
 const OutlinePanel = defineAsyncComponent(() => import('./components/editor/OutlinePanel.vue'))
 const PluginSidebarPanels = defineAsyncComponent(() => import('./components/editor/PluginSidebarPanels.vue'))
+const PluginPanel = defineAsyncComponent(() => import('./components/plugins/PluginPanel.vue'))
 const SettingsPanel = defineAsyncComponent(() => import('./components/settings/SettingsPanel.vue'))
 const CommandPalette = defineAsyncComponent(() => import('./components/common/CommandPalette.vue'))
 const AboutDialog = defineAsyncComponent(() => import('./components/common/AboutDialog.vue'))
@@ -54,6 +55,7 @@ const showToolbar = ref(configService.get('showToolbar'))
 const showSettings = ref(false)
 const showCommandPalette = ref(false)
 const showAbout = ref(false)
+const showPlugins = ref(false)
 const showOutline = ref(configService.get('showOutline') ?? false)
 const paletteMode = ref<'commands' | 'recent' | 'headings'>('commands')
 const zenMode = ref(false)
@@ -481,21 +483,33 @@ async function activatePlugin(pluginId: string, dirPath: string, main: string): 
     const { convertFileSrc } = await import('@tauri-apps/api/core')
     const entryUrl = convertFileSrc(`${dirPath}/${main}`)
 
-    // Dynamic import of the plugin entry file.
-    const module = await import(/* @vite-ignore */ entryUrl)
-    const pluginModule = module.default || module
+    // Dynamic import of the plugin entry file with timeout protection.
+    const ACTIVATE_TIMEOUT = 10_000
+    const rawModule = await Promise.race([
+      import(/* @vite-ignore */ entryUrl),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Plugin module import timed out (10s)')), ACTIVATE_TIMEOUT)),
+    ]) as Record<string, unknown>
+    const pluginModule = (rawModule.default || rawModule) as Record<string, unknown>
 
     if (typeof pluginModule.activate !== 'function') {
       throw new Error(`Plugin "${pluginId}" does not export an activate() function`)
     }
 
-    const context = createPluginContext(
-      pluginInstances.value.find(p => p.manifest.id === pluginId)!.manifest
-    )
-    setPluginActivated(pluginId, pluginModule, context)
+    const instance = pluginInstances.value.find(p => p.manifest.id === pluginId)
+    if (!instance) {
+      throw new Error(`Plugin instance "${pluginId}" not found in registry`)
+    }
 
-    // Call activate with try-catch for runtime protection.
-    await pluginModule.activate(context)
+    const context = createPluginContext(instance.manifest)
+    // After validation, safe to treat as PluginModule.
+    const validModule = pluginModule as unknown as import('./core/plugins/types').PluginModule
+    setPluginActivated(pluginId, validModule, context)
+
+    // Call activate with timeout protection.
+    await Promise.race([
+      Promise.resolve(validModule.activate(context)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Plugin activate() timed out (10s)')), ACTIVATE_TIMEOUT)),
+    ])
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[Plugin] Failed to activate "${pluginId}":`, message)
@@ -506,12 +520,16 @@ async function activatePlugin(pluginId: string, dirPath: string, main: string): 
 
 /** Deactivate all active plugins (used during reload and shutdown). */
 async function deactivateAllPlugins(): Promise<void> {
+  const DEACTIVATE_TIMEOUT = 5_000
   for (const instance of [...pluginInstances.value]) {
     if (instance.state !== 'active') continue
     try {
-      // Call plugin's deactivate() if provided.
+      // Call plugin's deactivate() if provided, with timeout protection.
       if (instance.module?.deactivate) {
-        await instance.module.deactivate()
+        await Promise.race([
+          Promise.resolve(instance.module.deactivate()),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('deactivate() timed out')), DEACTIVATE_TIMEOUT)),
+        ])
       }
       // Auto-cleanup subscriptions via context disposer.
       if (instance.context) {
@@ -551,7 +569,11 @@ const BRIDGED_EVENTS: string[] = [
   AppEvent.ThemeChange,
 ]
 
+let pluginEventBridgeSetup = false
+
 function setupPluginEventBridge(): void {
+  if (pluginEventBridgeSetup) return
+  pluginEventBridgeSetup = true
   for (const event of BRIDGED_EVENTS) {
     eventBus.on(event, (...args: unknown[]) => {
       emitPluginEvent(event as PluginEventName, ...args)
@@ -757,6 +779,7 @@ onUnmounted(() => {
       @find="editorContainerRef?.openFind()"
       @replace="editorContainerRef?.openReplace()"
       @open-about="showAbout = true"
+      @open-plugins="showPlugins = true"
     />
     <!-- 标签栏 -->
     <TabBar v-show="!zenMode" />
@@ -776,6 +799,8 @@ onUnmounted(() => {
     <CommandPalette v-if="showCommandPalette" :commands="paletteCommands" :placeholder="palettePlaceholder" @close="showCommandPalette = false" />
     <!-- 关于对话框 -->
     <AboutDialog v-if="showAbout" @close="showAbout = false" />
+    <!-- 插件管理面板 -->
+    <PluginPanel v-if="showPlugins" @close="showPlugins = false" @reload-plugins="reloadAllPlugins()" />
   </div>
 </template>
 

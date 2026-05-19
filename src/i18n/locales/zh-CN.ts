@@ -14,6 +14,7 @@ export default {
     edit: '编辑',
     view: '视图',
     help: '帮助',
+    plugins: '插件',
     // 文件菜单
     newTab: '新建标签',
     openFile: '打开文件...',
@@ -254,5 +255,21 @@ export default {
     conflictMessage: '"{name}" 已被其他程序修改。是否从磁盘重新加载？',
     reload: '重新加载',
     keep: '保留本地',
+  },
+
+  plugins: {
+    title: '插件',
+    installed: '已安装',
+    available: '可用插件',
+    reload: '重新加载所有插件',
+    noInstalled: '暂无已安装的插件。',
+    allInstalled: '所有官方插件均已安装。',
+    active: '已激活',
+    inactive: '未激活',
+    error: '错误',
+    comingSoon: '即将推出',
+    install: '安装',
+    uninstall: '卸载',
+    hint: '开关切换后需要重新加载插件才能生效。',
   },
 }
