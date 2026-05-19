@@ -53,6 +53,8 @@ export interface AppConfig {
   firstLaunch: boolean
   recentFiles: RecentFileItem[]
   autoCheckUpdate: boolean
+  /** Plugin IDs that have been disabled by the user. */
+  disabledPlugins: string[]
 }
 
 export const CONFIG_VERSION = 2
@@ -80,4 +82,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   firstLaunch: true,
   recentFiles: [],
   autoCheckUpdate: true,
+  disabledPlugins: [],
 }

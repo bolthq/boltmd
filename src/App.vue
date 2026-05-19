@@ -27,6 +27,20 @@ import { configService } from './core/services/ConfigService'
 import { updateService } from './core/services/UpdateService'
 import { loadBundledDoc, type BundledDocName } from './core/services/BundledDocs'
 import { exportHtml, exportPdf } from './core/services/ExportService'
+import {
+  scanPlugins,
+  addPluginInstance,
+  updatePluginState,
+  setPluginActivated,
+  setPluginDeactivated,
+  cleanupPlugin,
+  resetAll as resetPluginRegistries,
+  eventToShortcut,
+  findCommandByShortcut,
+  findCommandById,
+  pluginInstances,
+} from './core/plugins'
+import { createPluginContext, emitPluginEvent, type PluginContextInternal } from './core/plugins'
 import type { WindowState } from './core/types/config'
 import type { Command } from './components/common/CommandPalette.vue'
 
@@ -136,6 +150,7 @@ const commands = computed<Command[]>(() => [
   { id: 'theme-system', label: t('commands.themeSystem'), action: () => themeService.setTheme('system') },
   { id: 'export-html', label: t('commands.exportHtml'), action: () => doExportHtml() },
   { id: 'export-pdf', label: t('commands.exportPdf'), shortcut: 'Ctrl+P', action: () => doExportPdf() },
+  { id: 'reload-plugins', label: 'Reload All Plugins', action: () => reloadAllPlugins() },
 ])
 
 // Recent files as command palette entries
@@ -391,7 +406,133 @@ function handleKeydown(e: KeyboardEvent) {
     }
     return
   }
+
+  // Plugin shortcut lookup (after all built-in shortcuts).
+  const shortcutStr = eventToShortcut(e)
+  const commandId = findCommandByShortcut(shortcutStr)
+  if (commandId) {
+    const cmd = findCommandById(commandId)
+    if (cmd) {
+      e.preventDefault()
+      try {
+        const result = cmd.action()
+        if (result instanceof Promise) {
+          result.catch((err) => {
+            console.error(`[Plugin] Command "${commandId}" failed:`, err)
+          })
+        }
+      } catch (err) {
+        console.error(`[Plugin] Command "${commandId}" threw:`, err)
+      }
+    }
+  }
 }
+
+// ── Plugin system ───────────────────────────────────────────────────────────
+
+/** Scan, load, and activate all enabled plugins. */
+async function bootstrapPlugins(): Promise<void> {
+  try {
+    const { plugins, errors } = await scanPlugins()
+    const disabledList = configService.get('disabledPlugins') ?? []
+
+    // Log validation errors.
+    for (const err of errors) {
+      console.warn(`[Plugin] Skipping "${err.dirName}": ${err.reason}`)
+    }
+
+    // Register all discovered plugin instances.
+    for (const loaded of plugins) {
+      addPluginInstance({
+        manifest: loaded.manifest,
+        state: 'inactive',
+        module: null,
+        context: null,
+        error: null,
+        dirPath: loaded.dirPath,
+      })
+    }
+
+    // Activate enabled plugins.
+    for (const loaded of plugins) {
+      if (disabledList.includes(loaded.manifest.id)) continue
+      await activatePlugin(loaded.manifest.id, loaded.dirPath, loaded.manifest.main)
+    }
+  } catch (err) {
+    console.error('[Plugin] Bootstrap failed:', err)
+  }
+}
+
+/** Activate a single plugin by loading its entry module. */
+async function activatePlugin(pluginId: string, dirPath: string, main: string): Promise<void> {
+  updatePluginState(pluginId, 'active')
+  try {
+    // Convert the plugin's file path to a URL that Vite/Tauri can load.
+    // On Tauri, local file access uses the asset protocol or convertFileSrc.
+    const { convertFileSrc } = await import('@tauri-apps/api/core')
+    const entryUrl = convertFileSrc(`${dirPath}/${main}`)
+
+    // Dynamic import of the plugin entry file.
+    const module = await import(/* @vite-ignore */ entryUrl)
+    const pluginModule = module.default || module
+
+    if (typeof pluginModule.activate !== 'function') {
+      throw new Error(`Plugin "${pluginId}" does not export an activate() function`)
+    }
+
+    const context = createPluginContext(
+      pluginInstances.value.find(p => p.manifest.id === pluginId)!.manifest
+    )
+    setPluginActivated(pluginId, pluginModule, context)
+
+    // Call activate with try-catch for runtime protection.
+    await pluginModule.activate(context)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[Plugin] Failed to activate "${pluginId}":`, message)
+    updatePluginState(pluginId, 'error', message)
+    cleanupPlugin(pluginId)
+  }
+}
+
+/** Deactivate all active plugins (used during reload and shutdown). */
+async function deactivateAllPlugins(): Promise<void> {
+  for (const instance of [...pluginInstances.value]) {
+    if (instance.state !== 'active') continue
+    try {
+      // Call plugin's deactivate() if provided.
+      if (instance.module?.deactivate) {
+        await instance.module.deactivate()
+      }
+      // Auto-cleanup subscriptions via context disposer.
+      if (instance.context) {
+        (instance.context as PluginContextInternal).__dispose()
+      }
+    } catch (err) {
+      console.error(`[Plugin] Error deactivating "${instance.manifest.id}":`, err)
+    }
+    cleanupPlugin(instance.manifest.id)
+    setPluginDeactivated(instance.manifest.id)
+  }
+}
+
+/** Reload all plugins (deactivate → reset → rescan → activate). */
+async function reloadAllPlugins(): Promise<void> {
+  await deactivateAllPlugins()
+  resetPluginRegistries()
+  await bootstrapPlugins()
+}
+
+// Expose reloadAllPlugins for command palette (P15-8).
+// Also emit plugin events on key app lifecycle moments.
+watch(
+  () => activeTab.value?.filePath,
+  (newPath, oldPath) => {
+    if (newPath && newPath !== oldPath) {
+      emitPluginEvent('file:opened', { path: newPath })
+    }
+  }
+)
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
@@ -506,6 +647,9 @@ onMounted(async () => {
   // Silent update check after a 30-second delay (non-blocking).
   setTimeout(() => { updateService.silentCheck() }, 30_000)
 
+  // ── Plugin system bootstrap ──────────────────────────────────────────────
+  await bootstrapPlugins()
+
   // Intercept window close: persist session, warn about unsaved changes.
   getCurrentWindow().onCloseRequested(async (event) => {
     await saveSession()
@@ -542,6 +686,7 @@ onUnmounted(() => {
   window.removeEventListener('mousemove', handleZenMouseMove)
   stopAutoSave()
   fileWatcherService.dispose()
+  deactivateAllPlugins()
   unlistenDragDrop?.()
   unlistenSingleInstance?.()
   if (titleTimer) clearTimeout(titleTimer)
