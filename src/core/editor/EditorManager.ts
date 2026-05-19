@@ -237,6 +237,30 @@ export function reportActiveHeadingIndex(index: number): void {
  */
 export function syncContent(markdown: string): void {
   content.value = markdown
+  // Notify plugin subscribers.
+  for (const cb of contentChangeListeners) {
+    try {
+      cb(markdown)
+    } catch (err) {
+      console.error('[EditorManager] Error in content change listener:', err)
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Content change subscription (for plugins)
+// ---------------------------------------------------------------------------
+
+const contentChangeListeners: Set<(markdown: string) => void> = new Set()
+
+/** Subscribe to content change events. Used by PluginContext. */
+export function subscribeContentChange(callback: (markdown: string) => void): void {
+  contentChangeListeners.add(callback)
+}
+
+/** Unsubscribe from content change events. */
+export function unsubscribeContentChange(callback: (markdown: string) => void): void {
+  contentChangeListeners.delete(callback)
 }
 
 // ---- 查找 / 替换（透传给当前激活的编辑器） ----

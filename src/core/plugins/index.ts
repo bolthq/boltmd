@@ -46,3 +46,6 @@ export {
   findCommandByShortcut,
   findCommandById,
 } from './PluginManager'
+
+export { createPluginContext, emitPluginEvent } from './PluginContext'
+export type { PluginContextInternal } from './PluginContext'
