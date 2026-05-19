@@ -6,6 +6,7 @@ import { fileEncoding } from '../../core/stores/fileStore'
 import { themeService } from '../../core/services/ThemeService'
 import { updateService } from '../../core/services/UpdateService'
 import { parseHeadings } from '../../core/services/OutlineService'
+import { pluginStatusBarItems } from '../../core/plugins'
 import type { ThemeName } from '../../core/types/config'
 import type { CursorPosition, WordCount } from '../../core/editor/types'
 
@@ -108,6 +109,18 @@ function jumpToBreadcrumb(line: number) {
   editor.focus()
 }
 
+// Plugin status bar items split by alignment.
+const pluginItemsLeft = computed(() =>
+  pluginStatusBarItems.value
+    .filter(i => i.align === 'left')
+    .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
+)
+const pluginItemsRight = computed(() =>
+  pluginStatusBarItems.value
+    .filter(i => i.align !== 'left')
+    .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
+)
+
 onMounted(() => {
   scheduleRefresh()
 })
@@ -134,6 +147,16 @@ onUnmounted(() => {
           </template>
         </span>
       </template>
+      <!-- Plugin items (left-aligned) -->
+      <template v-for="item in pluginItemsLeft" :key="item.id">
+        <span class="statusbar-sep">|</span>
+        <span
+          class="statusbar-item"
+          :class="{ 'statusbar-clickable': !!item.onClick }"
+          :title="item.tooltip"
+          @click="item.onClick?.()"
+        >{{ item.text }}</span>
+      </template>
     </div>
     <div class="statusbar-right">
       <span
@@ -155,6 +178,16 @@ onUnmounted(() => {
       <span class="statusbar-item statusbar-clickable" @click="handleThemeClick" :title="t('statusbar.switchTheme')">
         {{ themeLabels[currentTheme] }}
       </span>
+      <!-- Plugin items (right-aligned) -->
+      <template v-for="item in pluginItemsRight" :key="item.id">
+        <span class="statusbar-sep">|</span>
+        <span
+          class="statusbar-item"
+          :class="{ 'statusbar-clickable': !!item.onClick }"
+          :title="item.tooltip"
+          @click="item.onClick?.()"
+        >{{ item.text }}</span>
+      </template>
     </div>
   </div>
 </template>
