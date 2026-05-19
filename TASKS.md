@@ -225,21 +225,28 @@
 
 开发顺序按代码依赖链排列，每步独立通过构建验证后提交：
 
-- [ ] P15-1: 类型定义 — `types.ts` + `index.ts`（PluginManifest, PluginContext, 所有子 API 接口；不含 toolbar 权限）
-- [ ] P15-2: Rust 插件目录扫描 — `plugin.rs` 中 `scan_plugins_dir` + ID 校验辅助函数
-- [ ] P15-3: PluginLoader — 调用 Rust 扫描、解析并校验 manifest（依赖 P15-1, P15-2）
-- [ ] P15-4: PluginManager — 响应式注册表（commands/statusbar/sidebar/shortcuts）+ 插件实例状态存储 + register/unregister 函数 + shortcut→commandId 映射表；不含激活编排逻辑（依赖 P15-1）
-- [ ] P15-5: Rust 插件配置 + 沙盒 FS — config 读写 + 文件系统 6 个命令 + 路径穿越防护（依赖 P15-2）
-- [ ] P15-6: PluginContext — 上下文工厂 + 权限检查 + 各子 API 委托实现 + 内部维护 disposer 列表（deactivate 时自动释放所有未清理的订阅）；需修改 EditorManager.ts 添加 getEditorMode() 导出（依赖 P15-1, P15-4, P15-5）
-- [ ] P15-7: App.vue 集成 — 启动加载 + 激活编排（创建 context → 传入 Manager，activation 异常标记 state=error）+ 关闭注销 + config 添加 disabledPlugins 字段 + handleKeydown 查询 shortcut 注册表执行插件命令 + 插件命令执行 wrap try-catch（依赖 P15-3, P15-4, P15-6）
-- [ ] P15-8: UI 扩展点：命令面板接入插件命令 + 内置 "Reload All Plugins" 命令（依赖 P15-7）
-- [ ] P15-9: UI 扩展点：状态栏接入插件项（依赖 P15-7）
-- [ ] P15-10: 插件配置 UI — 设置面板插件页签（列表/启用/禁用/错误状态显示）（依赖 P15-7）
+- [x] P15-1: 类型定义 — `types.ts` + `index.ts`（PluginManifest, PluginContext, 所有子 API 接口；不含 toolbar 权限）
+- [x] P15-2: Rust 插件目录扫描 — `plugin.rs` 中 `scan_plugins_dir` + ID 校验辅助函数
+- [x] P15-3: PluginLoader — 调用 Rust 扫描、解析并校验 manifest（依赖 P15-1, P15-2）
+- [x] P15-4: PluginManager — 响应式注册表（commands/statusbar/sidebar/shortcuts）+ 插件实例状态存储 + register/unregister 函数 + shortcut→commandId 映射表；不含激活编排逻辑（依赖 P15-1）
+- [x] P15-5: Rust 插件配置 + 沙盒 FS — config 读写 + 文件系统 6 个命令 + 路径穿越防护（依赖 P15-2）
+- [x] P15-6: PluginContext — 上下文工厂 + 权限检查 + 各子 API 委托实现 + 内部维护 disposer 列表（deactivate 时自动释放所有未清理的订阅）；需修改 EditorManager.ts 添加 getEditorMode() 导出（依赖 P15-1, P15-4, P15-5）
+- [x] P15-7: App.vue 集成 — 启动加载 + 激活编排（创建 context → 传入 Manager，activation 异常标记 state=error）+ 关闭注销 + config 添加 disabledPlugins 字段 + handleKeydown 查询 shortcut 注册表执行插件命令 + 插件命令执行 wrap try-catch（依赖 P15-3, P15-4, P15-6）
+- [x] P15-8: UI 扩展点：命令面板接入插件命令 + 内置 "Reload All Plugins" 命令（依赖 P15-7）
+- [x] P15-9: UI 扩展点：状态栏接入插件项（依赖 P15-7）
+- [x] P15-10: 插件配置 UI — 设置面板插件页签（列表/启用/禁用/错误状态显示）（依赖 P15-7）
+- [x] P15-补充: 事件接线（eventBus → 插件桥接）+ 侧边栏面板渲染组件
+- [x] P15-补充: 安全加固（超时保护 + 权限白名单 + 路径校验 + 事件去重）
+- [x] P15-补充: 插件管理面板（Help 菜单入口 + 已安装/可用插件列表 + i18n）
 
-### P15-B: 插件市场
-- [ ] P15-11: 插件仓库索引（GitHub repo，JSON manifest 列表）
-- [ ] P15-12: 应用内搜索/浏览/安装/更新插件
-- [ ] P15-13: 插件版本管理 + 自动更新提示
+### P15-B: 插件市场（推迟）
+
+> 当前无用户基数，插件市场暂不实现。官方插件通过内置管理面板展示，
+> 未来有需求时再从硬编码列表升级为远程 JSON + 下载安装。
+
+- [ ] ~~P15-11: 插件仓库索引（GitHub repo，JSON manifest 列表）~~
+- [ ] ~~P15-12: 应用内搜索/浏览/安装/更新插件~~
+- [ ] ~~P15-13: 插件版本管理 + 自动更新提示~~
 
 ---
 
@@ -320,11 +327,12 @@
 ## 发版计划
 
 ```
-v0.2.0  核心体验补全    P13-A 文件打开历史 + P13-D 多文件批量打开
-v0.3.0  文档导航        P13-B 文档结构树 + Outline + 面包屑
-v0.4.0  编辑增强        P13-C 智能粘贴 + P14-A Zen Mode + bug fixes
-v0.5.0  多光标+导出     P14-C 多光标编辑 + P14-D 导出 PDF/HTML + P14-E 自动更新检测
-v1.0.0  插件系统        P15 插件架构 + P16 本地版本控制插件
+v0.2.0       核心体验补全    P13-A 文件打开历史 + P13-D 多文件批量打开
+v0.3.0       文档导航        P13-B 文档结构树 + Outline + 面包屑
+v0.4.0       编辑增强        P13-C 智能粘贴 + P14-A Zen Mode + bug fixes
+v0.5.0       多光标+导出     P14-C 多光标编辑 + P14-D 导出 PDF/HTML + P14-E 自动更新检测
+v1.0.0-beta  插件架构        P15-A 插件系统架构 + 插件管理面板（核心编辑功能完成）
+v1.0.0       正式版          P16 本地版本控制 + 更多官方插件
 ```
 
 节奏：每完成一个版本的功能集即发布，预计 2-3 周一个 minor 版本。

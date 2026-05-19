@@ -139,6 +139,16 @@ Configurable debounce delay, toggle on/off in settings. Never lose work.
 - Non-intrusive status bar indicator (dot + version) when update available
 - Click to confirm and install; configurable on/off in Settings
 
+### Plugin System
+
+- Extensible architecture with permission-based sandboxing
+- Plugin management panel (Help → Plugins) showing installed & available plugins
+- Plugin lifecycle: activate, deactivate, reload with timeout protection
+- Extension points: commands, status bar items, sidebar panels, keyboard shortcuts
+- Event bridge: plugins subscribe to editor/file/config events
+- Sandboxed filesystem access per-plugin directory
+- Official plugins (coming soon): Local History, KaTeX Math, Global Search, Minimap, YAML Frontmatter
+
 ### Other
 
 - Encoding auto-detection (UTF-8, GBK, Latin-1)
@@ -204,6 +214,10 @@ pnpm tauri build
 │  ConfigService · ThemeService           │
 │  FileService · ImageService · AutoSave  │
 │  FileWatcherService · UpdateService     │
+├─────────────────────────────────────────┤
+│  Plugin System                          │
+│  PluginLoader · PluginManager           │
+│  PluginContext · Event Bridge           │
 ├──────────┬──────────────────────────────┤
 │ IEditor  │  WysiwygEditor (Tiptap)      │
 │ interface│  SourceEditor (CodeMirror)   │
@@ -244,8 +258,8 @@ See [docs/01-architecture.md](docs/01-architecture.md) for details.
 - [x] Multi-cursor editing (Source mode)
 - [x] Export PDF / HTML
 - [x] Auto-update detection (silent background check, configurable)
-- [ ] Plugin system
-- [ ] Local version history
+- [x] Plugin system (architecture + management panel)
+- [ ] Local version history (plugin)
 - [ ] Cloud sync (plugin, self-hostable)
 - [ ] Cross-platform (Linux, macOS, mobile)
 
