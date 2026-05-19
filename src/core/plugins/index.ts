@@ -19,3 +19,6 @@ export type {
   PluginEventsAPI,
   PluginFileSystemAPI,
 } from './types'
+
+export { scanPlugins } from './PluginLoader'
+export type { LoadedPlugin, PluginValidationError, ScanResult } from './PluginLoader'
