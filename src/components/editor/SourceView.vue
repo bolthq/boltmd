@@ -1,14 +1,26 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { SourceEditor, type PasteHandler } from '../../core/editor/SourceEditor'
+import { EditorState } from '@tiptap/pm/state'
+import { getSchema } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { PMSourceEditor } from '../../core/editor/PMSourceEditor'
 import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
-import { imageService, isImageUrl } from '../../core/services/ImageService'
-import { tryConvertClipboardHtml, tryConvertTsvToTable, isSingleUrl, fetchPageTitle, buildMarkdownLink, tryWrapAsCodeBlock } from '../../core/services/SmartPasteService'
-import { activeTab } from '../../core/stores/tabStore'
+import { parseMarkdown } from '../../core/editor/parser/MarkdownParser'
+import {
+  FormatHeading,
+  FormatBold,
+  FormatItalic,
+  FormatStrike,
+  FormatCode,
+  FormatBulletList,
+  FormatOrderedList,
+  FormatBlockquote,
+  FormatHorizontalRule,
+} from '../../core/editor/extensions/FormatAttrs'
 
 const props = defineProps<{
   content?: string
-  /** 为 true 时不注册到 EditorManager（SplitView 内嵌时使用） */
+  /** When true, don't register to EditorManager (used inside SplitView) */
   noRegister?: boolean
   /** When using v-show pattern, indicates whether this editor is the active mode. */
   active?: boolean
@@ -20,93 +32,15 @@ const emit = defineEmits<{
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
-let editor: SourceEditor | null = null
+let editor: PMSourceEditor | null = null
 let scrollEl: HTMLElement | null = null
 
 // Content snapshot taken when this editor is deactivated (v-show pattern).
-// Compared on reactivation to determine whether another mode modified content.
 let contentWhenDeactivated: string | null = null
 
 function handleScroll() {
   if (!scrollEl) return
   emit('scroll', scrollEl.scrollTop, scrollEl.scrollHeight, scrollEl.clientHeight)
-}
-
-/**
- * Smart paste handler — runs inside CM6's event system via domEventHandlers.
- * Return true to prevent CM6's default paste, false to let CM6 handle it.
- */
-const pasteHandler: PasteHandler = (event, ed) => {
-  const items = event.clipboardData?.items
-  if (!items) return false
-
-  // Handle image blob (screenshot paste).
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      event.preventDefault()
-      const blob = item.getAsFile()
-      if (!blob) return true
-      const filePath = activeTab.value?.filePath ?? null
-      imageService.handlePasteImage(blob, filePath).then((src) => {
-        if (src && editor) {
-          editor.insertText(`![](${src})`)
-        }
-      })
-      return true
-    }
-  }
-
-  // Check if pasted text is an image URL.
-  const text = event.clipboardData?.getData('text/plain') ?? ''
-  if (isImageUrl(text)) {
-    ed.insertText(`![](${text.trim()})`)
-    return true
-  }
-
-  // Smart paste: single URL → [title](url)
-  if (isSingleUrl(text)) {
-    const url = text.trim()
-    // Insert the bare URL immediately as placeholder.
-    const insertFrom = ed.getCursorOffset()
-    ed.insertText(url)
-    const insertTo = insertFrom + url.length
-    // Async: fetch title and replace the bare URL with [title](url).
-    fetchPageTitle(url).then((title) => {
-      if (!title || !editor) return
-      const mdLink = buildMarkdownLink(url, title)
-      // Verify the text at the original range still matches the URL.
-      const currentText = editor.sliceDoc(insertFrom, insertTo)
-      if (currentText === url) {
-        editor.replaceRange(insertFrom, insertTo, mdLink)
-      }
-    })
-    return true
-  }
-
-  // Smart paste: HTML → Markdown
-  if (event.clipboardData) {
-    const markdown = tryConvertClipboardHtml(event.clipboardData)
-    if (markdown) {
-      ed.insertText(markdown)
-      return true
-    }
-
-    // Smart paste: TSV (Excel/Sheets) → Markdown table
-    const table = tryConvertTsvToTable(text)
-    if (table) {
-      ed.insertText(table)
-      return true
-    }
-
-    // Smart paste: code detection → fenced code block
-    const codeBlock = tryWrapAsCodeBlock(text)
-    if (codeBlock) {
-      ed.insertText(codeBlock)
-      return true
-    }
-  }
-
-  return false
 }
 
 function handleDrop(event: DragEvent) {
@@ -117,30 +51,31 @@ function handleDrop(event: DragEvent) {
   if (!imageFile) return
 
   event.preventDefault()
-  const filePath = activeTab.value?.filePath ?? null
-  imageService.handleDropImage(imageFile, filePath).then((src) => {
-    if (src && editor) {
-      editor.insertText(`![](${src})`)
-    }
-  })
+  // TODO: Integrate image drop with PMSourceEditor once ImageService is wired
 }
 
 onMounted(() => {
   if (!containerRef.value) return
-  editor = new SourceEditor(containerRef.value, props.content ?? '', pasteHandler)
+
+  const markdown = props.content ?? ''
+  const schema = getSourceSchema()
+  const plugins = PMSourceEditor.createPlugins()
+  const state = EditorState.create({ doc: parseMarkdown(schema, markdown), plugins })
+
+  editor = new PMSourceEditor(containerRef.value, state)
   editor.onContentChange((md) => {
-    // Only emit changes when this editor is the active one.
     if (props.active === false) return
     emit('change', md)
   })
 
-  // CodeMirror 的滚动容器是 .cm-scroller
-  scrollEl = containerRef.value.querySelector('.cm-scroller') as HTMLElement | null
-  scrollEl?.addEventListener('scroll', handleScroll, { passive: true })
+  // PM's scrollable element
+  scrollEl = containerRef.value.querySelector('.ProseMirror') as HTMLElement
+    ?? containerRef.value
+  scrollEl.addEventListener('scroll', handleScroll, { passive: true })
 
   containerRef.value.addEventListener('drop', handleDrop)
 
-  // 注册到 EditorManager（SplitView 内嵌时由 SplitView 负责注册）
+  // Register to EditorManager (SplitView handles its own registration)
   if (!props.noRegister && props.active !== false) {
     registerEditor(editor)
   }
@@ -151,20 +86,15 @@ watch(() => props.active, (isActive) => {
   if (!editor || props.noRegister) return
 
   if (isActive) {
-    // Becoming active: sync content if it changed while hidden.
     const contentActuallyChanged =
       contentWhenDeactivated !== null && props.content !== contentWhenDeactivated
     contentWhenDeactivated = null
 
     if (contentActuallyChanged && props.content !== undefined) {
-      // Content was modified in another mode. Record in history so existing
-      // undo steps are preserved below this replacement (Ctrl+Z first reverts
-      // the cross-mode change, then continues with Source's own history).
       editor.setContent(props.content, true)
     }
     registerEditor(editor)
   } else {
-    // Becoming inactive: snapshot content for later comparison.
     contentWhenDeactivated = props.content ?? null
     unregisterEditor(editor)
   }
@@ -182,8 +112,44 @@ onUnmounted(() => {
   }
 })
 
-// 暴露 editor 实例给父组件
+// Expose editor instance to parent components
 defineExpose({ editor: () => editor })
+
+// ---------------------------------------------------------------------------
+// Shared schema (cached singleton)
+// ---------------------------------------------------------------------------
+
+let _cachedSchema: any = null
+
+function getSourceSchema() {
+  if (_cachedSchema) return _cachedSchema
+
+  _cachedSchema = getSchema([
+    StarterKit.configure({
+      heading: false,
+      bold: false,
+      italic: false,
+      strike: false,
+      code: false,
+      codeBlock: false,
+      bulletList: false,
+      orderedList: false,
+      blockquote: false,
+      horizontalRule: false,
+    }),
+    FormatHeading,
+    FormatBold,
+    FormatItalic,
+    FormatStrike,
+    FormatCode,
+    FormatBulletList,
+    FormatOrderedList,
+    FormatBlockquote,
+    FormatHorizontalRule,
+  ])
+
+  return _cachedSchema
+}
 </script>
 
 <template>
