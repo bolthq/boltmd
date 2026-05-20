@@ -7,6 +7,7 @@ import './styles/themes/dark.css'
 import './styles/base.css'
 import './styles/editor.css'
 import './styles/source.css'
+import './styles/sourceview.css'
 import { initConfig } from './core/services/ConfigService'
 import { setupI18n } from './i18n'
 
