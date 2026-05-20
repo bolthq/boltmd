@@ -11,12 +11,13 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { Highlight } from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
-import { DOMParser as PmDOMParser } from '@tiptap/pm/model'
 import type { Editor } from '@tiptap/core'
 import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
 import { t } from '../../i18n'
 import { SearchAndReplace, searchPluginKey } from './extensions/SearchAndReplace'
 import { HeadingHighlight } from './extensions/HeadingHighlight'
+import { serializeMarkdown } from './serializer/MarkdownSerializer'
+import { parseMarkdown } from './parser/MarkdownParser'
 import {
   FormatHeading,
   FormatBold,
@@ -147,57 +148,46 @@ export class WysiwygEditor implements IEditor {
 
   constructor(editor: Editor) {
     this.editor = editor
-    // Debounced getMarkdown(): avoid traversing the full AST on every keystroke.
+    // Debounced serialization: avoid traversing the full AST on every keystroke.
     this.editor.on('update', () => {
       if (this.suppressUpdate) return
       if (this.debounceTimer) clearTimeout(this.debounceTimer)
       this.debounceTimer = setTimeout(() => {
         if (this.suppressUpdate) return
-        const md = (this.editor.storage as any).markdown.getMarkdown()
+        const md = serializeMarkdown(this.editor.state.doc)
         this.contentChangeCallbacks.forEach(cb => cb(md))
       }, 150)
     })
   }
 
   getContent(): string {
-    return (this.editor.storage as any).markdown.getMarkdown()
+    return serializeMarkdown(this.editor.state.doc)
   }
 
   setContent(markdown: string, recordInHistory = false): void {
     // Skip if the editor's current markdown is already identical to avoid
     // unnecessary full document rebuild (which causes table/layout flicker).
-    const current = (this.editor.storage as any).markdown?.getMarkdown() ?? ''
+    const current = serializeMarkdown(this.editor.state.doc)
     if (current === markdown) return
 
-    // Suppress the onUpdate → getMarkdown() callback so that tiptap's
-    // internal normalisation doesn't fire onChange back to tabStore.
+    // Suppress the onUpdate → serialize callback so that internal
+    // normalisation doesn't fire onChange back to tabStore.
     this.suppressUpdate = true
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = null
     }
 
-    const parser = (this.editor.storage as any).markdown?.parser
-    if (parser) {
-      // tiptap-markdown parser.parse() returns an HTML string.
-      const html: string = parser.parse(markdown)
-      // Parse HTML into a ProseMirror document node, then replace content
-      // via a transaction.
-      const { schema } = this.editor.state
-      const wrapper = document.createElement('div')
-      wrapper.innerHTML = html
-      const doc = PmDOMParser.fromSchema(schema).parse(wrapper)
-      const { tr } = this.editor.state
-      tr.replaceWith(0, tr.doc.content.size, doc.content)
-      if (!recordInHistory) {
-        tr.setMeta('addToHistory', false)
-      }
-      tr.setMeta('preventUpdate', false)
-      this.editor.view.dispatch(tr)
-    } else {
-      // Fallback: let Tiptap handle it (will add to history).
-      this.editor.commands.setContent(markdown)
+    // Parse markdown directly into a ProseMirror document using our parser.
+    const { schema } = this.editor.state
+    const doc = parseMarkdown(schema, markdown)
+    const { tr } = this.editor.state
+    tr.replaceWith(0, tr.doc.content.size, doc.content)
+    if (!recordInHistory) {
+      tr.setMeta('addToHistory', false)
     }
+    tr.setMeta('preventUpdate', false)
+    this.editor.view.dispatch(tr)
 
     // Re-enable update callbacks after a delay that exceeds the 150ms
     // debounce timer, ensuring no stale callback sneaks through.
@@ -255,7 +245,7 @@ export class WysiwygEditor implements IEditor {
     // Compute the actual source line number by mapping block index to
     // serialized markdown lines.  Block index alone is wrong because
     // tables, code blocks, lists each span multiple source lines.
-    const md: string = (this.editor.storage as any).markdown.getMarkdown()
+    const md = serializeMarkdown(this.editor.state.doc)
     let sourceLine = this.blockToSourceLine(md, blockIndex)
 
     // Add intra-block offset for compound blocks (lists, tables, code blocks).
@@ -381,7 +371,7 @@ export class WysiwygEditor implements IEditor {
       // Just use it directly.
     } else if (pos.line > 0) {
       // Resolve from source line number → PM block index → PM offset.
-      const md: string = (this.editor.storage as any).markdown?.getMarkdown() ?? ''
+      const md = serializeMarkdown(this.editor.state.doc)
       const blockIndex = this.sourceLineToBlock(md, pos.line)
       const clampedBlock = Math.min(blockIndex, doc.childCount - 1)
       let blockOffset = 0
