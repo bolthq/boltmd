@@ -33,15 +33,6 @@ export default defineConfig(async () => ({
             "@tiptap/extension-highlight",
             "@tiptap/extension-image",
           ],
-          // CodeMirror core
-          "codemirror": [
-            "@codemirror/state",
-            "@codemirror/view",
-            "@codemirror/commands",
-            "@codemirror/lang-markdown",
-            "@codemirror/language",
-            "@codemirror/search",
-          ],
           // Syntax highlighting (heavy, can be deferred)
           "lowlight": ["lowlight"],
         },
