@@ -5,7 +5,7 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  /* 作为 FindReplacePanel (position: absolute) 的定位参考 */
+  /* Positioning reference for FindReplacePanel (position: absolute) */
   position: relative;
 }
 
@@ -78,32 +78,7 @@
   min-height: 0;
   min-width: 0;
   background: var(--bg-editor);
-}
-
-.source-view .cm-editor {
-  height: 100%;
-  flex: 1;
-  min-height: 0;
-}
-
-.source-view .cm-editor.cm-focused {
-  outline: none;
-}
-
-.source-view .cm-editor .cm-scroller {
-  padding: 48px 0;
-}
-
-.source-view .cm-editor .cm-content {
-  width: clamp(min(480px, 100%), 80%, 800px);
-  margin: 0 auto;
-  padding: 0 40px;
-}
-
-/* ---- Heading jump highlight flash (source mode) ---- */
-.cm-heading-jump-highlight {
-  animation: heading-flash 1.5s ease-out forwards;
-  border-radius: 3px;
+  overflow-y: auto;
 }
 
 /* Split view layout */
@@ -131,11 +106,4 @@
 /* Preview pane (Tiptap read-only) */
 .split-view .preview-pane {
   overflow-y: auto;
-}
-
-/* Typewriter / Zen mode: CM6 scroller scroll-padding + extra bottom space */
-.zen-mode .source-view .cm-editor .cm-scroller {
-  scroll-padding-top: 50%;
-  scroll-padding-bottom: 50%;
-  padding-bottom: 50vh;
 }
