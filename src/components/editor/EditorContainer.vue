@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { useEditorManager, syncContent } from '../../core/editor/EditorManager'
 import { activeTabId, updateTabContent, normalizeTabCleanContent } from '../../core/stores/tabStore'
 import { isFileLoading } from '../../core/stores/fileStore'
+import { openUrl } from '@tauri-apps/plugin-opener'
+import { ask } from '@tauri-apps/plugin-dialog'
 import FindReplacePanel from '../common/FindReplacePanel.vue'
 
 // Skeleton placeholder rendered while the heavy editor chunk is loading.
@@ -186,13 +188,58 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+// ---- Link click interception ----
+// Intercept clicks on <a> tags inside the editor to prevent in-app navigation.
+// Only triggers in non-editable contexts (readonly preview, htmlBlock nodes).
+// Shows a confirmation dialog and opens in the system's default browser.
+const editorContainerRef = ref<HTMLElement | null>(null)
+
+function handleEditorClick(e: MouseEvent) {
+  // Walk up from the click target to find an <a> element within the editor.
+  const target = (e.target as HTMLElement)?.closest?.('a') as HTMLAnchorElement | null
+  if (!target) return
+
+  const href = target.getAttribute('href')
+  if (!href) return
+
+  // Only intercept external links (http/https). Ignore anchor-only links.
+  if (!href.startsWith('http://') && !href.startsWith('https://')) return
+
+  // Only intercept in non-editable contexts:
+  // 1. Readonly editor (split mode preview pane) — .ProseMirror[contenteditable="false"]
+  // 2. Inside htmlBlock atom nodes (.html-block-view) which are always non-editable
+  const inHtmlBlock = target.closest('.html-block-view') !== null
+  const inReadonlyEditor = target.closest('.ProseMirror[contenteditable="false"]') !== null
+  if (!inHtmlBlock && !inReadonlyEditor) return
+
+  // Prevent the browser/webview from navigating.
+  e.preventDefault()
+  e.stopPropagation()
+
+  // Show confirmation dialog, then open externally.
+  ask(t('editor.linkConfirmMessage', { url: href }), {
+    title: t('editor.linkConfirmTitle'),
+    kind: 'info',
+    okLabel: t('editor.linkOpen'),
+    cancelLabel: t('editor.linkCancel'),
+  }).then((confirmed) => {
+    if (confirmed) {
+      openUrl(href).catch((err) => {
+        console.error('[EditorContainer] Failed to open URL:', err)
+      })
+    }
+  })
+}
+
 // Use capture phase so we see Ctrl+F before PM's internal keymap handlers.
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown, { capture: true })
+  editorContainerRef.value?.addEventListener('click', handleEditorClick, { capture: true })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown, { capture: true })
+  editorContainerRef.value?.removeEventListener('click', handleEditorClick, { capture: true })
 })
 
 defineExpose({
@@ -202,7 +249,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="editor-container" :class="{ 'split-layout': isSplit }">
+  <div ref="editorContainerRef" class="editor-container" :class="{ 'split-layout': isSplit }">
     <!-- Loading overlay shown while a file is being read from disk -->
     <div v-if="isFileLoading" class="editor-loading-overlay">
       <div class="editor-loading-spinner" />

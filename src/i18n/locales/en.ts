@@ -184,6 +184,10 @@ export default {
   editor: {
     placeholder: 'Start writing...',
     loading: 'Loading file...',
+    linkConfirmTitle: 'Open Link',
+    linkConfirmMessage: 'Open this link in your browser?\n{url}',
+    linkOpen: 'Open',
+    linkCancel: 'Cancel',
   },
 
   outline: {

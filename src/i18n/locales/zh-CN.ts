@@ -184,6 +184,10 @@ export default {
   editor: {
     placeholder: '开始写作...',
     loading: '正在加载文件...',
+    linkConfirmTitle: '打开链接',
+    linkConfirmMessage: '是否在浏览器中打开此链接？\n{url}',
+    linkOpen: '打开',
+    linkCancel: '取消',
   },
 
   outline: {
