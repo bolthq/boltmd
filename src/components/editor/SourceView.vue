@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { PMSourceEditor } from '../../core/editor/PMSourceEditor'
-import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
+import { registerEditor, unregisterEditor, hasPendingDocTransfer } from '../../core/editor/EditorManager'
 
 const props = defineProps<{
   content?: string
@@ -83,7 +83,7 @@ watch(() => props.active, (isActive) => {
     // When becoming active after a tab switch, ensure content matches props.content.
     // This handles the case where content was updated by restoreFromSnapshot while
     // this editor was inactive (props.active=false), causing the content watcher to skip.
-    if (props.content !== undefined && !wasActive) {
+    if (props.content !== undefined && !wasActive && !hasPendingDocTransfer()) {
       const currentMd = editor.getContent()
       if (currentMd !== props.content) {
         editor.setContent(props.content)

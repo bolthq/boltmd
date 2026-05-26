@@ -2,7 +2,7 @@
 import { onUnmounted, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { createWysiwygExtensions, WysiwygEditor, onLowlightReady, isLowlightLoaded } from '../../core/editor/WysiwygEditor'
-import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine, reportActiveHeadingIndex, typewriterMode } from '../../core/editor/EditorManager'
+import { registerEditor, unregisterEditor, registerTiptapEditor, unregisterTiptapEditor, reportCursorLine, reportActiveHeadingIndex, typewriterMode, hasPendingDocTransfer } from '../../core/editor/EditorManager'
 import { serializeMarkdown } from '../../core/editor/serializer/MarkdownSerializer'
 import { imageService, isImageUrl } from '../../core/services/ImageService'
 import { tryConvertTsvToTable, isSingleUrl, fetchPageTitle, tryWrapAsCodeBlock } from '../../core/services/SmartPasteService'
@@ -296,8 +296,9 @@ watch(() => props.active, (isActive) => {
     // restoreFromSnapshot while this editor was inactive (props.active=false),
     // causing the content watcher to skip the update.
     // Skip if there's a pending docTransfer (mode switch from source) since
-    // registerEditor will handle that via setDocTransfer.
-    if (props.content !== undefined && !wasActive) {
+    // registerEditor will handle that via setDocTransfer — clearing history
+    // here would destroy the unified undo stack built by syncToCanonical.
+    if (props.content !== undefined && !wasActive && !hasPendingDocTransfer()) {
       const currentMd = editorWrapper.getContent()
       if (currentMd !== props.content) {
         editorWrapper.setContent(props.content)

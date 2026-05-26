@@ -392,6 +392,15 @@ export function getTiptapEditor(): Editor | null {
 }
 
 /**
+ * Check if there is a pending doc transfer (mode switch in progress).
+ * Used by editor components to distinguish mode switches from tab switches
+ * and avoid incorrectly clearing undo history.
+ */
+export function hasPendingDocTransfer(): boolean {
+  return pendingDocTransfer !== null
+}
+
+/**
  * 组合式函数 — 在组件中使用
  * 返回响应式的 mode 和 content
  */
