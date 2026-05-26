@@ -272,6 +272,25 @@
   outline-offset: 2px;
 }
 
+/* HTML block (raw HTML preserved as atom node) */
+.ProseMirror .html-block-view {
+  margin: 0.75em 0;
+  user-select: none;
+}
+
+.ProseMirror .html-block-view img {
+  display: inline;
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.ProseMirror .html-block-view.ProseMirror-selectednode {
+  outline: 1.5px dashed color-mix(in srgb, var(--accent-primary) 50%, transparent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 /* Code block syntax highlighting (lowlight) */
 .ProseMirror pre .hljs-comment,
 .ProseMirror pre .hljs-quote {

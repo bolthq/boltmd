@@ -326,10 +326,7 @@ class ParseState {
 
       // --- HTML block ---
       case 'html_block':
-        // Store as a paragraph with raw HTML text for now
-        this.openNode('paragraph', {})
-        this.addText(token.content.replace(/\n$/, ''))
-        this.closeNode()
+        this.addNode('htmlBlock', { html: token.content.replace(/\n$/, '') })
         break
 
       // Tokens we intentionally skip

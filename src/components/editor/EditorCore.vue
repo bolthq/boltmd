@@ -74,10 +74,17 @@ const typewriterScrollMargin = {
 
 const tiptapEditor = useEditor({
   extensions: createWysiwygExtensions(),
-  content: props.content ?? '',
+  content: '',
   onCreate({ editor }) {
     // Tiptap 创建完成后，包装为 IEditor 并注册
     editorWrapper = new WysiwygEditor(editor)
+
+    // Set initial content using our custom parser (NOT tiptap-markdown's internal
+    // parser) so that htmlBlock nodes and format-preserving attrs are handled correctly.
+    if (props.content) {
+      editorWrapper.setContent(props.content)
+    }
+
     editorWrapper.onContentChange((md) => {
       // Only emit changes when this editor is the active IEditor.
       if (!props.active) return

@@ -794,6 +794,9 @@ function serializeNode(node: PMNode, state: SerializeState): void {
     case 'table':
       serializeTable(node, state)
       break
+    case 'htmlBlock':
+      serializeHtmlBlock(node, state)
+      break
     case 'hardBreak':
       state.write('\\\n')
       break
@@ -932,6 +935,13 @@ function serializeHorizontalRule(node: PMNode, state: SerializeState): void {
   state.ensureBlankLine()
   const syntax = node.attrs.syntax || '---'
   state.write(syntax + '\n')
+  state.markBlockWritten()
+}
+
+function serializeHtmlBlock(node: PMNode, state: SerializeState): void {
+  state.ensureBlankLine()
+  state.write(node.attrs.html || '')
+  state.write('\n')
   state.markBlockWritten()
 }
 
