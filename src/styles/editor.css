@@ -341,14 +341,20 @@
   border-radius: 3px;
 }
 
-/* ---- Cursor block highlight flash (mode switch) ---- */
+/* ---- Cursor line highlight flash (mode switch) ---- */
 .cursor-block-highlight {
-  animation: heading-flash 1.5s ease-out forwards;
-  border-radius: 3px;
+  animation: cursor-flash 2s ease-out forwards;
+  border-radius: 2px;
+  padding: 1px 0;
 }
 
 @keyframes heading-flash {
   0%, 15% { background-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
+  100% { background-color: transparent; }
+}
+
+@keyframes cursor-flash {
+  0%, 40% { background-color: color-mix(in srgb, var(--accent-primary) 25%, transparent); }
   100% { background-color: transparent; }
 }
 

@@ -18,6 +18,75 @@ interface HeadingHighlightState {
   decorations: DecorationSet
 }
 
+/**
+ * Create the raw PM plugin for heading/cursor-block highlighting.
+ * Shared between Tiptap (via the Extension) and PMSourceEditor (standalone).
+ */
+export function createHighlightPlugin(): Plugin<HeadingHighlightState> {
+  return new Plugin<HeadingHighlightState>({
+    key: headingHighlightKey,
+
+    state: {
+      init(): HeadingHighlightState {
+        return { decorations: DecorationSet.empty }
+      },
+
+      apply(tr: Transaction, prev: HeadingHighlightState, _oldState: EditorState, newState: EditorState): HeadingHighlightState {
+        const meta = tr.getMeta(headingHighlightKey) as
+          | { type: 'flash'; pos: number }
+          | { type: 'flashBlock'; pos: number }
+          | { type: 'flashInline'; from: number; to: number }
+          | { type: 'clear' }
+          | undefined
+
+        if (meta?.type === 'flash') {
+          const node = newState.doc.nodeAt(meta.pos)
+          if (node && node.type.name === 'heading') {
+            const from = meta.pos
+            const to = from + node.nodeSize
+            const deco = Decoration.node(from, to, { class: 'heading-jump-highlight' })
+            return { decorations: DecorationSet.create(newState.doc, [deco]) }
+          }
+          return prev
+        }
+
+        if (meta?.type === 'flashBlock') {
+          const node = newState.doc.nodeAt(meta.pos)
+          if (node) {
+            const from = meta.pos
+            const to = from + node.nodeSize
+            const deco = Decoration.node(from, to, { class: 'cursor-block-highlight' })
+            return { decorations: DecorationSet.create(newState.doc, [deco]) }
+          }
+          return prev
+        }
+
+        if (meta?.type === 'flashInline') {
+          const deco = Decoration.inline(meta.from, meta.to, { class: 'cursor-block-highlight' })
+          return { decorations: DecorationSet.create(newState.doc, [deco]) }
+        }
+
+        if (meta?.type === 'clear') {
+          return { decorations: DecorationSet.empty }
+        }
+
+        // If doc changed, map existing decorations.
+        if (tr.docChanged) {
+          return { decorations: prev.decorations.map(tr.mapping, tr.doc) }
+        }
+
+        return prev
+      },
+    },
+
+    props: {
+      decorations(state: EditorState) {
+        return headingHighlightKey.getState(state)?.decorations ?? DecorationSet.empty
+      },
+    },
+  })
+}
+
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     headingHighlight: {
@@ -50,37 +119,31 @@ export const HeadingHighlight = Extension.create({
         () =>
         ({ tr, dispatch, state }) => {
           if (dispatch) {
-            // Find the best node to highlight.  For compound blocks (lists,
-            // tables) highlight the sub-item rather than the entire block.
+            // Highlight the current line (inline decoration).
             const pos = state.selection.from
             const resolved = state.doc.resolve(pos)
-            let targetDepth = Math.min(resolved.depth, 1)
-            for (let d = resolved.depth; d >= 1; d--) {
-              const name = resolved.node(d).type.name
-              if (name === 'listItem' || name === 'taskItem' || name === 'tableRow') {
-                targetDepth = d
-                break
-              }
-            }
-            const blockPos = resolved.before(targetDepth)
-            const blockNode = state.doc.nodeAt(blockPos)
+            const textblock = resolved.parent
+            const textblockStart = resolved.start()
 
-            if (blockNode?.type.name === 'codeBlock') {
-              // For code blocks, highlight only the current line via inline
-              // decoration (node decoration would flash the entire block).
-              const contentStart = blockPos + 1
-              const text = blockNode.textContent
-              const offset = Math.min(pos - contentStart, text.length)
+            if (textblock.type.name === 'codeBlock') {
+              // For code blocks, highlight only the current line.
+              const text = textblock.textContent
+              const offset = Math.min(pos - textblockStart, text.length)
               const lineStart = text.lastIndexOf('\n', offset - 1) + 1
               let lineEnd = text.indexOf('\n', offset)
               if (lineEnd === -1) lineEnd = text.length
-              const from = contentStart + lineStart
-              const to = contentStart + lineEnd
+              const from = textblockStart + lineStart
+              const to = textblockStart + lineEnd
               if (from < to) {
                 tr.setMeta(headingHighlightKey, { type: 'flashInline', from, to })
               }
             } else {
-              tr.setMeta(headingHighlightKey, { type: 'flashBlock', pos: blockPos })
+              // For paragraphs, headings, list items: highlight full textblock content.
+              const from = textblockStart
+              const to = textblockStart + textblock.content.size
+              if (from < to) {
+                tr.setMeta(headingHighlightKey, { type: 'flashInline', from, to })
+              }
             }
             dispatch(tr)
           }
@@ -100,70 +163,6 @@ export const HeadingHighlight = Extension.create({
   },
 
   addProseMirrorPlugins() {
-    return [
-      new Plugin<HeadingHighlightState>({
-        key: headingHighlightKey,
-
-        state: {
-          init(): HeadingHighlightState {
-            return { decorations: DecorationSet.empty }
-          },
-
-          apply(tr: Transaction, prev: HeadingHighlightState, _oldState: EditorState, newState: EditorState): HeadingHighlightState {
-            const meta = tr.getMeta(headingHighlightKey) as
-              | { type: 'flash'; pos: number }
-              | { type: 'flashBlock'; pos: number }
-              | { type: 'flashInline'; from: number; to: number }
-              | { type: 'clear' }
-              | undefined
-
-            if (meta?.type === 'flash') {
-              // Resolve the node at the given position.
-              const node = newState.doc.nodeAt(meta.pos)
-              if (node && node.type.name === 'heading') {
-                const from = meta.pos
-                const to = from + node.nodeSize
-                const deco = Decoration.node(from, to, { class: 'heading-jump-highlight' })
-                return { decorations: DecorationSet.create(newState.doc, [deco]) }
-              }
-              return prev
-            }
-
-            if (meta?.type === 'flashBlock') {
-              const node = newState.doc.nodeAt(meta.pos)
-              if (node) {
-                const from = meta.pos
-                const to = from + node.nodeSize
-                const deco = Decoration.node(from, to, { class: 'cursor-block-highlight' })
-                return { decorations: DecorationSet.create(newState.doc, [deco]) }
-              }
-              return prev
-            }
-
-            if (meta?.type === 'flashInline') {
-              const deco = Decoration.inline(meta.from, meta.to, { class: 'cursor-block-highlight' })
-              return { decorations: DecorationSet.create(newState.doc, [deco]) }
-            }
-
-            if (meta?.type === 'clear') {
-              return { decorations: DecorationSet.empty }
-            }
-
-            // If doc changed, map existing decorations.
-            if (tr.docChanged) {
-              return { decorations: prev.decorations.map(tr.mapping, tr.doc) }
-            }
-
-            return prev
-          },
-        },
-
-        props: {
-          decorations(state: EditorState) {
-            return headingHighlightKey.getState(state)?.decorations ?? DecorationSet.empty
-          },
-        },
-      }),
-    ]
+    return [createHighlightPlugin()]
   },
 })
