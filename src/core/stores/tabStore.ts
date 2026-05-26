@@ -89,6 +89,10 @@ export function updateTabContent(tabId: string, content: string): void {
   tabManager.updateTabContent(tabId, content)
 }
 
+export function normalizeTabCleanContent(tabId: string, normalizedContent: string): void {
+  tabManager.normalizeCleanContent(tabId, normalizedContent)
+}
+
 export function markSaved(tabId: string, filePath: string): void {
   tabManager.markSaved(tabId, filePath)
 }

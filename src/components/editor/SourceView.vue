@@ -1,22 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { EditorState } from '@tiptap/pm/state'
-import { getSchema } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
 import { PMSourceEditor } from '../../core/editor/PMSourceEditor'
 import { registerEditor, unregisterEditor } from '../../core/editor/EditorManager'
-import { parseMarkdown } from '../../core/editor/parser/MarkdownParser'
-import {
-  FormatHeading,
-  FormatBold,
-  FormatItalic,
-  FormatStrike,
-  FormatCode,
-  FormatBulletList,
-  FormatOrderedList,
-  FormatBlockquote,
-  FormatHorizontalRule,
-} from '../../core/editor/extensions/FormatAttrs'
 
 const props = defineProps<{
   content?: string
@@ -34,9 +19,6 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLElement | null>(null)
 let editor: PMSourceEditor | null = null
 let scrollEl: HTMLElement | null = null
-
-// Content snapshot taken when this editor is deactivated (v-show pattern).
-let contentWhenDeactivated: string | null = null
 
 function handleScroll() {
   if (!scrollEl) return
@@ -58,19 +40,15 @@ onMounted(() => {
   if (!containerRef.value) return
 
   const markdown = props.content ?? ''
-  const schema = getSourceSchema()
-  const plugins = PMSourceEditor.createPlugins()
-  const state = EditorState.create({ doc: parseMarkdown(schema, markdown), plugins })
 
-  editor = new PMSourceEditor(containerRef.value, state)
+  editor = new PMSourceEditor(containerRef.value, markdown)
   editor.onContentChange((md) => {
     if (props.active === false) return
     emit('change', md)
   })
 
-  // PM's scrollable element
-  scrollEl = containerRef.value.querySelector('.ProseMirror') as HTMLElement
-    ?? containerRef.value
+  // The scrollable element is the .source-view container itself (overflow-y: auto).
+  scrollEl = containerRef.value
   scrollEl.addEventListener('scroll', handleScroll, { passive: true })
 
   containerRef.value.addEventListener('drop', handleDrop)
@@ -81,24 +59,43 @@ onMounted(() => {
   }
 })
 
+// Watch content prop: sync external content changes (e.g. tab switch, file reload)
+// when this editor is active. When becoming active via docTransfer, the transfer
+// takes priority (registerEditor handles it) so we skip if content matches.
+watch(() => props.content, (newContent) => {
+  if (!editor || props.active === false) return
+  if (newContent === undefined) return
+  if (newContent === editor.getContent()) return
+  editor.setContent(newContent)
+})
+
+// Whether this editor was active on the previous render cycle. Used to detect
+// the inactive→active transition for content sync on tab switch.
+let wasActive = props.active !== false
+
 // Watch active prop: register/unregister editor when shown/hidden (v-show pattern).
+// Use flush: 'post' to ensure DOM is visible (v-show applied) before we register,
+// so PM decorations (cursor flash) render correctly on a visible element.
 watch(() => props.active, (isActive) => {
   if (!editor || props.noRegister) return
 
   if (isActive) {
-    const contentActuallyChanged =
-      contentWhenDeactivated !== null && props.content !== contentWhenDeactivated
-    contentWhenDeactivated = null
-
-    if (contentActuallyChanged && props.content !== undefined) {
-      editor.setContent(props.content, true)
+    // When becoming active after a tab switch, ensure content matches props.content.
+    // This handles the case where content was updated by restoreFromSnapshot while
+    // this editor was inactive (props.active=false), causing the content watcher to skip.
+    if (props.content !== undefined && !wasActive) {
+      const currentMd = editor.getContent()
+      if (currentMd !== props.content) {
+        editor.setContent(props.content)
+      }
     }
     registerEditor(editor)
   } else {
-    contentWhenDeactivated = props.content ?? null
     unregisterEditor(editor)
   }
-})
+
+  wasActive = !!isActive
+}, { flush: 'post' })
 
 onUnmounted(() => {
   scrollEl?.removeEventListener('scroll', handleScroll)
@@ -114,42 +111,6 @@ onUnmounted(() => {
 
 // Expose editor instance to parent components
 defineExpose({ editor: () => editor })
-
-// ---------------------------------------------------------------------------
-// Shared schema (cached singleton)
-// ---------------------------------------------------------------------------
-
-let _cachedSchema: any = null
-
-function getSourceSchema() {
-  if (_cachedSchema) return _cachedSchema
-
-  _cachedSchema = getSchema([
-    StarterKit.configure({
-      heading: false,
-      bold: false,
-      italic: false,
-      strike: false,
-      code: false,
-      codeBlock: false,
-      bulletList: false,
-      orderedList: false,
-      blockquote: false,
-      horizontalRule: false,
-    }),
-    FormatHeading,
-    FormatBold,
-    FormatItalic,
-    FormatStrike,
-    FormatCode,
-    FormatBulletList,
-    FormatOrderedList,
-    FormatBlockquote,
-    FormatHorizontalRule,
-  ])
-
-  return _cachedSchema
-}
 </script>
 
 <template>

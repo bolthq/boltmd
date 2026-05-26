@@ -1,4 +1,5 @@
 import type { Extensions } from '@tiptap/core'
+import { Selection } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import { Placeholder } from '@tiptap/extension-placeholder'
 import { TaskList } from '@tiptap/extension-task-list'
@@ -12,11 +13,11 @@ import { Highlight } from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Markdown } from 'tiptap-markdown'
 import type { Editor } from '@tiptap/core'
-import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
+import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState, DocTransfer } from './types'
 import { t } from '../../i18n'
 import { SearchAndReplace, searchPluginKey } from './extensions/SearchAndReplace'
 import { HeadingHighlight } from './extensions/HeadingHighlight'
-import { serializeMarkdown } from './serializer/MarkdownSerializer'
+import { serializeMarkdown, pmOffsetToTextOffset, textOffsetToPmOffset } from './serializer/MarkdownSerializer'
 import { parseMarkdown } from './parser/MarkdownParser'
 import {
   FormatHeading,
@@ -148,6 +149,7 @@ export class WysiwygEditor implements IEditor {
 
   constructor(editor: Editor) {
     this.editor = editor
+
     // Debounced serialization: avoid traversing the full AST on every keystroke.
     this.editor.on('update', () => {
       if (this.suppressUpdate) return
@@ -165,10 +167,16 @@ export class WysiwygEditor implements IEditor {
   }
 
   setContent(markdown: string, recordInHistory = false): void {
+    // Normalize CRLF → LF so that Windows line endings don't cause
+    // unnecessary doc rebuilds (serializer always outputs LF).
+    const normalized = markdown.replace(/\r\n/g, '\n')
+
     // Skip if the editor's current markdown is already identical to avoid
     // unnecessary full document rebuild (which causes table/layout flicker).
     const current = serializeMarkdown(this.editor.state.doc)
-    if (current === markdown) return
+    if (current === normalized) {
+      return
+    }
 
     // Suppress the onUpdate → serialize callback so that internal
     // normalisation doesn't fire onChange back to tabStore.
@@ -180,7 +188,7 @@ export class WysiwygEditor implements IEditor {
 
     // Parse markdown directly into a ProseMirror document using our parser.
     const { schema } = this.editor.state
-    const doc = parseMarkdown(schema, markdown)
+    const doc = parseMarkdown(schema, normalized)
     const { tr } = this.editor.state
     tr.replaceWith(0, tr.doc.content.size, doc.content)
     if (!recordInHistory) {
@@ -196,14 +204,8 @@ export class WysiwygEditor implements IEditor {
     }, 200)
   }
 
-  /** Clear undo history when switching tabs (not mode switches).
-   *  Called externally by EditorManager on tab switch. */
+  /** Clear PM undo history when switching tabs (not mode switches). */
   resetForTabSwitch(): void {
-    this.clearUndoHistory()
-  }
-
-  /** Reset the prosemirror-history plugin state to empty. */
-  private clearUndoHistory(): void {
     // Find the history plugin by its key prefix (prosemirror-history uses key "history$").
     const historyPlugin = this.editor.state.plugins.find(
       (p) => (p as any).key === 'history$',
@@ -254,8 +256,9 @@ export class WysiwygEditor implements IEditor {
       sourceLine += this.computeIntraBlockOffset(topNode, resolved)
     }
 
+    // Convert from 0-based line index to 1-based line number.
     return {
-      line: sourceLine,
+      line: sourceLine + 1,
       column: resolved.parentOffset,
       offset: from,
     }
@@ -385,7 +388,8 @@ export class WysiwygEditor implements IEditor {
       const topNode = doc.maybeChild(clampedBlock)
       if (topNode) {
         const blockFirstLine = this.blockToSourceLine(md, clampedBlock)
-        const lineWithinBlock = pos.line - blockFirstLine
+        // pos.line is 1-based, blockFirstLine is 0-based index; convert to same base.
+        const lineWithinBlock = (pos.line - 1) - blockFirstLine
         if (lineWithinBlock > 0) {
           const intraOffset = this.resolveIntraBlockPosition(topNode, lineWithinBlock, blockOffset)
           if (intraOffset >= 0) {
@@ -519,10 +523,20 @@ export class WysiwygEditor implements IEditor {
 
   flashCursorLine(): void {
     try {
+      // Scroll cursor to the center of the viewport
+      const { from } = this.editor.state.selection
+      const coords = this.editor.view.coordsAtPos(from)
+      const container = this.editor.view.dom.closest('.editor-mount') as HTMLElement
+      if (container && coords) {
+        const containerRect = container.getBoundingClientRect()
+        const targetTop = coords.top - containerRect.top + container.scrollTop
+        container.scrollTop = targetTop - container.clientHeight / 2
+      }
+
       this.editor.commands.flashCursorBlock()
       setTimeout(() => {
         this.editor.commands.clearHeadingHighlight()
-      }, 1500)
+      }, 2600)
     } catch {
       // ignore
     }
@@ -632,5 +646,95 @@ export class WysiwygEditor implements IEditor {
 
   clearSearch(): void {
     this.editor.commands.clearSearch()
+  }
+
+  // ---- Direct document transfer ----
+
+  getDocTransfer(): DocTransfer {
+    // Flush pending debounce to ensure content callbacks are up-to-date.
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+      const md = serializeMarkdown(this.editor.state.doc)
+      this.contentChangeCallbacks.forEach(cb => cb(md))
+    }
+
+    const { from, to } = this.editor.state.selection
+    const markdown = serializeMarkdown(this.editor.state.doc)
+    const cursorPos = this.getCursorPosition()
+    // Compute precise text offset in serialized markdown.
+    const textOffset = pmOffsetToTextOffset(this.editor.state.doc, from)
+    return {
+      doc: this.editor.state.doc,
+      selectionFrom: from,
+      selectionTo: to,
+      markdown,
+      cursorLine: cursorPos.line,
+      cursorColumn: cursorPos.column,
+      textOffset,
+    }
+  }
+
+  setDocTransfer(transfer: DocTransfer): void {
+    this.suppressUpdate = true
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+    }
+
+    const { tr } = this.editor.state
+
+    // If markdown is provided (from source editor), check if canonical doc
+    // is already up-to-date (syncToCanonical keeps it current). If so, skip
+    // the expensive parse + replaceWith — only restore cursor position.
+    let docReplaced = false
+    if (transfer.markdown !== undefined) {
+      const currentMd = serializeMarkdown(this.editor.state.doc)
+      if (currentMd !== transfer.markdown) {
+        const doc = parseMarkdown(this.editor.state.schema, transfer.markdown)
+        tr.replaceWith(0, tr.doc.content.size, doc.content)
+        docReplaced = true
+      }
+    } else {
+      tr.replaceWith(0, tr.doc.content.size, transfer.doc.content)
+      docReplaced = true
+    }
+
+    tr.setMeta('addToHistory', false)
+
+    // Restore cursor position.
+    // Priority: textOffset (precise) > selectionFrom (same-schema PM offset).
+    const doc = tr.doc
+    const docSize = doc.content.size
+    let offset: number | null = null
+
+    if (transfer.textOffset !== undefined && transfer.textOffset >= 0) {
+      // Precise mapping: convert markdown text offset → PM offset.
+      offset = textOffsetToPmOffset(doc, transfer.textOffset)
+    } else if (transfer.selectionFrom && transfer.selectionFrom > 0 && transfer.selectionFrom <= docSize) {
+      offset = transfer.selectionFrom
+    }
+
+    if (offset !== null) {
+      offset = Math.min(Math.max(offset, 0), docSize)
+      try {
+        const $pos = doc.resolve(offset)
+        const selection = Selection.near($pos)
+        tr.setSelection(selection)
+      } catch { /* ignore */ }
+    }
+
+    if (docReplaced || tr.selectionSet) {
+      this.editor.view.dispatch(tr)
+    }
+
+    setTimeout(() => {
+      this.suppressUpdate = false
+    }, 200)
+  }
+
+  /** Expose the underlying Tiptap Editor instance (for source mode dispatch). */
+  getTiptapEditor(): Editor {
+    return this.editor
   }
 }

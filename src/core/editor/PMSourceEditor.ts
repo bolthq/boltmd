@@ -1,34 +1,49 @@
 /**
- * PMSourceEditor — ProseMirror-based source editing mode.
+ * PMSourceEditor — ProseMirror-based plain-text source editing mode.
  *
- * Replaces CodeMirror 6 (SourceEditor.ts) with a raw PM EditorView that shares
- * the same EditorState as the WYSIWYG Tiptap view. This enables instant mode
- * switching without serialization/deserialization.
+ * Uses a minimal schema (doc > codeBlock) so the entire markdown file is
+ * editable as raw text. Users can freely modify ##, **, etc.
  *
- * Key features:
- * - Raw PM EditorView with source-mode NodeViews + MarkViews (visible syntax)
- * - Shared dispatchTransaction keeps both views in sync
- * - CursorBridge plugin for delimiter navigation
- * - Implements IEditor interface for EditorManager compatibility
+ * All edits dispatch to the canonical Tiptap Editor (WYSIWYG schema) so that
+ * PM's native history() plugin records them. Undo/redo is delegated to the
+ * canonical editor — this ensures a single, unified undo stack across all modes.
  */
 
 import { EditorView } from '@tiptap/pm/view'
 import { EditorState, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
-import { history, undo, redo } from '@tiptap/pm/history'
+import { Schema } from '@tiptap/pm/model'
 import { keymap } from '@tiptap/pm/keymap'
 import { baseKeymap } from '@tiptap/pm/commands'
-
-import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState } from './types'
-import { sourceNodeViews } from './sourceview/SourceNodeViews'
-import { sourceMarkViews } from './sourceview/SourceMarkViews'
-import { createCursorBridgePlugin } from './sourceview/CursorBridge'
+import type { IEditor, CursorPosition, WordCount, SearchOptions, SearchState, DocTransfer } from './types'
 import { serializeMarkdown } from './serializer/MarkdownSerializer'
 import { parseMarkdown } from './parser/MarkdownParser'
-import {
-  registerSourceView,
-  createSourceDispatch,
-} from './state/SharedDispatch'
-import { reportCursorLine, reportActiveHeadingIndex } from './EditorManager'
+import { reportCursorLine, reportActiveHeadingIndex, getTiptapEditor } from './EditorManager'
+import { headingHighlightKey, createHighlightPlugin } from './extensions/HeadingHighlight'
+
+// ---------------------------------------------------------------------------
+// Source-mode schema: a single codeBlock holding raw markdown text.
+// ---------------------------------------------------------------------------
+
+let _sourceSchema: Schema | null = null
+
+export function getSourceSchema(): Schema {
+  if (_sourceSchema) return _sourceSchema
+  _sourceSchema = new Schema({
+    nodes: {
+      doc: { content: 'codeBlock' },
+      text: { inline: true },
+      codeBlock: {
+        content: 'text*',
+        marks: '',
+        code: true,
+        defining: true,
+        parseDOM: [{ tag: 'pre', preserveWhitespace: 'full' }],
+        toDOM() { return ['pre', ['code', 0]] },
+      },
+    },
+  })
+  return _sourceSchema
+}
 
 // ---------------------------------------------------------------------------
 // PMSourceEditor class
@@ -38,40 +53,47 @@ export class PMSourceEditor implements IEditor {
   private view: EditorView
   private contentChangeCallbacks: ((markdown: string) => void)[] = []
   private scrollEl: HTMLElement | null = null
+  /** When true, suppress onContentChange callbacks (e.g. during undo/redo sync). */
+  private suppressUpdate = false
 
-  constructor(container: HTMLElement, state: EditorState) {
-    const dispatch = createSourceDispatch()
+  constructor(container: HTMLElement, markdown: string) {
+    const schema = getSourceSchema()
+    const doc = this.createDoc(schema, markdown)
+    const plugins = [
+      keymap({
+        'Mod-z': () => { this.undo(); return true },
+        'Mod-y': () => { this.redo(); return true },
+        'Mod-Shift-z': () => { this.redo(); return true },
+      }),
+      keymap(baseKeymap),
+      createHighlightPlugin(),
+    ]
+    const state = EditorState.create({ doc, plugins })
 
     this.view = new EditorView(container, {
       state,
       dispatchTransaction: (tr: Transaction) => {
-        dispatch(tr)
+        const newState = this.view.state.apply(tr)
+        this.view.updateState(newState)
 
-        // Notify content change listeners if doc changed
-        if (tr.docChanged) {
-          const md = serializeMarkdown(this.view.state.doc)
+        if (tr.docChanged && !this.suppressUpdate) {
+          const md = this.getContent()
+
+          // Dispatch to canonical Tiptap Editor (records in PM history).
+          this.syncToCanonical(md)
+
           for (const cb of this.contentChangeCallbacks) {
             try { cb(md) } catch { /* ignore */ }
           }
         }
 
-        // Report cursor position for status bar
         if (tr.docChanged || tr.selectionSet) {
           this.reportCursor()
         }
       },
-      nodeViews: sourceNodeViews,
-      markViews: sourceMarkViews,
     })
 
-    // Register with SharedDispatch for dual-view sync
-    registerSourceView(this.view)
-
-    // Locate the scroll element (the PM view's scrollable parent)
-    this.scrollEl = this.view.dom.querySelector('.ProseMirror') as HTMLElement
-      ?? this.view.dom
-
-    // Initial cursor report
+    this.scrollEl = container
     this.reportCursor()
   }
 
@@ -80,17 +102,18 @@ export class PMSourceEditor implements IEditor {
   // -------------------------------------------------------------------------
 
   getContent(): string {
-    return serializeMarkdown(this.view.state.doc)
+    return this.view.state.doc.firstChild?.textContent ?? ''
   }
 
-  setContent(markdown: string, _recordInHistory?: boolean): void {
+  setContent(markdown: string): void {
+    this.suppressUpdate = true
     const schema = this.view.state.schema
-    const doc = parseMarkdown(schema, markdown)
-    const newState = EditorState.create({
-      doc,
-      plugins: this.view.state.plugins,
-    })
-    this.view.updateState(newState)
+    const doc = this.createDoc(schema, markdown)
+    const tr = this.view.state.tr
+    tr.replaceWith(0, tr.doc.content.size, doc.content)
+    tr.setMeta('addToHistory', false)
+    this.view.dispatch(tr)
+    this.suppressUpdate = false
   }
 
   focus(): void {
@@ -99,40 +122,46 @@ export class PMSourceEditor implements IEditor {
 
   getCursorPosition(): CursorPosition {
     const { from } = this.view.state.selection
-    const doc = this.view.state.doc
-    let line = 0
-    let pos = 0
+    const text = this.getContent()
+    // codeBlock content starts at offset 1 (codeBlock open token only;
+    // doc is the top-level node and doesn't add any position tokens).
+    const textOffset = Math.max(0, from - 1)
+    const before = text.slice(0, textOffset)
+    const line = (before.match(/\n/g) || []).length + 1
+    const lastNewline = before.lastIndexOf('\n')
+    const column = textOffset - (lastNewline + 1)
 
-    // Walk through blocks to compute line number
-    doc.descendants((node, nodePos) => {
-      if (node.isBlock && nodePos <= from) {
-        line++
-        pos = nodePos
-      }
-      return nodePos <= from
-    })
-
-    return {
-      line: Math.max(0, line - 1),
-      column: from - pos,
-      offset: from,
-    }
+    return { line, column, offset: from }
   }
 
   setCursorPosition(pos: CursorPosition): void {
-    const docSize = this.view.state.doc.content.size
-    let offset = pos.offset
+    const doc = this.view.state.doc
+    const docSize = doc.content.size
 
-    // If no valid offset, resolve from line number
-    if (offset <= 0 || offset > docSize) {
-      offset = this.resolveLineToPos(pos.line)
+    let offset: number
+    if (pos.offset > 0 && pos.offset <= docSize) {
+      offset = pos.offset
+    } else if (pos.line > 0) {
+      // Convert line + column to text offset
+      const text = this.getContent()
+      const lines = text.split('\n')
+      let charOffset = 0
+      for (let i = 0; i < Math.min(pos.line - 1, lines.length); i++) {
+        charOffset += lines[i].length + 1
+      }
+      charOffset += Math.min(pos.column || 0, (lines[pos.line - 1] || '').length)
+      offset = charOffset + 1 // +1 for codeBlock open token
+    } else {
+      offset = 1 // Start of content
     }
 
     offset = Math.min(Math.max(0, offset), docSize)
-    const $pos = this.view.state.doc.resolve(offset)
-    const selection = Selection.near($pos)
-    const tr = this.view.state.tr.setSelection(selection).scrollIntoView()
-    this.view.dispatch(tr)
+    try {
+      const $pos = doc.resolve(offset)
+      const selection = Selection.near($pos)
+      const tr = this.view.state.tr.setSelection(selection).scrollIntoView()
+      this.view.dispatch(tr)
+    } catch { /* ignore */ }
   }
 
   getScrollPosition(): number {
@@ -153,19 +182,24 @@ export class PMSourceEditor implements IEditor {
 
   insertText(text: string): void {
     const { from, to } = this.view.state.selection
-    const tr = this.view.state.tr.replaceWith(
-      from, to,
-      this.view.state.schema.text(text),
-    )
+    const tr = this.view.state.tr.insertText(text, from, to)
     this.view.dispatch(tr)
   }
 
   undo(): void {
-    undo(this.view.state, this.view.dispatch)
+    const tiptap = getTiptapEditor()
+    if (!tiptap) return
+    tiptap.commands.undo()
+    // Sync canonical state back to source view.
+    this.syncFromCanonical()
   }
 
   redo(): void {
-    redo(this.view.state, this.view.dispatch)
+    const tiptap = getTiptapEditor()
+    if (!tiptap) return
+    tiptap.commands.redo()
+    // Sync canonical state back to source view.
+    this.syncFromCanonical()
   }
 
   destroy(): void {
@@ -178,68 +212,197 @@ export class PMSourceEditor implements IEditor {
   }
 
   getWordCount(): WordCount {
-    const text = this.view.state.doc.textContent
+    const text = this.getContent()
     const characters = text.length
     const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length
-    // Count block nodes as lines
-    let lines = 0
-    this.view.state.doc.descendants((node) => {
-      if (node.isTextblock) lines++
-      return true
-    })
+    const lines = text.split('\n').length
     return { characters, words, lines }
   }
 
   jumpToHeading(headingIndex: number): void {
-    const doc = this.view.state.doc
+    const text = this.getContent()
+    const lines = text.split('\n')
     let count = 0
-    let targetPos = 0
 
-    doc.descendants((node, pos) => {
-      if (node.type.name === 'heading') {
+    for (let i = 0; i < lines.length; i++) {
+      if (/^#{1,6}\s/.test(lines[i])) {
         if (count === headingIndex) {
-          targetPos = pos + 1 // Inside the heading
-          return false
+          let charOffset = 0
+          for (let j = 0; j < i; j++) {
+            charOffset += lines[j].length + 1
+          }
+          const offset = charOffset + 1
+          const docSize = this.view.state.doc.content.size
+          const clamped = Math.min(offset, docSize)
+          try {
+            const $pos = this.view.state.doc.resolve(clamped)
+            const selection = Selection.near($pos)
+            const tr = this.view.state.tr.setSelection(selection).scrollIntoView()
+            this.view.dispatch(tr)
+          } catch { /* ignore */ }
+          return
         }
         count++
       }
-      return true
-    })
-
-    const $pos = doc.resolve(Math.min(targetPos, doc.content.size))
-    const selection = Selection.near($pos)
-    const tr = this.view.state.tr
-      .setSelection(selection)
-      .scrollIntoView()
-    this.view.dispatch(tr)
+    }
   }
 
   resetForTabSwitch(): void {
-    // For tab switch, we rebuild state from the tab's stored EditorState
-    // which already has fresh history. Nothing extra needed here.
+    // History is managed by canonical Tiptap Editor — nothing to clear here.
   }
 
   flashCursorLine(): void {
-    // TODO: Add a decoration that highlights the current line temporarily.
-    // For now, just scroll the cursor into view.
-    const tr = this.view.state.tr.scrollIntoView()
-    this.view.dispatch(tr)
+    // Delay slightly to ensure DOM is visible and laid out
+    // (covers v-show transitions where element was display:none).
+    const doFlash = () => {
+      const { from } = this.view.state.selection
+
+      // Scroll to center
+      try {
+        const coords = this.view.coordsAtPos(from)
+        if (this.scrollEl && coords && coords.top !== 0) {
+          const containerRect = this.scrollEl.getBoundingClientRect()
+          const targetTop = coords.top - containerRect.top + this.scrollEl.scrollTop
+          this.scrollEl.scrollTop = targetTop - this.scrollEl.clientHeight / 2
+        }
+      } catch { /* ignore */ }
+
+      // Flash the current line via PM Decoration
+      try {
+        const state = this.view.state
+        const pos = state.selection.from
+        const codeBlock = state.doc.firstChild
+        if (!codeBlock) return
+
+        const contentStart = 1
+        const text = codeBlock.textContent
+        if (text.length === 0) return
+
+        const offset = Math.max(0, Math.min(pos - contentStart, text.length))
+        const lineStart = text.lastIndexOf('\n', offset - 1) + 1
+        let lineEnd = text.indexOf('\n', offset)
+        if (lineEnd === -1) lineEnd = text.length
+
+        // Handle empty lines: expand to include at least the newline character
+        // so the decoration has a valid range.
+        let inlineFrom = contentStart + lineStart
+        let inlineTo = contentStart + lineEnd
+        if (inlineFrom >= inlineTo) {
+          // Empty line — try to flash the line including surrounding newline
+          if (lineStart > 0) {
+            inlineFrom = contentStart + lineStart - 1
+          } else if (lineEnd < text.length) {
+            inlineTo = contentStart + lineEnd + 1
+          } else {
+            // Single empty content — flash entire content
+            inlineFrom = contentStart
+            inlineTo = contentStart + text.length
+          }
+        }
+
+        if (inlineFrom < inlineTo) {
+          const tr = state.tr.setMeta(headingHighlightKey, { type: 'flashInline', from: inlineFrom, to: inlineTo })
+          this.view.dispatch(tr)
+
+          setTimeout(() => {
+            try {
+              const clearTr = this.view.state.tr.setMeta(headingHighlightKey, { type: 'clear' })
+              this.view.dispatch(clearTr)
+            } catch { /* view may be destroyed */ }
+          }, 2600)
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Use rAF to ensure the view is fully laid out before computing coords.
+    requestAnimationFrame(doFlash)
   }
 
-  // ---- Search / Replace (simplified PM-based implementation) ----
+  // ---- DocTransfer ----
+
+  getDocTransfer(): DocTransfer {
+    const markdown = this.getContent()
+    const { line, column } = this.getCursorPosition()
+    // textOffset = cursor position within the raw markdown text.
+    // In the source view, PM offset = textOffset + 1 (codeBlock open token only;
+    // doc is the top-level node and doesn't add position tokens).
+    const { from } = this.view.state.selection
+    const textOffset = Math.max(0, from - 1)
+
+    return {
+      doc: this.view.state.doc,
+      selectionFrom: this.view.state.selection.from,
+      selectionTo: this.view.state.selection.from,
+      markdown,
+      cursorLine: line,
+      cursorColumn: column,
+      textOffset,
+    }
+  }
+
+  setDocTransfer(transfer: DocTransfer): void {
+    // Get markdown from transfer.
+    let markdown: string
+    if (transfer.markdown !== undefined) {
+      markdown = transfer.markdown
+    } else {
+      try {
+        markdown = serializeMarkdown(transfer.doc)
+      } catch {
+        markdown = transfer.doc.textContent || ''
+      }
+    }
+
+    this.suppressUpdate = true
+
+    const schema = this.view.state.schema
+    const doc = this.createDoc(schema, markdown)
+    const tr = this.view.state.tr
+    tr.replaceWith(0, tr.doc.content.size, doc.content)
+    tr.setMeta('addToHistory', false)
+
+    // Restore cursor position using textOffset (precise).
+    if (transfer.textOffset !== undefined && transfer.textOffset >= 0) {
+      const targetOffset = Math.min(transfer.textOffset + 1, tr.doc.content.size)
+      try {
+        const $pos = tr.doc.resolve(targetOffset)
+        const selection = Selection.near($pos)
+        tr.setSelection(selection)
+      } catch { /* ignore */ }
+    } else if (transfer.cursorLine && transfer.cursorLine > 0) {
+      // Fallback: use cursorLine + cursorColumn.
+      const lines = markdown.split('\n')
+      let charOffset = 0
+      for (let i = 0; i < Math.min(transfer.cursorLine - 1, lines.length); i++) {
+        charOffset += lines[i].length + 1
+      }
+      const lineIdx = transfer.cursorLine - 1
+      const lineLength = lineIdx < lines.length ? lines[lineIdx].length : 0
+      const col = Math.min(transfer.cursorColumn ?? 0, lineLength)
+      charOffset += col
+      const targetOffset = Math.min(charOffset + 1, tr.doc.content.size)
+      try {
+        const $pos = tr.doc.resolve(targetOffset)
+        const selection = Selection.near($pos)
+        tr.setSelection(selection)
+      } catch { /* ignore */ }
+    }
+
+    this.view.dispatch(tr)
+    this.suppressUpdate = false
+  }
+
+  // ---- Search / Replace ----
 
   search(query: string, options: SearchOptions): SearchState {
-    if (!query) {
-      return { total: 0, current: 0 }
-    }
-    const text = this.view.state.doc.textContent
+    if (!query) return { total: 0, current: 0 }
+    const text = this.getContent()
     const regex = this.buildRegex(query, options)
     if (!regex) return { total: 0, current: 0, error: 'Invalid regex' }
 
     const matches = this.findAllMatches(text, regex)
     const current = this.findCurrentIndex(matches)
     if (matches.length > 0 && current === 0) {
-      // Move to first match
       this.gotoMatch(matches[0])
       return { total: matches.length, current: 1 }
     }
@@ -247,7 +410,6 @@ export class PMSourceEditor implements IEditor {
   }
 
   gotoNextMatch(): SearchState {
-    // Re-search to find matches (stateless approach)
     return { total: 0, current: 0 }
   }
 
@@ -258,67 +420,92 @@ export class PMSourceEditor implements IEditor {
   replaceNext(replacement: string): SearchState {
     const { from, to } = this.view.state.selection
     if (from !== to) {
-      const tr = this.view.state.tr.replaceWith(
-        from, to,
-        replacement ? this.view.state.schema.text(replacement) : this.view.state.schema.text(''),
-      )
+      const tr = this.view.state.tr.insertText(replacement, from, to)
       this.view.dispatch(tr)
     }
     return { total: 0, current: 0 }
   }
 
   replaceAll(_replacement: string): number {
-    // TODO: Full implementation
     return 0
   }
 
   clearSearch(): void {
-    // No-op for now — PM doesn't have a built-in search highlight system
-    // like CM6. Search decorations would be implemented via a plugin.
+    // No-op
+  }
+
+  // -------------------------------------------------------------------------
+  // Canonical state sync
+  // -------------------------------------------------------------------------
+
+  /**
+   * Dispatch current source content to the canonical Tiptap Editor.
+   * This records the change in PM's native history for unified undo/redo.
+   */
+  private syncToCanonical(markdown: string): void {
+    const tiptap = getTiptapEditor()
+    if (!tiptap) return
+
+    const { schema } = tiptap.state
+    const doc = parseMarkdown(schema, markdown)
+    const { tr } = tiptap.state
+    tr.replaceWith(0, tr.doc.content.size, doc.content)
+    // Record in history so Ctrl+Z works.
+    tr.setMeta('addToHistory', true)
+    tiptap.view.dispatch(tr)
+  }
+
+  /**
+   * Pull the canonical Tiptap Editor's current state and update source view.
+   * Called after undo/redo on the canonical editor.
+   */
+  private syncFromCanonical(): void {
+    const tiptap = getTiptapEditor()
+    if (!tiptap) return
+
+    const md = serializeMarkdown(tiptap.state.doc)
+    const currentMd = this.getContent()
+    if (md === currentMd) return
+
+    this.suppressUpdate = true
+    const schema = this.view.state.schema
+    const doc = this.createDoc(schema, md)
+    const tr = this.view.state.tr
+    tr.replaceWith(0, tr.doc.content.size, doc.content)
+    this.view.dispatch(tr)
+    this.suppressUpdate = false
+
+    // Notify callbacks so tab store stays in sync.
+    for (const cb of this.contentChangeCallbacks) {
+      try { cb(md) } catch { /* ignore */ }
+    }
   }
 
   // -------------------------------------------------------------------------
   // Internal helpers
   // -------------------------------------------------------------------------
 
-  /** Resolve a 0-based line number to a PM document offset. */
-  private resolveLineToPos(line: number): number {
-    const doc = this.view.state.doc
-    let blockIdx = 0
-    let targetPos = 0
-
-    doc.descendants((node, pos) => {
-      if (node.isTextblock) {
-        if (blockIdx === line) {
-          targetPos = pos + 1
-          return false
-        }
-        blockIdx++
-      }
-      return true
-    })
-
-    return targetPos
+  /** Create a doc node with a single codeBlock containing the markdown text. */
+  private createDoc(schema: Schema, markdown: string) {
+    const codeBlock = markdown
+      ? schema.nodes.codeBlock.create(null, schema.text(markdown))
+      : schema.nodes.codeBlock.create()
+    return schema.nodes.doc.create(null, codeBlock)
   }
 
   /** Report cursor line and heading index to EditorManager. */
   private reportCursor(): void {
-    const { from } = this.view.state.selection
-    const doc = this.view.state.doc
-    let line = 0
-    let headingIdx = -1
+    const { line } = this.getCursorPosition()
+    reportCursorLine(line)
 
-    doc.descendants((node, pos) => {
-      if (node.isTextblock && pos <= from) {
-        line++
-      }
-      if (node.type.name === 'heading' && pos <= from) {
+    const text = this.getContent()
+    const lines = text.split('\n')
+    let headingIdx = -1
+    for (let i = 0; i < Math.min(line, lines.length); i++) {
+      if (/^#{1,6}\s/.test(lines[i])) {
         headingIdx++
       }
-      return pos <= from
-    })
-
-    reportCursorLine(line)
+    }
     reportActiveHeadingIndex(headingIdx)
   }
 
@@ -348,7 +535,7 @@ export class PMSourceEditor implements IEditor {
     regex.lastIndex = 0
     while ((match = regex.exec(text)) !== null) {
       if (match[0].length === 0) { regex.lastIndex++; continue }
-      matches.push({ from: match.index, to: match.index + match[0].length })
+      matches.push({ from: match.index + 1, to: match.index + match[0].length + 1 })
     }
     return matches
   }
@@ -370,25 +557,6 @@ export class PMSourceEditor implements IEditor {
     this.view.dispatch(tr)
   }
 
-  // -------------------------------------------------------------------------
-  // Static factory
-  // -------------------------------------------------------------------------
-
-  /**
-   * Create the PM plugins needed for source mode.
-   * Called when building the shared EditorState.
-   */
-  static createPlugins() {
-    return [
-      history(),
-      keymap(baseKeymap),
-      createCursorBridgePlugin(),
-    ]
-  }
-
-  /**
-   * Get the raw PM EditorView (for SharedDispatch registration, etc.)
-   */
   getView(): EditorView {
     return this.view
   }

@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, defineAsyncComponent, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorManager, syncContent } from '../../core/editor/EditorManager'
-import { activeTabId, updateTabContent } from '../../core/stores/tabStore'
+import { activeTabId, updateTabContent, normalizeTabCleanContent } from '../../core/stores/tabStore'
 import { isFileLoading } from '../../core/stores/fileStore'
 import FindReplacePanel from '../common/FindReplacePanel.vue'
 
@@ -20,7 +20,7 @@ const EditorSkeleton = {
   },
 }
 
-// Async-load editor views so tiptap / codemirror chunks are not required
+// Async-load editor views so tiptap chunks are not required
 // for the initial render.  The UI shell (title bar, menu, tab bar) appears
 // instantly while the editor JS is fetched in the background.
 const EditorCore = defineAsyncComponent({
@@ -33,48 +33,37 @@ const SourceView = defineAsyncComponent({
   loadingComponent: EditorSkeleton,
   delay: 0,
 })
-const SplitView = defineAsyncComponent({
-  loader: () => import('./SplitView.vue'),
-  loadingComponent: EditorSkeleton,
-  delay: 0,
-})
 
 const { mode, content, getSelectionInEditor } = useEditorManager()
 const { t } = useI18n()
 
-// Once the WYSIWYG editor has been mounted, it stays alive (v-show pattern).
-// This flag flips to true the first time mode is 'wysiwyg' and never goes back.
-const wysiwygMounted = ref(false)
-const wysiwygActive = computed(() => mode.value === 'wysiwyg')
+// EditorCore (Tiptap) is always mounted — it holds the canonical document tree.
+// It's visible in WYSIWYG mode and in split mode (right pane, read-only).
+// It's the active IEditor only in WYSIWYG mode.
+const editorCoreActive = computed(() => mode.value === 'wysiwyg')
+const editorCoreReadonly = computed(() => mode.value === 'split')
+const editorCoreVisible = computed(() => mode.value === 'wysiwyg' || mode.value === 'split')
 
-// Same v-show pattern for Source editor — keeps CM6 undo history alive.
+// SourceView is mounted when needed (source or split mode).
+// It's the active IEditor in source and split modes (the user types in source view).
 const sourceMounted = ref(false)
-const sourceActive = computed(() => mode.value === 'source')
+const sourceVisible = computed(() => mode.value === 'source' || mode.value === 'split')
+const sourceActive = computed(() => mode.value === 'source' || mode.value === 'split')
 
-// Flip wysiwygMounted to true the first time we enter a mode that needs it.
-// `immediate: true` handles the case where the app starts in wysiwyg mode.
-const _stopWysiwygWatch = watch(wysiwygActive, (active) => {
-  if (active && !wysiwygMounted.value) {
-    wysiwygMounted.value = true
-    // Use nextTick to stop the watcher safely (can't call stop() synchronously
-    // inside the immediate callback before the variable is assigned).
-    Promise.resolve().then(() => _stopWysiwygWatch())
-  }
-}, { immediate: true })
-
-const _stopSourceWatch = watch(sourceActive, (active) => {
-  if (active && !sourceMounted.value) {
+// Flip sourceMounted once we first need it.
+const _stopSourceWatch = watch(sourceVisible, (visible) => {
+  if (visible && !sourceMounted.value) {
     sourceMounted.value = true
     Promise.resolve().then(() => _stopSourceWatch())
   }
 }, { immediate: true })
 
-// 查找/替换面板当前模式；null = 关闭
+// Split mode uses a CSS flex layout class on the container.
+const isSplit = computed(() => mode.value === 'split')
+
+// Find/replace panel state
 const findPanelMode = ref<'find' | 'replace' | null>(null)
 const findPanelRef = ref<InstanceType<typeof FindReplacePanel> | null>(null)
-// Value used to prefill the find input on the next panel mount. Kept in a
-// ref so it's reactive for the initial render; we only read it at mount
-// time, subsequent re-opens pass the fresh selection via focus(prefill).
 const findPanelInitialQuery = ref('')
 
 // Grab the editor's current selection and return it only when it's a
@@ -90,8 +79,6 @@ function readSinglelineSelection(): string {
 function openFind() {
   const prefill = readSinglelineSelection()
   if (findPanelMode.value === 'find') {
-    // Panel already open → refocus; overwrite query only if user selected
-    // something fresh in the editor since last time.
     findPanelRef.value?.focus(prefill)
   } else {
     findPanelInitialQuery.value = prefill
@@ -127,9 +114,20 @@ function handleChange(newContent: string) {
   syncContent(newContent)
 }
 
+/**
+ * Called by EditorCore after it first processes content (onCreate or setContent).
+ * Updates cleanContent so that serialization normalization differences
+ * (e.g. blank line insertion, table column padding) don't cause false dirty flags.
+ */
+function handleNormalize(normalizedContent: string) {
+  const tabId = activeTabId.value
+  if (tabId) {
+    normalizeTabCleanContent(tabId, normalizedContent)
+  }
+}
+
 // Global shortcuts: Ctrl+F / Ctrl+H open our panel; Ctrl+G / F3 are swallowed
-// so neither CodeMirror's built-in search nor the Webview's find-in-page popup
-// can hijack them while our panel owns find/replace UX.
+// so the Webview's find-in-page popup can't hijack them.
 function handleGlobalKeydown(e: KeyboardEvent) {
   // F3 / Shift+F3: next / previous match when panel is open
   if (e.key === 'F3') {
@@ -156,8 +154,6 @@ function handleGlobalKeydown(e: KeyboardEvent) {
     openReplace()
     return
   }
-  // Swallow Ctrl+G / Ctrl+Shift+G so the Webview / CM6 can't pop their own
-  // search UI. When our panel is open, route them to next / previous match.
   if (e.key === 'g' || e.key === 'G') {
     e.preventDefault()
     e.stopPropagation()
@@ -168,9 +164,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
-// Use capture phase so we see Ctrl+F before CodeMirror's internal keymap
-// handlers (which otherwise swallow it in Source/Split mode, letting the
-// Webview's native find-in-page popup take over).
+// Use capture phase so we see Ctrl+F before PM's internal keymap handlers.
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown, { capture: true })
 })
@@ -179,7 +173,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown, { capture: true })
 })
 
-// 暴露方法给外部（MenuBar 会用）
 defineExpose({
   openFind,
   openReplace,
@@ -187,39 +180,39 @@ defineExpose({
 </script>
 
 <template>
-  <div class="editor-container">
+  <div class="editor-container" :class="{ 'split-layout': isSplit }">
     <!-- Loading overlay shown while a file is being read from disk -->
     <div v-if="isFileLoading" class="editor-loading-overlay">
       <div class="editor-loading-spinner" />
       <span class="editor-loading-text">{{ t('editor.loading') }}</span>
     </div>
 
-    <!-- WYSIWYG 模式 (kept alive with v-show to preserve undo history) -->
-    <EditorCore
-      v-if="wysiwygMounted"
-      v-show="wysiwygActive"
-      :content="content"
-      :active="wysiwygActive"
-      @change="handleChange"
-    />
+    <!-- Canonical Tiptap editor (full in WYSIWYG, right pane in split).
+         Always mounted first to ensure getTiptapEditor() is available
+         before SourceView mounts (source mode needs it for syncToCanonical). -->
+    <div v-show="editorCoreVisible" class="split-pane wysiwyg-pane" :class="{ 'order-2': isSplit }">
+      <EditorCore
+        :content="content"
+        :active="editorCoreActive"
+        :readonly="editorCoreReadonly"
+        @change="handleChange"
+        @normalize="handleNormalize"
+      />
+    </div>
 
-    <!-- 源码模式 (kept alive with v-show to preserve undo history) -->
-    <SourceView
-      v-if="sourceMounted"
-      v-show="sourceActive"
-      :content="content"
-      :active="sourceActive"
-      @change="handleChange"
-    />
+    <!-- Source editor (left pane in split, full in source mode) -->
+    <div v-if="sourceMounted" v-show="sourceVisible" class="split-pane source-pane" :class="{ 'order-1': isSplit }">
+      <SourceView
+        :content="content"
+        :active="sourceActive"
+        @change="handleChange"
+      />
+    </div>
 
-    <!-- 分屏模式 -->
-    <SplitView
-      v-if="mode === 'split'"
-      :content="content"
-      @change="handleChange"
-    />
+    <!-- Split divider (positioned between source and wysiwyg via order) -->
+    <div v-if="isSplit" class="split-divider order-divider" />
 
-    <!-- 查找/替换面板（浮层） -->
+    <!-- Find/Replace panel (floating) -->
     <FindReplacePanel
       v-if="findPanelMode !== null"
       ref="findPanelRef"

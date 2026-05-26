@@ -206,6 +206,21 @@ export class TabManager implements ITabManager {
     this.notifyLazy()
   }
 
+  /**
+   * Update cleanContent to the normalized (serialized) form after the editor
+   * first processes the file content. This ensures that format-only differences
+   * from the parse→serialize round-trip don't permanently mark the tab dirty,
+   * and that undo-all brings the dirty flag back to clean.
+   */
+  normalizeCleanContent(tabId: string, normalizedContent: string): void {
+    const tab = this.tabs.find((t) => t.id === tabId)
+    if (!tab) return
+    // Only normalize if the tab is not already dirty from user edits.
+    if (tab.dirty) return
+    tab.cleanContent = normalizedContent
+    tab.content = normalizedContent
+  }
+
   /** 标记标签已保存 */
   markSaved(tabId: string, filePath: string): void {
     const tab = this.tabs.find((t) => t.id === tabId)

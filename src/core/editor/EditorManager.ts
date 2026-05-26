@@ -1,6 +1,6 @@
 import { ref, readonly, type Ref, type DeepReadonly } from 'vue'
 import type { Editor } from '@tiptap/core'
-import type { EditorMode, EditorSnapshot, IEditor, CursorPosition, SearchOptions, SearchState } from './types'
+import type { EditorMode, EditorSnapshot, IEditor, CursorPosition, SearchOptions, SearchState, DocTransfer } from './types'
 import { eventBus } from '../events/EventBus'
 import { AppEvent } from '../events/events'
 
@@ -38,6 +38,9 @@ interface ModePosition {
 // Pending position to restore when a new editor registers after mode switch.
 let pendingPosition: ModePosition | null = null
 
+// Pending document transfer for mode switching (direct doc sharing, no serialize/parse).
+let pendingDocTransfer: DocTransfer | null = null
+
 // 响应式状态
 const mode = ref<EditorMode>('wysiwyg')
 const content = ref('')
@@ -58,6 +61,31 @@ const activeHeadingIndex = ref(-1)
  */
 export function registerEditor(editor: IEditor): void {
   activeEditor = editor
+
+  // Direct document transfer from previous mode (highest priority).
+  if (pendingDocTransfer) {
+    const transfer = pendingDocTransfer
+    pendingDocTransfer = null
+    pendingPosition = null // Not needed when doc transfer is used
+    try {
+      editor.setDocTransfer(transfer)
+    } catch {
+      // Fallback: if doc transfer fails (schema mismatch, etc.), ignore.
+    }
+    // Flash cursor line so user can locate where they are in the new mode.
+    // Use setTimeout(0) + rAF to ensure DOM has fully rendered and laid out
+    // after doc transfer (covers async component loading + v-show transitions).
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        editor.flashCursorLine?.()
+      })
+    }, 50)
+    // Focus the editor.
+    requestAnimationFrame(() => {
+      editor.focus()
+    })
+    return
+  }
 
   // Restore this mode's last known position (if any).
   if (pendingPosition) {
@@ -109,15 +137,42 @@ export function unregisterEditor(editor: IEditor): void {
 export function switchMode(newMode: EditorMode): void {
   if (newMode === mode.value) return
 
-  // Grab cursor line from the current editor and transfer to new mode.
+  const oldMode = mode.value
+
+  // Determine which editor "group" is active in old vs new mode:
+  // - WYSIWYG group: mode === 'wysiwyg' (EditorCore is the active IEditor)
+  // - Source group: mode === 'source' || mode === 'split' (SourceView is the active IEditor)
+  const oldIsSource = oldMode === 'source' || oldMode === 'split'
+  const newIsSource = newMode === 'source' || newMode === 'split'
+
+  if (oldIsSource && newIsSource) {
+    // Switching between source and split: same SourceView stays active.
+    // No docTransfer needed. Just update mode and flash cursor.
+    mode.value = newMode
+    eventBus.emit(AppEvent.EditorModeChange, { mode: newMode })
+    // Flash cursor after layout change. Use setTimeout + rAF to ensure
+    // DOM has fully re-laid out (e.g., split pane width change).
+    if (activeEditor) {
+      const editorRef = activeEditor
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          editorRef.focus()
+          editorRef.flashCursorLine?.()
+        })
+      }, 50)
+    }
+    return
+  }
+
+  // Switching between different editor groups (wysiwyg ↔ source/split).
   if (activeEditor) {
-    content.value = activeEditor.getContent()
-    const cursorPos = activeEditor.getCursorPosition()
-    // Transfer by line number — the only shared coordinate across modes.
-    // offset=0 forces the new editor to resolve position from line number.
-    pendingPosition = {
-      cursor: { line: cursorPos.line, column: 0, offset: 0 },
-      scroll: 0,
+    // Direct document transfer: pass PM doc + selection offset directly.
+    pendingDocTransfer = activeEditor.getDocTransfer()
+
+    // Also sync content.value for observers (OutlinePanel, etc.)
+    const freshContent = activeEditor.getContent()
+    if (freshContent !== content.value) {
+      content.value = freshContent
     }
   }
 
@@ -166,6 +221,10 @@ export function saveSnapshot(): EditorSnapshot {
 export function restoreFromSnapshot(snapshot: EditorSnapshot): void {
   content.value = snapshot.content
   pendingPosition = { cursor: snapshot.cursor, scroll: snapshot.scroll }
+  // Clear any stale docTransfer from a previous mode switch that was
+  // interrupted by this tab switch. Without this, registerEditor would
+  // overwrite the correct tab content with the old transfer data.
+  pendingDocTransfer = null
   mode.value = snapshot.mode
 
   // If the editor is already mounted (same mode, component not re-created),
