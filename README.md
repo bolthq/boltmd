@@ -38,8 +38,8 @@ BoltMD is a Markdown file editor built with [Tauri 2.0](https://tauri.app) and [
 Switch instantly with `Ctrl+/`:
 
 - **WYSIWYG** — Write in rich text, see formatted output in real time
-- **Source** — Full Markdown source with syntax highlighting (CodeMirror 6)
-- **Split** — Source on the left, live preview on the right, scroll synced
+- **Source** — Full Markdown source editing (ProseMirror-based plain text)
+- **Split** — Source on the left, live WYSIWYG preview on the right
 
 ### Tiny & Lightweight
 
@@ -120,12 +120,6 @@ Configurable debounce delay, toggle on/off in settings. Never lose work.
 
 - Light / Dark / Follow system
 - English + 中文 built-in
-
-### Multi-Cursor Editing (Source Mode)
-
-- `Ctrl+D` — select next occurrence of current selection
-- `Alt+Click` — add cursor at click position
-- Full CodeMirror 6 multi-cursor support
 
 ### Export PDF / HTML
 
@@ -220,7 +214,7 @@ pnpm tauri build
 │  PluginContext · Event Bridge           │
 ├──────────┬──────────────────────────────┤
 │ IEditor  │  WysiwygEditor (Tiptap)      │
-│ interface│  SourceEditor (CodeMirror)   │
+│ interface│  PMSourceEditor (ProseMirror)│
 ├──────────┴──────────────────────────────┤
 │  Tauri 2.0 IPC                          │
 ├─────────────────────────────────────────┤
@@ -241,7 +235,7 @@ See [docs/01-architecture.md](docs/01-architecture.md) for details.
 | Application shell | Tauri 2.0 (Rust) |
 | Frontend | Vue 3 + TypeScript |
 | WYSIWYG | Tiptap 3 (ProseMirror) |
-| Source editor | CodeMirror 6 |
+| Source editor | ProseMirror (plain text mode) |
 | Styling | TailwindCSS 4 |
 | Bundler | Vite 6 |
 
@@ -255,7 +249,6 @@ See [docs/01-architecture.md](docs/01-architecture.md) for details.
 - [x] Document outline & heading navigation
 - [x] Smart paste (URL → link, HTML → Markdown, TSV → table, code detection)
 - [x] Zen mode (distraction-free writing, typewriter mode)
-- [x] Multi-cursor editing (Source mode)
 - [x] Export PDF / HTML
 - [x] Auto-update detection (silent background check, configurable)
 - [x] Plugin system (architecture + management panel)
@@ -283,8 +276,6 @@ See [TASKS.md](TASKS.md) for the full breakdown.
 | `Ctrl+Shift+P` | Command palette |
 | `Ctrl+Shift+O` | Quick jump to heading |
 | `Ctrl+P` | Export PDF |
-| `Ctrl+D` | Select next occurrence (Source) |
-| `Alt+Click` | Add cursor (Source) |
 | `F11` | Toggle Zen mode |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |

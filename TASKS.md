@@ -19,10 +19,14 @@
 
 ## Phase 2: 源码编辑器
 
-- [x] P2-1: 集成 CodeMirror 6 + Markdown 语法高亮 + @codemirror/language-data
-- [x] P2-2: 创建 SourceView.vue
-- [x] P2-3: 创建 SplitView.vue（分屏：CodeMirror + Tiptap 只读预览）
-- [x] P2-4: 同步滚动
+- [x] ~~P2-1: 集成 CodeMirror 6 + Markdown 语法高亮 + @codemirror/language-data~~
+- [x] ~~P2-2: 创建 SourceView.vue~~
+- [x] ~~P2-3: 创建 SplitView.vue（分屏：CodeMirror + Tiptap 只读预览）~~
+- [x] ~~P2-4: 同步滚动~~
+
+> **Note**: Phase 2 was originally implemented with CodeMirror 6, then replaced by
+> PMSourceEditor (ProseMirror plain-text codeBlock schema) in the unified-editor refactor.
+> CM6 and all multi-cursor features have been removed.
 
 ## Phase 3: 模式切换
 
@@ -195,11 +199,11 @@
 
 ### ~~P14-B: Markdown 格式化~~ (Dropped — no meaningful value after researching competing editors)
 
-### P14-C: 多光标编辑（源码模式）
-- [x] P14-8: Ctrl+D 选中下一个相同文本
-- [x] P14-9: Alt+Click 添加多个光标
-- [x] P14-10: CodeMirror 6 多光标配置（原生支持，需启用+快捷键绑定）
-> 注：仅源码模式，WYSIWYG 模式 Tiptap 暂不支持多光标。CM6 原生支持，配置量极小。
+### ~~P14-C: 多光标编辑（源码模式）~~ (Removed — CM6 replaced by PMSourceEditor)
+- [x] ~~P14-8: Ctrl+D 选中下一个相同文本~~
+- [x] ~~P14-9: Alt+Click 添加多个光标~~
+- [x] ~~P14-10: CodeMirror 6 多光标配置（原生支持，需启用+快捷键绑定）~~
+> Note: Multi-cursor was removed when CM6 was replaced by PMSourceEditor in the unified-editor refactor.
 
 ### P14-D: 导出 PDF / HTML
 - [x] P14-11: 菜单 File → Export PDF / Export HTML（Ctrl+P 触发 PDF 导出）
@@ -330,8 +334,8 @@
 v0.2.0       核心体验补全    P13-A 文件打开历史 + P13-D 多文件批量打开
 v0.3.0       文档导航        P13-B 文档结构树 + Outline + 面包屑
 v0.4.0       编辑增强        P13-C 智能粘贴 + P14-A Zen Mode + bug fixes
-v0.5.0       多光标+导出     P14-C 多光标编辑 + P14-D 导出 PDF/HTML + P14-E 自动更新检测
-v1.0.0-beta  插件架构        P15-A 插件系统架构 + 插件管理面板（核心编辑功能完成）
+v0.5.0       导出+更新       P14-D 导出 PDF/HTML + P14-E 自动更新检测
+v1.0.0-beta  插件架构        P15-A 插件系统架构 + 插件管理面板 + 统一编辑器引擎重构
 v1.0.0       正式版          P16 本地版本控制 + 更多官方插件
 ```
 
@@ -342,10 +346,7 @@ v1.0.0       正式版          P16 本地版本控制 + 更多官方插件
 ## 开发路线总览
 
 ```
-Backlog     Bug修复（外部文件变更检测 + badge渲染）← 最高优先级
-Phase 13    核心体验补全（文件历史 → 结构树+跳转 → 智能粘贴 → 多文件批量）
-Phase 14    编辑增强（Zen Mode → 格式化 → 多光标 → 导出PDF → 更新检测）
-Phase 15    插件系统（架构 + 市场）
+Backlog     Bug修复（badge渲染 + cross-mode undo粒度）
 Phase 16    本地版本控制（第一个官方插件，验证架构）
 Phase 17    插件生态（.mdz / 云同步 / Agent Sync / KaTeX / AI 等）
 Phase 18    高级功能（多窗口拆分 / 跨平台 / 网络版本同步）
