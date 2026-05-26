@@ -339,7 +339,7 @@ export class PMSourceEditor implements IEditor {
     return {
       doc: this.view.state.doc,
       selectionFrom: this.view.state.selection.from,
-      selectionTo: this.view.state.selection.from,
+      selectionTo: this.view.state.selection.to,
       markdown,
       cursorLine: line,
       cursorColumn: column,
