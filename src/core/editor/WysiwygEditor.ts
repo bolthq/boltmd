@@ -570,7 +570,11 @@ export class WysiwygEditor implements IEditor {
   }
 
   destroy(): void {
-    // Editor 由 useEditor 管理，不在此销毁
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+    }
+    this.contentChangeCallbacks = []
   }
 
   onContentChange(callback: (markdown: string) => void): void {

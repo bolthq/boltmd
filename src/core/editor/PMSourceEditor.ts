@@ -55,6 +55,8 @@ export class PMSourceEditor implements IEditor {
   private scrollEl: HTMLElement | null = null
   /** When true, suppress onContentChange callbacks (e.g. during undo/redo sync). */
   private suppressUpdate = false
+  /** Pending timers that should be cleared on destroy. */
+  private pendingTimers: ReturnType<typeof setTimeout>[] = []
 
   constructor(container: HTMLElement, markdown: string) {
     const schema = getSourceSchema()
@@ -203,6 +205,10 @@ export class PMSourceEditor implements IEditor {
   }
 
   destroy(): void {
+    for (const timer of this.pendingTimers) {
+      clearTimeout(timer)
+    }
+    this.pendingTimers = []
     this.view.destroy()
     this.contentChangeCallbacks = []
   }
@@ -304,12 +310,13 @@ export class PMSourceEditor implements IEditor {
           const tr = state.tr.setMeta(headingHighlightKey, { type: 'flashInline', from: inlineFrom, to: inlineTo })
           this.view.dispatch(tr)
 
-          setTimeout(() => {
+          const timer = setTimeout(() => {
             try {
               const clearTr = this.view.state.tr.setMeta(headingHighlightKey, { type: 'clear' })
               this.view.dispatch(clearTr)
             } catch { /* view may be destroyed */ }
           }, 2600)
+          this.pendingTimers.push(timer)
         }
       } catch { /* ignore */ }
     }
