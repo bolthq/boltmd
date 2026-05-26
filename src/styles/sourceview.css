@@ -1,11 +1,9 @@
 /* ---------------------------------------------------------------------------
  * Source-mode ProseMirror styles
  *
- * Styles for the PM-based source editing view. The source view uses custom
- * NodeViews and MarkViews that render markdown syntax visibly (prefixes,
- * delimiters, fences). This file styles those elements.
- *
- * Class naming: .src-* to avoid collisions with WYSIWYG .ProseMirror styles.
+ * The source view uses a minimal schema (doc > codeBlock) so the entire
+ * markdown file is editable as plain text in a <pre><code> element.
+ * No rich formatting, no NodeViews, no MarkViews — pure text editing.
  * --------------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------------
@@ -30,250 +28,36 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Delimiter spans (shared across all marks)
+ * The codeBlock (pre > code) — plain monospace text
  * --------------------------------------------------------------------------- */
 
-.src-delimiter {
-  color: var(--text-muted);
-  font-weight: normal;
-  font-style: normal;
-  text-decoration: none;
-  user-select: text;
-  cursor: text;
-}
-
-/* When delimiter is focused/editable, show a subtle background */
-.src-delimiter:focus {
-  outline: none;
-  background: var(--bg-hover);
-  border-radius: 2px;
-}
-
-/* ---------------------------------------------------------------------------
- * Paragraph
- * --------------------------------------------------------------------------- */
-
-.src-paragraph {
-  margin: 0 0 0.75em 0;
-}
-
-.src-paragraph:last-child {
-  margin-bottom: 0;
-}
-
-/* ---------------------------------------------------------------------------
- * Heading
- * --------------------------------------------------------------------------- */
-
-.src-heading {
-  display: flex;
-  align-items: baseline;
-  margin: 1.25em 0 0.5em 0;
-  color: var(--heading-color);
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.src-heading .src-prefix {
-  color: var(--text-muted);
-  font-weight: normal;
-  white-space: pre;
-  outline: none;
-}
-
-.src-heading .src-prefix:focus {
-  background: var(--bg-hover);
-  border-radius: 2px;
-}
-
-.src-heading .src-content {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Heading level sizes (content area inherits) */
-.src-heading-1 { font-size: 2em; }
-.src-heading-2 { font-size: 1.5em; }
-.src-heading-3 { font-size: 1.25em; }
-.src-heading-4 { font-size: 1.1em; }
-.src-heading-5 { font-size: 1em; }
-.src-heading-6 { font-size: 0.95em; }
-
-/* ---------------------------------------------------------------------------
- * Inline marks: Strong, Emphasis, Strikethrough, Code
- * --------------------------------------------------------------------------- */
-
-.src-strong .src-mark-content {
-  font-weight: 600;
-}
-
-.src-em .src-mark-content {
-  font-style: italic;
-}
-
-.src-strike .src-mark-content {
-  text-decoration: line-through;
-}
-
-.src-code {
-  background: var(--code-bg);
-  border-radius: 3px;
-  padding: 0.05em 0;
-}
-
-.src-code .src-mark-content {
+.source-view .ProseMirror pre {
+  margin: 0;
+  padding: 0;
   font-family: var(--font-mono);
-  color: var(--code-text);
-}
-
-.src-code .src-delimiter {
-  color: var(--text-muted);
-  opacity: 0.7;
-}
-
-/* ---------------------------------------------------------------------------
- * Link
- * --------------------------------------------------------------------------- */
-
-.src-link .src-mark-content {
-  color: var(--link-color);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.src-link .src-link-open,
-.src-link .src-link-close {
-  color: var(--text-muted);
-  text-decoration: none;
-}
-
-/* ---------------------------------------------------------------------------
- * Blockquote
- * --------------------------------------------------------------------------- */
-
-.src-blockquote {
-  border-left: 3px solid var(--accent-primary);
-  padding-left: 1em;
-  margin: 0.75em 0;
-  color: var(--text-secondary);
-}
-
-/* Show the > marker via CSS */
-.src-blockquote::before {
-  content: attr(data-marker);
-  color: var(--text-muted);
-  position: absolute;
-  margin-left: -1.5em;
-  pointer-events: none;
-}
-
-.src-blockquote {
-  position: relative;
-}
-
-.src-blockquote-content {
-  min-height: 1em;
-}
-
-/* ---------------------------------------------------------------------------
- * Lists (Bullet + Ordered)
- * --------------------------------------------------------------------------- */
-
-.src-bullet-list,
-.src-ordered-list {
-  margin: 0.5em 0;
-  padding-left: 0;
-}
-
-.src-list-content {
-  padding-left: 0;
-}
-
-.src-list-item {
-  display: flex;
-  align-items: baseline;
-  margin: 0.25em 0;
-  padding-left: 1.5em;
-  position: relative;
-}
-
-.src-list-marker {
-  position: absolute;
-  left: 0;
-  color: var(--text-muted);
-  width: 1.5em;
-  text-align: right;
-  padding-right: 0.5em;
-  user-select: none;
-}
-
-/* Bullet list markers via CSS ::before using parent data-marker */
-.src-bullet-list .src-list-marker::before {
-  content: attr(data-marker);
-}
-
-/* For bullet lists, copy marker from parent data attribute */
-.src-bullet-list[data-marker="-"] .src-list-marker::before { content: "- "; }
-.src-bullet-list[data-marker="*"] .src-list-marker::before { content: "* "; }
-.src-bullet-list[data-marker="+"] .src-list-marker::before { content: "+ "; }
-
-.src-list-item-content {
-  flex: 1;
-  min-width: 0;
-}
-
-/* ---------------------------------------------------------------------------
- * Code block (fenced)
- * --------------------------------------------------------------------------- */
-
-.src-code-block {
-  margin: 0.75em 0;
-  border-radius: 6px;
-  background: var(--code-bg);
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  /* Override global .ProseMirror pre styles from editor.css */
+  background: none;
+  border-radius: 0;
+  max-height: none;
   overflow: hidden;
 }
 
-.src-fence {
-  display: block;
-  padding: 0.5em 1em;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.85em;
-  user-select: none;
-}
-
-.src-fence-open {
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.src-fence-close {
-  border-top: 1px solid var(--border-primary);
-}
-
-.src-code-content {
-  display: block;
-  padding: 0.75em 1em;
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  color: var(--text-primary);
-  white-space: pre;
-  overflow-x: auto;
-  max-height: calc(1.6em * 20 + 1.5em);
-  overflow-y: auto;
-  outline: none;
-}
-
-/* ---------------------------------------------------------------------------
- * Horizontal rule
- * --------------------------------------------------------------------------- */
-
-.src-hr {
-  margin: 1.5em 0;
-  padding: 0.25em 0;
-  color: var(--text-muted);
-  text-align: center;
-  user-select: none;
-  font-family: var(--font-mono);
+.source-view .ProseMirror pre code {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  background: none;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* ---------------------------------------------------------------------------
@@ -283,3 +67,17 @@
 .zen-mode .source-view .ProseMirror {
   padding-bottom: 50vh;
 }
+
+/* ---------------------------------------------------------------------------
+ * Split mode: source pane uses full width (no clamp centering)
+ * --------------------------------------------------------------------------- */
+
+.split-layout .source-pane .source-view .ProseMirror {
+  width: 100%;
+  padding: 24px 20px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Cursor line flash (mode switch highlight)
+ * Uses .cursor-block-highlight from editor.css via PM Decorations.
+ * --------------------------------------------------------------------------- */

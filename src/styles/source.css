@@ -73,37 +73,48 @@
 /* Source editor layout */
 .source-view {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   min-height: 0;
   min-width: 0;
   background: var(--bg-editor);
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* Split view layout */
-.split-view {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  min-width: 0;
+/* Split layout: editor-container becomes a horizontal flex when in split mode */
+.editor-container.split-layout {
+  flex-direction: row;
 }
 
-.split-view .split-pane {
+.editor-container.split-layout > .split-pane {
   flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-.split-view .split-divider {
+.editor-container.split-layout > .split-divider {
   width: 1px;
   background: var(--border-primary);
   flex-shrink: 0;
 }
 
-/* Preview pane (Tiptap read-only) */
-.split-view .preview-pane {
+/* In split mode, the WYSIWYG pane (right) scrolls independently */
+.editor-container.split-layout > .wysiwyg-pane {
   overflow-y: auto;
+}
+
+/* CSS order for split layout: source (left) | divider | wysiwyg (right) */
+.editor-container.split-layout > .order-1 { order: 1; }
+.editor-container.split-layout > .order-divider { order: 2; }
+.editor-container.split-layout > .order-2 { order: 3; }
+
+/* When NOT in split mode, panes take full space without flex wrappers interfering */
+.editor-container:not(.split-layout) > .split-pane {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
