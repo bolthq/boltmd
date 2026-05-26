@@ -29,10 +29,97 @@ md.enable('strikethrough')
  * @returns A ProseMirror document node
  */
 export function parseMarkdown(schema: Schema, text: string): PMNode {
-  const tokens = md.parse(text, {})
-  const state = new ParseState(schema)
+  // Handle empty input: return a minimal doc with one empty paragraph.
+  // markdown-it produces no tokens for empty/whitespace-only strings, and
+  // ProseMirror's doc node requires at least one child block.
+  if (!text || text.trim() === '') {
+    return schema.node('doc', null, [schema.node('paragraph')])
+  }
+
+  // Detect extra blank lines (more than 1 consecutive blank line between blocks).
+  // markdown-it treats them identically to single blank lines, but we want to
+  // preserve them as empty paragraph nodes for lossless round-trip.
+  const { processed, blankLineMap } = preserveExtraBlankLines(text)
+
+  const tokens = md.parse(processed, {})
+  const state = new ParseState(schema, blankLineMap)
   state.parseTokens(tokens)
   return state.finish()
+}
+
+/**
+ * Scans the source text for runs of extra blank lines and replaces them with
+ * a placeholder marker that markdown-it will parse as a paragraph. Returns
+ * the modified text and a set of paragraph indices that should be rendered
+ * as empty paragraphs (no content).
+ */
+function preserveExtraBlankLines(text: string): {
+  processed: string
+  blankLineMap: Set<number>
+} {
+  const lines = text.split('\n')
+  const result: string[] = []
+  const blankLineMap = new Set<number>()
+
+  // Track how many paragraphs we've inserted so far (approximation).
+  // We use a sentinel paragraph text that won't appear in normal content.
+  const SENTINEL = '\u200B' // zero-width space as empty paragraph marker
+
+  let consecutiveBlankLines = 0
+  let inFence = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // Track fenced code blocks
+    if (!inFence && /^(`{3,}|~{3,})/.test(line)) {
+      inFence = true
+      consecutiveBlankLines = 0
+      result.push(line)
+      continue
+    }
+    if (inFence) {
+      if (/^(`{3,}|~{3,})\s*$/.test(line)) {
+        inFence = false
+      }
+      result.push(line)
+      consecutiveBlankLines = 0
+      continue
+    }
+
+    if (line.trim() === '') {
+      consecutiveBlankLines++
+      if (consecutiveBlankLines > 1) {
+        // Extra blank line — insert a sentinel paragraph
+        result.push(SENTINEL)
+      } else {
+        result.push(line)
+      }
+    } else {
+      consecutiveBlankLines = 0
+      result.push(line)
+    }
+  }
+
+  // Now find which paragraphs in the parsed output correspond to sentinel markers.
+  // We parse the processed text and mark sentinel paragraphs.
+  const processedText = result.join('\n')
+  // Pre-scan: find paragraph token indices that are sentinels
+  const tempTokens = md.parse(processedText, {})
+  let paragraphIndex = 0
+  for (let i = 0; i < tempTokens.length; i++) {
+    const token = tempTokens[i]
+    if (token.type === 'paragraph_open') {
+      // Check next inline token content
+      const inlineToken = tempTokens[i + 1]
+      if (inlineToken && inlineToken.type === 'inline' && inlineToken.content === SENTINEL) {
+        blankLineMap.add(paragraphIndex)
+      }
+      paragraphIndex++
+    }
+  }
+
+  return { processed: processedText, blankLineMap }
 }
 
 // ---------------------------------------------------------------------------
@@ -51,12 +138,17 @@ class ParseState {
   private stack: StackEntry[]
   /** Active marks applied to inline content */
   private marks: readonly Mark[]
+  /** Set of paragraph indices that represent preserved extra blank lines */
+  private blankLineMap: Set<number>
+  /** Counter for paragraph_open tokens */
+  private paragraphIndex = 0
 
-  constructor(schema: Schema) {
+  constructor(schema: Schema, blankLineMap?: Set<number>) {
     this.schema = schema
     // Start with a doc node on the stack
     this.stack = [{ type: 'doc', attrs: {}, content: [], marks: [] }]
     this.marks = Mark.none
+    this.blankLineMap = blankLineMap ?? new Set()
   }
 
   // --- Public API ---
@@ -93,9 +185,12 @@ class ParseState {
         this.closeNode()
         break
 
-      case 'paragraph_open':
-        this.openNode('paragraph', {})
+      case 'paragraph_open': {
+        const isSentinel = this.blankLineMap.has(this.paragraphIndex)
+        this.paragraphIndex++
+        this.openNode('paragraph', { _blank: isSentinel || undefined })
         break
+      }
 
       case 'paragraph_close':
         this.closeNode()
@@ -220,6 +315,10 @@ class ParseState {
 
       // --- Inline container ---
       case 'inline':
+        // If current node is a sentinel blank-line paragraph, skip its content
+        if (this.currentNodeAttr('_blank')) {
+          break
+        }
         if (token.children) {
           this.parseInline(token.children)
         }
@@ -329,6 +428,12 @@ class ParseState {
   }
 
   // --- Stack operations ---
+
+  /** Check if the current top-of-stack node has a given attribute set. */
+  private currentNodeAttr(key: string): any {
+    const top = this.stack[this.stack.length - 1]
+    return top?.attrs[key]
+  }
 
   private openNode(type: string, attrs: Record<string, any>): void {
     this.stack.push({ type, attrs, content: [], marks: this.marks })
