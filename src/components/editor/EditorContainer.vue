@@ -61,6 +61,28 @@ const _stopSourceWatch = watch(sourceVisible, (visible) => {
 // Split mode uses a CSS flex layout class on the container.
 const isSplit = computed(() => mode.value === 'split')
 
+// ---- Split mode: synchronized scrolling (source → preview only) ----
+const wysiwygPaneRef = ref<HTMLElement | null>(null)
+
+/**
+ * Get the actual scrollable element inside the WYSIWYG pane.
+ * The scroll container is the .editor-mount div inside EditorCore.
+ */
+function getWysiwygScrollEl(): HTMLElement | null {
+  return wysiwygPaneRef.value?.querySelector('.editor-mount') as HTMLElement | null
+}
+
+function onSourceScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
+  if (!isSplit.value) return
+  const wysiwygEl = getWysiwygScrollEl()
+  if (!wysiwygEl) return
+
+  const maxScroll = scrollHeight - clientHeight
+  const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0
+
+  wysiwygEl.scrollTop = ratio * (wysiwygEl.scrollHeight - wysiwygEl.clientHeight)
+}
+
 // Find/replace panel state
 const findPanelMode = ref<'find' | 'replace' | null>(null)
 const findPanelRef = ref<InstanceType<typeof FindReplacePanel> | null>(null)
@@ -190,7 +212,7 @@ defineExpose({
     <!-- Canonical Tiptap editor (full in WYSIWYG, right pane in split).
          Always mounted first to ensure getTiptapEditor() is available
          before SourceView mounts (source mode needs it for syncToCanonical). -->
-    <div v-show="editorCoreVisible" class="split-pane wysiwyg-pane" :class="{ 'order-2': isSplit }">
+    <div v-show="editorCoreVisible" ref="wysiwygPaneRef" class="split-pane wysiwyg-pane" :class="{ 'order-2': isSplit }">
       <EditorCore
         :content="content"
         :active="editorCoreActive"
@@ -206,6 +228,7 @@ defineExpose({
         :content="content"
         :active="sourceActive"
         @change="handleChange"
+        @scroll="onSourceScroll"
       />
     </div>
 
