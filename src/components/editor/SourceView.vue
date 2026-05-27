@@ -5,7 +5,7 @@ import { registerEditor, unregisterEditor, hasPendingDocTransfer } from '../../c
 
 const props = defineProps<{
   content?: string
-  /** When true, don't register to EditorManager (used inside SplitView) */
+  /** When true, don't register to EditorManager. */
   noRegister?: boolean
   /** When using v-show pattern, indicates whether this editor is the active mode. */
   active?: boolean
@@ -53,7 +53,7 @@ onMounted(() => {
 
   containerRef.value.addEventListener('drop', handleDrop)
 
-  // Register to EditorManager (SplitView handles its own registration)
+  // Register to EditorManager
   if (!props.noRegister && props.active !== false) {
     registerEditor(editor)
   }
