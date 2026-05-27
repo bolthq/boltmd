@@ -101,14 +101,13 @@ function computeBlockRanges(doc: PMNode): BlockRange[] {
 
   for (let i = 0; i < doc.childCount; i++) {
     serializeNode(doc.child(i), state)
-    const rawAfter = state.getRawOutput()
-    // serializeBlock uses its own SerializeState (atBlockStart=true) so it
-    // doesn't include the ensureBlankLine prefix. The actual block content
-    // in the full output starts after ensureBlankLine. We find the true
-    // content start by subtracting the block's standalone length from the
-    // cumulative output length.
+    const lengthAfter = state.getRawOutput().length
+    // The block's content in the full output occupies the tail portion.
+    // ensureBlankLine may add \n separators before the block content.
+    // The actual block text (matching serializeBlock output) is the last
+    // blockMdLength characters of the current output.
     const blockMd = serializeBlock(doc.child(i))
-    const contentEnd = rawAfter.length
+    const contentEnd = lengthAfter
     const contentStart = contentEnd - blockMd.length
     ranges.push({ start: contentStart, end: contentEnd })
   }

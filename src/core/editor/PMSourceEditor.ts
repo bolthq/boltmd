@@ -57,6 +57,11 @@ export class PMSourceEditor implements IEditor {
   private suppressUpdate = false
   /** Pending timers that should be cleared on destroy. */
   private pendingTimers: ReturnType<typeof setTimeout>[] = []
+  /** Cached search state for gotoNext/gotoPrev/replaceAll. */
+  private searchQuery = ''
+  private searchOptions: SearchOptions = { caseSensitive: false, wholeWord: false, regex: false }
+  private searchMatches: Array<{ from: number; to: number }> = []
+  private searchCurrentIdx = -1
 
   constructor(container: HTMLElement, markdown: string) {
     const schema = getSourceSchema()
@@ -402,43 +407,85 @@ export class PMSourceEditor implements IEditor {
   // ---- Search / Replace ----
 
   search(query: string, options: SearchOptions): SearchState {
-    if (!query) return { total: 0, current: 0 }
+    this.searchQuery = query
+    this.searchOptions = options
+    if (!query) {
+      this.searchMatches = []
+      this.searchCurrentIdx = -1
+      return { total: 0, current: 0 }
+    }
     const text = this.getContent()
     const regex = this.buildRegex(query, options)
-    if (!regex) return { total: 0, current: 0, error: 'Invalid regex' }
-
-    const matches = this.findAllMatches(text, regex)
-    const current = this.findCurrentIndex(matches)
-    if (matches.length > 0 && current === 0) {
-      this.gotoMatch(matches[0])
-      return { total: matches.length, current: 1 }
+    if (!regex) {
+      this.searchMatches = []
+      this.searchCurrentIdx = -1
+      return { total: 0, current: 0, error: 'Invalid regex' }
     }
-    return { total: matches.length, current }
+
+    this.searchMatches = this.findAllMatches(text, regex)
+    if (this.searchMatches.length === 0) {
+      this.searchCurrentIdx = -1
+      return { total: 0, current: 0 }
+    }
+
+    // Find the nearest match at or after the current cursor position.
+    const { from } = this.view.state.selection
+    let idx = this.searchMatches.findIndex(m => m.from >= from)
+    if (idx === -1) idx = 0
+    this.searchCurrentIdx = idx
+    this.gotoMatch(this.searchMatches[idx])
+    return { total: this.searchMatches.length, current: idx + 1 }
   }
 
   gotoNextMatch(): SearchState {
-    return { total: 0, current: 0 }
+    if (this.searchMatches.length === 0) return { total: 0, current: 0 }
+    this.searchCurrentIdx = (this.searchCurrentIdx + 1) % this.searchMatches.length
+    this.gotoMatch(this.searchMatches[this.searchCurrentIdx])
+    return { total: this.searchMatches.length, current: this.searchCurrentIdx + 1 }
   }
 
   gotoPrevMatch(): SearchState {
-    return { total: 0, current: 0 }
+    if (this.searchMatches.length === 0) return { total: 0, current: 0 }
+    this.searchCurrentIdx = (this.searchCurrentIdx - 1 + this.searchMatches.length) % this.searchMatches.length
+    this.gotoMatch(this.searchMatches[this.searchCurrentIdx])
+    return { total: this.searchMatches.length, current: this.searchCurrentIdx + 1 }
   }
 
   replaceNext(replacement: string): SearchState {
+    if (this.searchMatches.length === 0 || this.searchCurrentIdx < 0) {
+      return { total: 0, current: 0 }
+    }
+    const match = this.searchMatches[this.searchCurrentIdx]
     const { from, to } = this.view.state.selection
-    if (from !== to) {
+    // Only replace if the current selection matches the expected match position.
+    if (from === match.from && to === match.to) {
       const tr = this.view.state.tr.insertText(replacement, from, to)
       this.view.dispatch(tr)
     }
-    return { total: 0, current: 0 }
+    // Re-run search to update match positions after replacement.
+    return this.search(this.searchQuery, this.searchOptions)
   }
 
-  replaceAll(_replacement: string): number {
-    return 0
+  replaceAll(replacement: string): number {
+    if (this.searchMatches.length === 0) return 0
+    const count = this.searchMatches.length
+    // Replace from end to start so earlier offsets remain valid.
+    const tr = this.view.state.tr
+    for (let i = this.searchMatches.length - 1; i >= 0; i--) {
+      const m = this.searchMatches[i]
+      tr.insertText(replacement, m.from, m.to)
+    }
+    this.view.dispatch(tr)
+    // Clear search state.
+    this.searchMatches = []
+    this.searchCurrentIdx = -1
+    return count
   }
 
   clearSearch(): void {
-    // No-op
+    this.searchQuery = ''
+    this.searchMatches = []
+    this.searchCurrentIdx = -1
   }
 
   // -------------------------------------------------------------------------
@@ -545,15 +592,6 @@ export class PMSourceEditor implements IEditor {
       matches.push({ from: match.index + 1, to: match.index + match[0].length + 1 })
     }
     return matches
-  }
-
-  /** Find the 1-based index of the current match (0 if none). */
-  private findCurrentIndex(matches: Array<{ from: number; to: number }>): number {
-    const { from } = this.view.state.selection
-    for (let i = 0; i < matches.length; i++) {
-      if (matches[i].from === from) return i + 1
-    }
-    return 0
   }
 
   /** Move selection to a match position. */

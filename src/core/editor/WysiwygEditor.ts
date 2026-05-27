@@ -145,6 +145,7 @@ export class WysiwygEditor implements IEditor {
   private editor: Editor
   private contentChangeCallbacks: ((markdown: string) => void)[] = []
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private pendingTimers: ReturnType<typeof setTimeout>[] = []
   /** When true, the onUpdate callback is suppressed so that programmatic
    *  setContent() calls don't trigger a normalised-markdown writeback. */
   private suppressUpdate = false
@@ -196,7 +197,6 @@ export class WysiwygEditor implements IEditor {
     if (!recordInHistory) {
       tr.setMeta('addToHistory', false)
     }
-    tr.setMeta('preventUpdate', false)
     this.editor.view.dispatch(tr)
 
     // Re-enable update callbacks after a delay that exceeds the 150ms
@@ -496,7 +496,7 @@ export class WysiwygEditor implements IEditor {
 
     // Scroll to center and flash highlight.
     const savedHeadingNodePos = headingNodePos
-    setTimeout(() => {
+    const outerTimer = setTimeout(() => {
       try {
         const dom = this.editor.view.domAtPos(offset)
         const node = dom.node instanceof HTMLElement ? dom.node : dom.node.parentElement
@@ -513,14 +513,16 @@ export class WysiwygEditor implements IEditor {
         }
         if (savedHeadingNodePos >= 0) {
           this.editor.commands.flashHeading(savedHeadingNodePos)
-          setTimeout(() => {
-            this.editor.commands.clearHeadingHighlight()
+          const innerTimer = setTimeout(() => {
+            try { this.editor.commands.clearHeadingHighlight() } catch { /* destroyed */ }
           }, 1500)
+          this.pendingTimers.push(innerTimer)
         }
       } catch {
-        // ignore
+        // ignore — editor may have been destroyed
       }
     }, 0)
+    this.pendingTimers.push(outerTimer)
   }
 
   flashCursorLine(): void {
@@ -536,11 +538,12 @@ export class WysiwygEditor implements IEditor {
       }
 
       this.editor.commands.flashCursorBlock()
-      setTimeout(() => {
-        this.editor.commands.clearHeadingHighlight()
+      const timer = setTimeout(() => {
+        try { this.editor.commands.clearHeadingHighlight() } catch { /* destroyed */ }
       }, 2600)
+      this.pendingTimers.push(timer)
     } catch {
-      // ignore
+      // ignore — editor may have been destroyed
     }
   }
 
@@ -576,6 +579,8 @@ export class WysiwygEditor implements IEditor {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = null
     }
+    for (const t of this.pendingTimers) clearTimeout(t)
+    this.pendingTimers = []
     this.contentChangeCallbacks = []
   }
 
@@ -587,7 +592,7 @@ export class WysiwygEditor implements IEditor {
     const text = this.editor.getText()
     const characters = text.length
     const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length
-    const lines = this.editor.state.doc.childCount
+    const lines = text === '' ? 0 : text.split('\n').length
     return { characters, words, lines }
   }
 
