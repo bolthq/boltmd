@@ -39,7 +39,9 @@ Switch instantly with `Ctrl+/`:
 
 - **WYSIWYG** — Write in rich text, see formatted output in real time
 - **Source** — Full Markdown source editing (ProseMirror-based plain text)
-- **Split** — Source on the left, live WYSIWYG preview on the right
+- **Split** — Source on the left, live WYSIWYG preview on the right (scroll-synced)
+
+All three modes share a **unified undo/redo stack** — edits made in any mode can be undone seamlessly after switching.
 
 ### Tiny & Lightweight
 
@@ -56,7 +58,7 @@ Switch instantly with `Ctrl+/`:
 
 ### Full Markdown Support
 
-Headings, bold, italic, strikethrough, inline code, ordered/unordered lists, task lists (clickable checkboxes), tables, blockquotes, horizontal rules, code blocks with syntax highlighting (150+ languages), links, and images with inline preview.
+Headings, bold, italic, strikethrough, inline code, ordered/unordered lists, task lists (clickable checkboxes), tables, blockquotes, horizontal rules, code blocks with syntax highlighting (150+ languages), links (click to open in browser), and images with inline preview. Raw HTML blocks rendered as-is.
 
 ### Image Paste & Drop
 
@@ -152,15 +154,13 @@ Configurable debounce delay, toggle on/off in settings. Never lose work.
 - Welcome page and Markdown Guide on first launch
 - Startup performance optimized (config caching, parallel restore, lazy-loaded views)
 
-### Swappable Editor Engine
+### Unified Editor Engine
 
-The editor backend is isolated behind an `IEditor` interface. The app never talks to Tiptap directly — the rendering engine can be replaced without touching the rest of the codebase.
+Both WYSIWYG and source modes are built on ProseMirror. A custom format-preserving Markdown parser and serializer ensure lossless round-trip fidelity (headings keep `##` vs `###`, lists preserve `-` vs `*`, fences keep `` ``` `` vs `~~~`). Cursor position maps precisely across modes via bidirectional text↔PM offset mapping.
 
 ---
 
 ## Download
-
-> 🚧 BoltMD is in early development.
 
 | Platform | Download | Status |
 |---|---|---|

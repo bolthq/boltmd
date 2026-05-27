@@ -143,11 +143,14 @@
 ## Backlog: Bug & Feature
 
 - [x] **[Bug/P1] 外部文件变更检测** — 已打开的文件被外部程序修改后，编辑器应检测到变更并提示/自动更新内容。需要 Rust 侧 fs watch（推荐 notify crate）+ 前端冲突处理（无本地修改→自动刷新，有本地修改→提示用户选择）
-- [ ] **[Bug/P2] README badge 换行** — `<div align="center">` 内的 inline badge 图片被 Tiptap 渲染为多行，GitHub 正常。需自定义 HtmlBlock 原子节点保留原始 HTML 渲染
+- [x] **[Bug/P2] README badge 换行** — `<div align="center">` 内的 inline badge 图片被 Tiptap 渲染为多行，GitHub 正常。需自定义 HtmlBlock 原子节点保留原始 HTML 渲染
 - [x] **[Bug/P2] 代码块首次打开无语法高亮** — 打开含代码块的文件时高亮不生效，需编辑后才触发。可能是 lowlight 懒加载完成前编辑器已渲染，需在 lowlight ready 后重新触发高亮
 - [x] **[Bug/P2] 复制代码块单行自动包裹 ``` ** — 在 WYSIWYG 模式复制代码块中的某一行，粘贴时内容被额外包裹为代码块。需排查 tiptap-markdown 的 transformCopiedText 逻辑
 - [x] **[Bug/P3] Ctrl+R 刷新后新打开的文件丢失** — WebView 刷新导致前端状态重置，新打开但未保存到 session 的标签被丢弃
-- [ ] **[UX/P3] Cross-mode undo granularity** — Switching modes after edits records a full-doc replacement as a single undo step, so Ctrl+Z reverts all changes from the other mode at once instead of incrementally. Future optimization: use diff-based partial replacements in setContent to produce finer-grained undo steps
+- [x] **[UX/P3] Cross-mode undo granularity** — Unified undo stack via canonical Tiptap editor; source mode edits dispatch to canonical history, undo/redo syncs back. Mode switch no longer clears undo history.
+- [x] **[Bug/P2] Timer memory leak in WysiwygEditor** — setTimeout calls in jumpToHeading/flashCursorLine were not tracked; added pendingTimers array cleared on destroy
+- [x] **[Bug/P2] Source mode search navigation stubs** — gotoNextMatch/gotoPrevMatch/replaceAll were unimplemented; added cached search state with proper circular navigation
+- [x] **[Bug/P3] Incorrect line count in status bar** — getWordCount used doc.childCount (top-level blocks) instead of text.split('\n').length (actual lines)
 
 ---
 
@@ -335,8 +338,8 @@ v0.2.0       核心体验补全    P13-A 文件打开历史 + P13-D 多文件批
 v0.3.0       文档导航        P13-B 文档结构树 + Outline + 面包屑
 v0.4.0       编辑增强        P13-C 智能粘贴 + P14-A Zen Mode + bug fixes
 v0.5.0       导出+更新       P14-D 导出 PDF/HTML + P14-E 自动更新检测
-v1.0.0-beta  插件架构        P15-A 插件系统架构 + 插件管理面板 + 统一编辑器引擎重构
-v1.0.0       正式版          P16 本地版本控制 + 更多官方插件
+v1.0.0-beta  插件架构        P15-A 插件系统架构 + 插件管理面板
+v1.0.0       正式版          统一编辑器引擎 + CM6→ProseMirror 迁移 + 自定义 Parser/Serializer + bug fixes
 ```
 
 节奏：每完成一个版本的功能集即发布，预计 2-3 周一个 minor 版本。
@@ -346,7 +349,6 @@ v1.0.0       正式版          P16 本地版本控制 + 更多官方插件
 ## 开发路线总览
 
 ```
-Backlog     Bug修复（badge渲染 + cross-mode undo粒度）
 Phase 16    本地版本控制（第一个官方插件，验证架构）
 Phase 17    插件生态（.mdz / 云同步 / Agent Sync / KaTeX / AI 等）
 Phase 18    高级功能（多窗口拆分 / 跨平台 / 网络版本同步）
