@@ -796,6 +796,9 @@ function serializeNode(node: PMNode, state: SerializeState): void {
     case 'htmlBlock':
       serializeHtmlBlock(node, state)
       break
+    case 'mathBlock':
+      serializeMathBlock(node, state)
+      break
     case 'hardBreak':
       state.write('\\\n')
       break
@@ -944,6 +947,14 @@ function serializeHtmlBlock(node: PMNode, state: SerializeState): void {
   state.markBlockWritten()
 }
 
+function serializeMathBlock(node: PMNode, state: SerializeState): void {
+  state.ensureBlankLine()
+  state.write('$$\n')
+  state.write(node.attrs.latex || '')
+  state.write('\n$$\n')
+  state.markBlockWritten()
+}
+
 function serializeImage(node: PMNode, state: SerializeState): void {
   const alt = node.attrs.alt || ''
   const src = node.attrs.src || ''
@@ -1059,6 +1070,8 @@ function serializeInlineContent(node: PMNode): string {
       } else {
         result += `![${alt}](${src})`
       }
+    } else if (child.type.name === 'mathInline') {
+      result += `$${child.attrs.latex}$`
     }
   })
 

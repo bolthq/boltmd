@@ -12,6 +12,7 @@
 import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import { Node as PMNode, Schema, Mark } from '@tiptap/pm/model'
+import { mathPlugin } from './mathPlugin'
 
 // Shared markdown-it instance with GFM-like features.
 const md = new MarkdownIt({
@@ -20,6 +21,8 @@ const md = new MarkdownIt({
 })
 // Enable strikethrough (~~text~~)
 md.enable('strikethrough')
+// Enable math: $...$ inline, $$...$$ block
+md.use(mathPlugin)
 
 /**
  * Parse a markdown string into a ProseMirror document node.
@@ -329,6 +332,11 @@ class ParseState {
         this.addNode('htmlBlock', { html: token.content.replace(/\n$/, '') })
         break
 
+      // --- Math block ($$...$$) ---
+      case 'math_block':
+        this.addNode('mathBlock', { latex: token.content })
+        break
+
       // Tokens we intentionally skip
       case 'html_inline':
       case '':
@@ -408,6 +416,11 @@ class ParseState {
           this.addNode('image', { src, alt, title })
           break
         }
+
+        // --- Inline math ($...$) ---
+        case 'math_inline':
+          this.addNode('mathInline', { latex: token.content })
+          break
 
         case 'html_inline':
           // Inline HTML — add as plain text
