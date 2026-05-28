@@ -291,6 +291,51 @@
   border-radius: 4px;
 }
 
+/* Math inline */
+.ProseMirror .math-inline-view {
+  display: inline;
+  user-select: none;
+  cursor: default;
+}
+
+.ProseMirror .math-inline-view.ProseMirror-selectednode {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  border-radius: 2px;
+}
+
+.ProseMirror .math-inline-view.math-render-error {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+/* Math block */
+.ProseMirror .math-block-view {
+  margin: 1em 0;
+  text-align: center;
+  user-select: none;
+  cursor: default;
+  padding: 0.5em 0;
+}
+
+.ProseMirror .math-block-view.ProseMirror-selectednode {
+  outline: 1.5px dashed color-mix(in srgb, var(--accent-primary) 50%, transparent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.ProseMirror .math-block-view.math-render-error {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+  padding: 0.5em 1em;
+  border-radius: 4px;
+}
+
 /* Code block syntax highlighting (lowlight) */
 .ProseMirror pre .hljs-comment,
 .ProseMirror pre .hljs-quote {

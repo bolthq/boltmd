@@ -18,6 +18,8 @@ import { t } from '../../i18n'
 import { SearchAndReplace, searchPluginKey } from './extensions/SearchAndReplace'
 import { HeadingHighlight } from './extensions/HeadingHighlight'
 import { HtmlBlock } from './extensions/HtmlBlock'
+import { MathInline } from './extensions/MathInline'
+import { MathBlock } from './extensions/MathBlock'
 import { serializeMarkdown, pmOffsetToTextOffset, textOffsetToPmOffset } from './serializer/MarkdownSerializer'
 import { parseMarkdown } from './parser/MarkdownParser'
 import {
@@ -130,6 +132,8 @@ export function createWysiwygExtensions(): Extensions {
     Highlight.configure({ multicolor: true }),
     Image.configure({ inline: true, allowBase64: true }),
     HtmlBlock,
+    MathInline,
+    MathBlock,
     Markdown.configure({
       html: true,
       transformCopiedText: false,

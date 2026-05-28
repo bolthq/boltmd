@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import './tailwind.css'
+import 'katex/dist/katex.min.css'
 import './styles/themes/variables.css'
 import './styles/themes/light.css'
 import './styles/themes/dark.css'
