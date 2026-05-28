@@ -336,6 +336,43 @@
   border-radius: 4px;
 }
 
+/* Frontmatter */
+.ProseMirror .frontmatter-view {
+  margin: 0 0 1em 0;
+  padding: 0.6em 0.9em;
+  background: color-mix(in srgb, var(--text-muted) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-muted) 15%, transparent);
+  border-radius: 4px;
+  user-select: none;
+  cursor: default;
+}
+
+.ProseMirror .frontmatter-view .frontmatter-label {
+  display: block;
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.4em;
+}
+
+.ProseMirror .frontmatter-view .frontmatter-content {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ProseMirror .frontmatter-view.ProseMirror-selectednode {
+  outline: 1.5px dashed color-mix(in srgb, var(--accent-primary) 50%, transparent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 /* Code block syntax highlighting (lowlight) */
 .ProseMirror pre .hljs-comment,
 .ProseMirror pre .hljs-quote {

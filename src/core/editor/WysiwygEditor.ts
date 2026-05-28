@@ -20,6 +20,7 @@ import { HeadingHighlight } from './extensions/HeadingHighlight'
 import { HtmlBlock } from './extensions/HtmlBlock'
 import { MathInline } from './extensions/MathInline'
 import { MathBlock } from './extensions/MathBlock'
+import { Frontmatter } from './extensions/Frontmatter'
 import { serializeMarkdown, pmOffsetToTextOffset, textOffsetToPmOffset } from './serializer/MarkdownSerializer'
 import { parseMarkdown } from './parser/MarkdownParser'
 import {
@@ -134,6 +135,7 @@ export function createWysiwygExtensions(): Extensions {
     HtmlBlock,
     MathInline,
     MathBlock,
+    Frontmatter,
     Markdown.configure({
       html: true,
       transformCopiedText: false,

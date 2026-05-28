@@ -39,15 +39,63 @@ export function parseMarkdown(schema: Schema, text: string): PMNode {
     return schema.node('doc', null, [schema.node('paragraph')])
   }
 
+  // Extract YAML frontmatter before passing to markdown-it.
+  // Frontmatter must start at position 0 with "---\n".
+  const { frontmatter, body } = extractFrontmatter(text)
+
   // Detect extra blank lines (more than 1 consecutive blank line between blocks).
   // markdown-it treats them identically to single blank lines, but we want to
   // preserve them as empty paragraph nodes for lossless round-trip.
-  const { processed, blankLineMap } = preserveExtraBlankLines(text)
+  const { processed, blankLineMap } = preserveExtraBlankLines(body)
 
   const tokens = md.parse(processed, {})
   const state = new ParseState(schema, blankLineMap)
   state.parseTokens(tokens)
-  return state.finish()
+  const doc = state.finish()
+
+  // If frontmatter exists, prepend it as the first node in the document.
+  if (frontmatter !== null && schema.nodes.frontmatter) {
+    const fmNode = schema.nodes.frontmatter.create({ yaml: frontmatter })
+    const content = [fmNode, ...doc.content.content]
+    return schema.node('doc', doc.attrs, content)
+  }
+
+  return doc
+}
+
+/**
+ * Extracts YAML frontmatter from the beginning of a markdown string.
+ * Frontmatter must start at the very first line with exactly "---"
+ * and end with a line containing exactly "---".
+ *
+ * Returns the YAML content (without delimiters) and the remaining body.
+ * If no valid frontmatter is found, returns null and the full text as body.
+ */
+function extractFrontmatter(text: string): { frontmatter: string | null; body: string } {
+  // Must start with --- followed by newline
+  if (!text.startsWith('---\n') && !text.startsWith('---\r\n')) {
+    return { frontmatter: null, body: text }
+  }
+
+  // Find closing ---
+  const startOffset = text.indexOf('\n') + 1
+  const closingIdx = text.indexOf('\n---', startOffset)
+
+  if (closingIdx === -1) {
+    // No closing delimiter — treat entire text as body (not frontmatter)
+    return { frontmatter: null, body: text }
+  }
+
+  const yaml = text.slice(startOffset, closingIdx)
+  // Body starts after the closing "---\n"
+  const afterClose = closingIdx + 4 // "\n---".length
+  // Skip optional newline after closing ---
+  let bodyStart = afterClose
+  if (text[bodyStart] === '\n') bodyStart++
+  else if (text[bodyStart] === '\r' && text[bodyStart + 1] === '\n') bodyStart += 2
+
+  const body = text.slice(bodyStart)
+  return { frontmatter: yaml, body }
 }
 
 /**

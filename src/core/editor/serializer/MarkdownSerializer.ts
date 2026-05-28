@@ -766,6 +766,9 @@ function serializeFragment(doc: PMNode, state: SerializeState): void {
 
 function serializeNode(node: PMNode, state: SerializeState): void {
   switch (node.type.name) {
+    case 'frontmatter':
+      serializeFrontmatter(node, state)
+      break
     case 'paragraph':
       serializeParagraph(node, state)
       break
@@ -952,6 +955,14 @@ function serializeMathBlock(node: PMNode, state: SerializeState): void {
   state.write('$$\n')
   state.write(node.attrs.latex || '')
   state.write('\n$$\n')
+  state.markBlockWritten()
+}
+
+function serializeFrontmatter(node: PMNode, state: SerializeState): void {
+  // Frontmatter is always at the top — no blank line before it.
+  state.write('---\n')
+  state.write(node.attrs.yaml || '')
+  state.write('\n---\n')
   state.markBlockWritten()
 }
 
