@@ -802,6 +802,9 @@ function serializeNode(node: PMNode, state: SerializeState): void {
     case 'mathBlock':
       serializeMathBlock(node, state)
       break
+    case 'mermaidBlock':
+      serializeMermaidBlock(node, state)
+      break
     case 'hardBreak':
       state.write('\\\n')
       break
@@ -963,6 +966,14 @@ function serializeFrontmatter(node: PMNode, state: SerializeState): void {
   state.write('---\n')
   state.write(node.attrs.yaml || '')
   state.write('\n---\n')
+  state.markBlockWritten()
+}
+
+function serializeMermaidBlock(node: PMNode, state: SerializeState): void {
+  state.ensureBlankLine()
+  state.write('```mermaid\n')
+  state.write(node.attrs.code || '')
+  state.write('\n```\n')
   state.markBlockWritten()
 }
 

@@ -21,6 +21,7 @@ import { HtmlBlock } from './extensions/HtmlBlock'
 import { MathInline } from './extensions/MathInline'
 import { MathBlock } from './extensions/MathBlock'
 import { Frontmatter } from './extensions/Frontmatter'
+import { MermaidBlock } from './extensions/MermaidBlock'
 import { serializeMarkdown, pmOffsetToTextOffset, textOffsetToPmOffset } from './serializer/MarkdownSerializer'
 import { parseMarkdown } from './parser/MarkdownParser'
 import {
@@ -136,6 +137,7 @@ export function createWysiwygExtensions(): Extensions {
     MathInline,
     MathBlock,
     Frontmatter,
+    MermaidBlock,
     Markdown.configure({
       html: true,
       transformCopiedText: false,

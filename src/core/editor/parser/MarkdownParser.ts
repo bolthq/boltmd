@@ -285,10 +285,15 @@ class ParseState {
         break
 
       case 'fence':
-        this.addNode('codeBlock', {
-          language: token.info || null,
-          fence: token.markup || '```',
-        }, [this.schema.text(token.content.replace(/\n$/, '') || ' ')])
+        // Mermaid code blocks → render as diagram node.
+        if (token.info.trim().toLowerCase() === 'mermaid' && this.schema.nodes.mermaidBlock) {
+          this.addNode('mermaidBlock', { code: token.content.replace(/\n$/, '') })
+        } else {
+          this.addNode('codeBlock', {
+            language: token.info || null,
+            fence: token.markup || '```',
+          }, [this.schema.text(token.content.replace(/\n$/, '') || ' ')])
+        }
         break
 
       case 'code_block':
