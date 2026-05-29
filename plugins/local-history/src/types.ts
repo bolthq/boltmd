@@ -75,6 +75,7 @@ export interface PluginSidebarPanel {
 export interface PluginSidebarAPI {
   registerPanel(panel: PluginSidebarPanel): void
   unregisterPanel(panelId: string): void
+  show(panelId?: string): void
 }
 
 export interface PluginConfigAPI {

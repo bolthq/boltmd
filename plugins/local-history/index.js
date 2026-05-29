@@ -696,6 +696,7 @@ async function activate(ctx) {
     label: "Local History: Show Version History",
     shortcut: "Ctrl+Shift+H",
     action: () => {
+      ctx.sidebar.show("local-history.panel");
     }
   });
   console.log("[local-history] Plugin activated");

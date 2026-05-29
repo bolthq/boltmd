@@ -109,8 +109,7 @@ export async function activate(ctx: PluginContext): Promise<void> {
     label: 'Local History: Show Version History',
     shortcut: 'Ctrl+Shift+H',
     action: () => {
-      // The panel is registered in sidebar; this shortcut serves as
-      // a command palette entry and keyboard shortcut binding.
+      ctx.sidebar.show('local-history.panel')
     },
   })
 
