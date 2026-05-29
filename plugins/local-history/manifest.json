@@ -1,0 +1,20 @@
+{
+  "id": "local-history",
+  "name": "Local History",
+  "version": "1.0.0",
+  "author": "BoltMD",
+  "description": "Automatic local version history for every save. Browse, compare and restore previous versions.",
+  "main": "index.js",
+  "minAppVersion": "1.0.0",
+  "apiVersion": 1,
+  "permissions": [
+    "events",
+    "editor",
+    "commands",
+    "sidebar",
+    "statusbar",
+    "config",
+    "fs:read",
+    "fs:write"
+  ]
+}
