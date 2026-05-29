@@ -172,7 +172,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
     openFind()
     return
   }
-  if (e.key === 'h' || e.key === 'H') {
+  if ((e.key === 'h' || e.key === 'H') && !e.shiftKey) {
     e.preventDefault()
     e.stopPropagation()
     openReplace()
