@@ -255,6 +255,10 @@ pub fn plugin_file_exists(
     path: String,
 ) -> Result<bool, String> {
     let sandbox = plugin_data_dir(&app, &plugin_id)?;
+    // If sandbox directory doesn't exist yet, no files can exist within it.
+    if !sandbox.exists() {
+        return Ok(false);
+    }
     let target = sandbox.join(&path);
     // For existence check, we validate only if the file actually exists.
     // If it doesn't exist, validate the ancestor to prevent traversal probing.
@@ -273,6 +277,10 @@ pub fn plugin_delete_file(
     path: String,
 ) -> Result<(), String> {
     let sandbox = plugin_data_dir(&app, &plugin_id)?;
+    // If sandbox directory doesn't exist, nothing to delete.
+    if !sandbox.exists() {
+        return Ok(());
+    }
     let target = sandbox.join(&path);
     let safe_path = validate_sandboxed_path(&sandbox, &target)?;
     if !safe_path.exists() {
@@ -332,4 +340,26 @@ pub fn plugin_get_data_dir(
 ) -> Result<String, String> {
     let dir = plugin_data_dir(&app, &plugin_id)?;
     Ok(dir.to_string_lossy().to_string())
+}
+
+/// Read the plugin entry file (e.g. index.js) as a string.
+/// This is used by the frontend to load plugin modules via Blob URL,
+/// bypassing asset protocol scope limitations.
+#[tauri::command]
+pub fn read_plugin_entry(dir_path: String, main: String) -> Result<String, String> {
+    let dir = PathBuf::from(&dir_path);
+    let entry = dir.join(&main);
+
+    // Safety: ensure the entry is within the plugin directory.
+    let canonical_dir = dunce::canonicalize(&dir)
+        .map_err(|e| format!("Cannot resolve plugin dir: {e}"))?;
+    let canonical_entry = dunce::canonicalize(&entry)
+        .map_err(|e| format!("Cannot resolve plugin entry: {e}"))?;
+
+    if !canonical_entry.starts_with(&canonical_dir) {
+        return Err("Plugin entry path escapes plugin directory".into());
+    }
+
+    std::fs::read_to_string(&canonical_entry)
+        .map_err(|e| format!("Cannot read plugin entry: {e}"))
 }

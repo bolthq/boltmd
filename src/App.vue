@@ -478,10 +478,12 @@ async function bootstrapPlugins(): Promise<void> {
 async function activatePlugin(pluginId: string, dirPath: string, main: string): Promise<void> {
   updatePluginState(pluginId, 'active')
   try {
-    // Convert the plugin's file path to a URL that Vite/Tauri can load.
-    // On Tauri, local file access uses the asset protocol or convertFileSrc.
-    const { convertFileSrc } = await import('@tauri-apps/api/core')
-    const entryUrl = convertFileSrc(`${dirPath}/${main}`)
+    // Read plugin entry file via Tauri command and load as Blob URL.
+    // This bypasses asset protocol scope limitations on arbitrary filesystem paths.
+    const { invoke } = await import('@tauri-apps/api/core')
+    const source = await invoke<string>('read_plugin_entry', { dirPath, main })
+    const blob = new Blob([source], { type: 'application/javascript' })
+    const entryUrl = URL.createObjectURL(blob)
 
     // Dynamic import of the plugin entry file with timeout protection.
     const ACTIVATE_TIMEOUT = 10_000
@@ -489,6 +491,7 @@ async function activatePlugin(pluginId: string, dirPath: string, main: string): 
       import(/* @vite-ignore */ entryUrl),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Plugin module import timed out (10s)')), ACTIVATE_TIMEOUT)),
     ]) as Record<string, unknown>
+    URL.revokeObjectURL(entryUrl)
     const pluginModule = (rawModule.default || rawModule) as Record<string, unknown>
 
     if (typeof pluginModule.activate !== 'function') {

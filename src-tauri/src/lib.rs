@@ -132,6 +132,7 @@ pub fn run() {
             commands::plugin::plugin_delete_file,
             commands::plugin::plugin_list_dir,
             commands::plugin::plugin_get_data_dir,
+            commands::plugin::read_plugin_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
