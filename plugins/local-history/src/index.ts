@@ -64,6 +64,21 @@ export async function activate(ctx: PluginContext): Promise<void> {
     mount: (container) => panel.mount(container),
   })
 
+  // Wire restore action: replace editor content with selected version.
+  panel.onRestore = async (content: string) => {
+    await ctx.editor.setContent(content)
+    lastSavedContent = content
+    panel.setCurrentContent(content)
+    panel.refresh()
+  }
+
+  // Wire delete action: remove version from storage and refresh list.
+  panel.onDelete = async (timestamp: number) => {
+    if (!currentFilePath) return
+    await storage.deleteVersion(currentFilePath, timestamp)
+    panel.refresh()
+  }
+
   console.log('[local-history] Plugin activated')
 }
 

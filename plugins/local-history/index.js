@@ -276,6 +276,44 @@ var STYLES = `
 .lh-diff-stats .add { color: #81c784; }
 .lh-diff-stats .del { color: #e57373; }
 
+.lh-diff-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.lh-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.lh-btn:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.1));
+}
+
+.lh-btn.danger {
+  border-color: #e57373;
+  color: #e57373;
+}
+
+.lh-btn.danger:hover {
+  background: rgba(229, 115, 115, 0.15);
+}
+
+.lh-btn.primary {
+  border-color: var(--accent-color, #64b5f6);
+  color: var(--accent-color, #64b5f6);
+}
+
+.lh-btn.primary:hover {
+  background: rgba(100, 181, 246, 0.15);
+}
+
 .lh-diff-panel {
   flex: 1;
   overflow-y: auto;
@@ -339,8 +377,12 @@ var HistoryPanel = class {
   currentFilePath = null;
   currentContent = "";
   viewingTimestamp = null;
-  /** Callback when user clicks a version entry. Set by index.ts in later steps. */
+  /** Callback when user clicks a version entry. */
   onVersionSelect = null;
+  /** Callback when user clicks Restore. Receives the old content. */
+  onRestore = null;
+  /** Callback when user clicks Delete. Receives the timestamp. */
+  onDelete = null;
   constructor(storage) {
     this.storage = storage;
   }
@@ -437,7 +479,17 @@ var HistoryPanel = class {
         <span class="add">+${stats.additions}</span>
         <span class="del"> -${stats.deletions}</span>
       </div>
+      <div class="lh-diff-actions">
+        <button class="lh-btn primary lh-restore-btn">Restore</button>
+        <button class="lh-btn danger lh-delete-btn">Delete</button>
+      </div>
     `;
+    header.querySelector(".lh-restore-btn").addEventListener("click", () => {
+      if (this.onRestore) this.onRestore(oldContent);
+    });
+    header.querySelector(".lh-delete-btn").addEventListener("click", () => {
+      if (this.onDelete) this.onDelete(timestamp);
+    });
     panel.appendChild(header);
     const diffPanel = document.createElement("div");
     diffPanel.className = "lh-diff-panel";
@@ -525,6 +577,17 @@ async function activate(ctx) {
     icon: "\u{1F4CB}",
     mount: (container) => panel.mount(container)
   });
+  panel.onRestore = async (content) => {
+    await ctx.editor.setContent(content);
+    lastSavedContent = content;
+    panel.setCurrentContent(content);
+    panel.refresh();
+  };
+  panel.onDelete = async (timestamp) => {
+    if (!currentFilePath) return;
+    await storage.deleteVersion(currentFilePath, timestamp);
+    panel.refresh();
+  };
   console.log("[local-history] Plugin activated");
 }
 function deactivate() {
