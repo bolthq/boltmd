@@ -23,13 +23,14 @@ const STYLES = `
 
 .lh-header {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color, #333);
+  border-bottom: 1px solid var(--border-primary, #333);
   font-weight: 600;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-secondary, #999);
   flex-shrink: 0;
+  box-shadow: none;
 }
 
 .lh-empty {
@@ -46,25 +47,78 @@ const STYLES = `
 }
 
 .lh-item {
-  padding: 8px 12px;
+  padding: 6px 12px;
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: background 0.15s;
+  position: relative;
 }
 
 .lh-item:hover {
   background: var(--bg-hover, rgba(255,255,255,0.05));
 }
 
+.lh-item:hover .lh-item-actions {
+  opacity: 1;
+}
+
 .lh-item.active {
   background: var(--bg-active, rgba(255,255,255,0.08));
-  border-left-color: var(--accent-color, #64b5f6);
+  border-left-color: var(--accent-primary, #64b5f6);
+}
+
+.lh-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .lh-item-time {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary, #e0e0e0);
+}
+
+.lh-item-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.lh-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  outline: none;
+}
+
+.lh-icon-btn:focus,
+.lh-icon-btn:focus-visible,
+.lh-icon-btn:active {
+  box-shadow: none;
+  outline: none;
+}
+
+.lh-icon-btn:hover {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.lh-icon-btn.danger:hover {
+  color: #e57373;
+}
+
+.lh-icon-btn.primary:hover {
+  color: var(--accent-primary, #64b5f6);
 }
 
 .lh-item-meta {
@@ -75,7 +129,7 @@ const STYLES = `
 
 .lh-item-summary {
   font-size: 11px;
-  color: var(--text-tertiary, #666);
+  color: var(--text-muted, #666);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -86,8 +140,8 @@ const STYLES = `
   padding: 6px 12px;
   font-size: 12px;
   cursor: pointer;
-  color: var(--accent-color, #64b5f6);
-  border-bottom: 1px solid var(--border-color, #333);
+  color: var(--accent-primary, #64b5f6);
+  border-bottom: 1px solid var(--border-primary, #333);
   flex-shrink: 0;
 }
 
@@ -100,7 +154,7 @@ const STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border-color, #333);
+  border-bottom: 1px solid var(--border-primary, #333);
   flex-shrink: 0;
 }
 
@@ -113,40 +167,7 @@ const STYLES = `
 
 .lh-diff-actions {
   display: flex;
-  gap: 6px;
-}
-
-.lh-btn {
-  padding: 3px 8px;
-  font-size: 11px;
-  border: 1px solid var(--border-color, #555);
-  border-radius: 3px;
-  background: transparent;
-  color: var(--text-primary, #e0e0e0);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.lh-btn:hover {
-  background: var(--bg-hover, rgba(255,255,255,0.1));
-}
-
-.lh-btn.danger {
-  border-color: #e57373;
-  color: #e57373;
-}
-
-.lh-btn.danger:hover {
-  background: rgba(229, 115, 115, 0.15);
-}
-
-.lh-btn.primary {
-  border-color: var(--accent-color, #64b5f6);
-  color: var(--accent-color, #64b5f6);
-}
-
-.lh-btn.primary:hover {
-  background: rgba(100, 181, 246, 0.15);
+  gap: 4px;
 }
 
 .lh-diff-panel {
@@ -190,6 +211,13 @@ function injectStyles(): void {
   document.head.appendChild(style)
   stylesInjected = true
 }
+
+// ---------------------------------------------------------------------------
+// SVG Icons (inline, small)
+// ---------------------------------------------------------------------------
+
+const ICON_RESTORE = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6"/><path d="M6 4L3 7l3 3"/><path d="M13 13V8a4 4 0 0 0-4-4H3"/></svg>`
+const ICON_DELETE = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12"/><path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M12 4v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4"/><line x1="7" y1="7" x2="7" y2="11"/><line x1="9" y1="7" x2="9" y2="11"/></svg>`
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -267,6 +295,12 @@ export class HistoryPanel {
     this.render()
   }
 
+  /** Reset to list view (e.g. after delete). */
+  backToList(): void {
+    this.viewingTimestamp = null
+    this.render()
+  }
+
   private async render(): Promise<void> {
     if (!this.container) return
 
@@ -326,11 +360,9 @@ export class HistoryPanel {
     try {
       oldContent = await this.storage.loadVersion(this.currentFilePath, timestamp)
     } catch {
-      this.container.innerHTML = `
-        <div class="lh-panel">
-          <div class="lh-empty">Failed to load version</div>
-        </div>
-      `
+      // Version file missing — go back to list.
+      this.viewingTimestamp = null
+      await this.renderList()
       return
     }
 
@@ -350,7 +382,7 @@ export class HistoryPanel {
     })
     panel.appendChild(backBtn)
 
-    // Diff header with stats and actions
+    // Diff header with stats and icon actions
     const header = document.createElement('div')
     header.className = 'lh-diff-header'
     header.innerHTML = `
@@ -359,8 +391,8 @@ export class HistoryPanel {
         <span class="del"> -${stats.deletions}</span>
       </div>
       <div class="lh-diff-actions">
-        <button class="lh-btn primary lh-restore-btn">Restore</button>
-        <button class="lh-btn danger lh-delete-btn">Delete</button>
+        <button class="lh-icon-btn primary lh-restore-btn" title="Restore this version">${ICON_RESTORE}</button>
+        <button class="lh-icon-btn danger lh-delete-btn" title="Delete this version">${ICON_DELETE}</button>
       </div>
     `
 
@@ -411,18 +443,46 @@ export class HistoryPanel {
     item.className = 'lh-item'
 
     item.innerHTML = `
-      <div class="lh-item-time">${formatTime(version.timestamp)}</div>
+      <div class="lh-item-row">
+        <div class="lh-item-time">${formatTime(version.timestamp)}</div>
+        <div class="lh-item-actions">
+          <button class="lh-icon-btn primary lh-item-restore" title="Restore">${ICON_RESTORE}</button>
+          <button class="lh-icon-btn danger lh-item-delete" title="Delete">${ICON_DELETE}</button>
+        </div>
+      </div>
       <div class="lh-item-meta">${formatSize(version.size)}</div>
       <div class="lh-item-summary">${escapeHtml(version.summary)}</div>
     `
 
-    item.addEventListener('click', () => {
+    // Click item → view diff
+    item.addEventListener('click', (e) => {
+      // Ignore if clicking action buttons
+      if ((e.target as HTMLElement).closest('.lh-item-actions')) return
+
       this.viewingTimestamp = version.timestamp
       this.render()
 
       if (this.onVersionSelect) {
         this.onVersionSelect(version.timestamp)
       }
+    })
+
+    // Restore button on list item
+    item.querySelector('.lh-item-restore')!.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      if (!this.currentFilePath || !this.onRestore) return
+      try {
+        const content = await this.storage.loadVersion(this.currentFilePath, version.timestamp)
+        this.onRestore(content)
+      } catch (err) {
+        console.error('[local-history] Failed to load version for restore:', err)
+      }
+    })
+
+    // Delete button on list item
+    item.querySelector('.lh-item-delete')!.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (this.onDelete) this.onDelete(version.timestamp)
     })
 
     return item

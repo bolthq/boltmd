@@ -790,9 +790,9 @@ onUnmounted(() => {
     <Toolbar v-if="showToolbar && mode === 'wysiwyg' && !zenMode" />
     <!-- Main content area: editor + optional outline sidebar -->
     <div class="main-content">
+      <PluginSidebarPanels v-if="!zenMode" />
       <OutlinePanel v-if="showOutline && !zenMode" @close="showOutline = false" />
       <EditorContainer ref="editorContainerRef" />
-      <PluginSidebarPanels v-if="!zenMode" />
     </div>
     <!-- 状态栏 -->
     <StatusBar v-show="!zenMode || zenShowBottom" />

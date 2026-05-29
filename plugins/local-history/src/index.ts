@@ -72,11 +72,11 @@ export async function activate(ctx: PluginContext): Promise<void> {
     panel.refresh()
   }
 
-  // Wire delete action: remove version from storage and refresh list.
+  // Wire delete action: remove version from storage and go back to list.
   panel.onDelete = async (timestamp: number) => {
     if (!currentFilePath) return
     await storage.deleteVersion(currentFilePath, timestamp)
-    panel.refresh()
+    panel.backToList()
     updateStatusBar()
   }
 

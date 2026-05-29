@@ -55,6 +55,10 @@ export interface AppConfig {
   autoCheckUpdate: boolean
   /** Plugin IDs that have been disabled by the user. */
   disabledPlugins: string[]
+  /** Plugin sidebar position: left or right. */
+  pluginSidebarPosition: 'left' | 'right'
+  /** Plugin sidebar width in pixels. */
+  pluginSidebarWidth: number
 }
 
 export const CONFIG_VERSION = 2
@@ -83,4 +87,6 @@ export const DEFAULT_CONFIG: AppConfig = {
   recentFiles: [],
   autoCheckUpdate: true,
   disabledPlugins: [],
+  pluginSidebarPosition: 'left',
+  pluginSidebarWidth: 260,
 }
