@@ -7,7 +7,7 @@
  *   history/{pathHash}/v_{ts}.md    - full content snapshot
  */
 
-import type { PluginFileSystemAPI } from './types'
+import type { PluginFileSystemAPI, PluginConfigAPI } from './types'
 
 export interface VersionEntry {
   /** Unix timestamp (ms) */
@@ -26,6 +26,19 @@ export interface VersionMeta {
 }
 
 /**
+ * Retention policy configuration.
+ */
+export interface RetentionConfig {
+  maxVersionsPerFile: number
+  maxAgeDays: number
+}
+
+const DEFAULT_RETENTION: RetentionConfig = {
+  maxVersionsPerFile: 50,
+  maxAgeDays: 30,
+}
+
+/**
  * Simple hash of a string to use as directory name.
  * Uses djb2 variant — fast, non-cryptographic.
  */
@@ -39,9 +52,11 @@ export function hashPath(filePath: string): string {
 
 export class VersionStorage {
   private fs: PluginFileSystemAPI
+  private config: PluginConfigAPI
 
-  constructor(fs: PluginFileSystemAPI) {
+  constructor(fs: PluginFileSystemAPI, config: PluginConfigAPI) {
     this.fs = fs
+    this.config = config
   }
 
   private dirFor(pathHash: string): string {
@@ -96,6 +111,9 @@ export class VersionStorage {
       summary,
     })
 
+    // Apply retention policy before writing meta.
+    await this.applyRetention(meta, hash)
+
     await this.fs.writeFile(this.metaPath(hash), JSON.stringify(meta, null, 2))
     return true
   }
@@ -146,5 +164,35 @@ export class VersionStorage {
     }
 
     return '(minor change)'
+  }
+
+  /**
+   * Get retention config from plugin settings (or defaults).
+   */
+  async getRetention(): Promise<RetentionConfig> {
+    const saved = await this.config.get<RetentionConfig>('retention')
+    return saved ?? DEFAULT_RETENTION
+  }
+
+  /**
+   * Apply retention policy: remove versions exceeding max count or max age.
+   */
+  private async applyRetention(meta: VersionMeta, pathHash: string): Promise<void> {
+    const retention = await this.getRetention()
+    const now = Date.now()
+    const maxAge = retention.maxAgeDays * 24 * 60 * 60 * 1000
+
+    // Remove versions older than maxAge
+    const expired = meta.versions.filter(v => (now - v.timestamp) > maxAge)
+    for (const v of expired) {
+      try { await this.fs.deleteFile(this.versionPath(pathHash, v.timestamp)) } catch { /* ignore */ }
+    }
+    meta.versions = meta.versions.filter(v => (now - v.timestamp) <= maxAge)
+
+    // Trim to max count (keep newest)
+    while (meta.versions.length > retention.maxVersionsPerFile) {
+      const removed = meta.versions.pop()!
+      try { await this.fs.deleteFile(this.versionPath(pathHash, removed.timestamp)) } catch { /* ignore */ }
+    }
   }
 }

@@ -1,4 +1,8 @@
 // src/storage.ts
+var DEFAULT_RETENTION = {
+  maxVersionsPerFile: 50,
+  maxAgeDays: 30
+};
 function hashPath(filePath) {
   let hash = 5381;
   for (let i = 0; i < filePath.length; i++) {
@@ -8,8 +12,10 @@ function hashPath(filePath) {
 }
 var VersionStorage = class {
   fs;
-  constructor(fs) {
+  config;
+  constructor(fs, config) {
     this.fs = fs;
+    this.config = config;
   }
   dirFor(pathHash) {
     return `history/${pathHash}`;
@@ -50,6 +56,7 @@ var VersionStorage = class {
       size: content.length,
       summary
     });
+    await this.applyRetention(meta, hash);
     await this.fs.writeFile(this.metaPath(hash), JSON.stringify(meta, null, 2));
     return true;
   }
@@ -91,6 +98,36 @@ var VersionStorage = class {
       }
     }
     return "(minor change)";
+  }
+  /**
+   * Get retention config from plugin settings (or defaults).
+   */
+  async getRetention() {
+    const saved = await this.config.get("retention");
+    return saved ?? DEFAULT_RETENTION;
+  }
+  /**
+   * Apply retention policy: remove versions exceeding max count or max age.
+   */
+  async applyRetention(meta, pathHash) {
+    const retention = await this.getRetention();
+    const now = Date.now();
+    const maxAge = retention.maxAgeDays * 24 * 60 * 60 * 1e3;
+    const expired = meta.versions.filter((v) => now - v.timestamp > maxAge);
+    for (const v of expired) {
+      try {
+        await this.fs.deleteFile(this.versionPath(pathHash, v.timestamp));
+      } catch {
+      }
+    }
+    meta.versions = meta.versions.filter((v) => now - v.timestamp <= maxAge);
+    while (meta.versions.length > retention.maxVersionsPerFile) {
+      const removed = meta.versions.pop();
+      try {
+        await this.fs.deleteFile(this.versionPath(pathHash, removed.timestamp));
+      } catch {
+      }
+    }
   }
 };
 
@@ -537,7 +574,7 @@ var HistoryPanel = class {
 
 // src/index.ts
 async function activate(ctx) {
-  const storage = new VersionStorage(ctx.fs);
+  const storage = new VersionStorage(ctx.fs, ctx.config);
   const panel = new HistoryPanel(storage);
   let currentFilePath = null;
   let lastSavedContent = null;
@@ -587,7 +624,34 @@ async function activate(ctx) {
     if (!currentFilePath) return;
     await storage.deleteVersion(currentFilePath, timestamp);
     panel.refresh();
+    updateStatusBar();
   };
+  ctx.statusbar.addItem({
+    id: "local-history.status",
+    text: "",
+    tooltip: "Local History",
+    align: "right",
+    priority: 200
+  });
+  async function updateStatusBar() {
+    if (!currentFilePath) return;
+    try {
+      const meta = await storage.loadMeta(currentFilePath);
+      const count = meta.versions.length;
+      ctx.statusbar.updateItem("local-history.status", {
+        text: count > 0 ? `${count} ver` : "",
+        tooltip: count > 0 ? `Local History: ${count} version${count > 1 ? "s" : ""}` : "Local History: no versions yet"
+      });
+    } catch {
+    }
+  }
+  ctx.commands.register({
+    id: "local-history.show",
+    label: "Local History: Show Version History",
+    shortcut: "Ctrl+Shift+H",
+    action: () => {
+    }
+  });
   console.log("[local-history] Plugin activated");
 }
 function deactivate() {
