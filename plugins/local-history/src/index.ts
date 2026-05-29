@@ -2,13 +2,16 @@
  * BoltMD Local History Plugin - Entry Point
  *
  * Listens to file:saved events and creates version snapshots automatically.
+ * Registers a sidebar panel to display version timeline.
  */
 
 import type { PluginContext } from './types'
 import { VersionStorage } from './storage'
+import { HistoryPanel } from './ui'
 
 export async function activate(ctx: PluginContext): Promise<void> {
   const storage = new VersionStorage(ctx.fs)
+  const panel = new HistoryPanel(storage)
 
   // Track current file path and its last known content.
   let currentFilePath: string | null = null
@@ -20,6 +23,7 @@ export async function activate(ctx: PluginContext): Promise<void> {
     if (!data?.path) return
 
     currentFilePath = data.path
+    panel.setFilePath(currentFilePath)
 
     try {
       lastSavedContent = await ctx.editor.getContent()
@@ -34,18 +38,27 @@ export async function activate(ctx: PluginContext): Promise<void> {
     if (!data?.path) return
 
     currentFilePath = data.path
+    panel.setFilePath(currentFilePath)
 
     try {
       const content = await ctx.editor.getContent()
       const saved = await storage.saveVersion(currentFilePath, content, lastSavedContent)
 
       if (saved) {
-        console.log('[local-history] Version saved for', currentFilePath)
         lastSavedContent = content
+        panel.refresh()
       }
     } catch (err) {
       console.error('[local-history] Failed to save version:', err)
     }
+  })
+
+  // Register sidebar panel.
+  ctx.sidebar.registerPanel({
+    id: 'local-history.panel',
+    title: 'History',
+    icon: '\u{1F4CB}',
+    mount: (container) => panel.mount(container),
   })
 
   console.log('[local-history] Plugin activated')
