@@ -32,20 +32,16 @@ pub struct ScannedPlugin {
     pub manifest: String,
 }
 
-/// Scan the plugins directory and return each sub-directory that contains a
-/// manifest.json, along with the raw manifest content.
-#[tauri::command]
-pub fn scan_plugins_dir(app: tauri::AppHandle) -> Result<Vec<ScannedPlugin>, String> {
-    let dir = plugins_dir(&app)?;
+/// Scan a single directory for plugin sub-directories containing manifest.json.
+fn scan_dir(dir: &PathBuf, results: &mut Vec<ScannedPlugin>) {
     if !dir.exists() {
-        // No plugins directory yet — not an error, just empty.
-        return Ok(vec![]);
+        return;
     }
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
 
-    let entries = std::fs::read_dir(&dir)
-        .map_err(|e| format!("Cannot read plugins directory: {e}"))?;
-
-    let mut results = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_dir() {
@@ -70,11 +66,39 @@ pub fn scan_plugins_dir(app: tauri::AppHandle) -> Result<Vec<ScannedPlugin>, Str
             continue;
         }
 
+        // Skip if a plugin with the same ID was already found (AppData takes priority).
+        if results.iter().any(|p| p.name == name) {
+            continue;
+        }
+
         results.push(ScannedPlugin {
             name,
             path: path.to_string_lossy().to_string(),
             manifest: manifest_content,
         });
+    }
+}
+
+/// Scan the plugins directory and return each sub-directory that contains a
+/// manifest.json, along with the raw manifest content.
+///
+/// In debug builds, also scans the workspace `plugins/` directory so that
+/// developers can test plugins without copying files to AppData.
+#[tauri::command]
+pub fn scan_plugins_dir(app: tauri::AppHandle) -> Result<Vec<ScannedPlugin>, String> {
+    let mut results = Vec::new();
+
+    // Primary: AppData plugins directory (user-installed plugins).
+    let dir = plugins_dir(&app)?;
+    scan_dir(&dir, &mut results);
+
+    // Dev mode: also scan workspace plugins/ directory.
+    #[cfg(debug_assertions)]
+    {
+        let workspace_plugins = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../plugins");
+        if let Ok(canonical) = dunce::canonicalize(&workspace_plugins) {
+            scan_dir(&canonical, &mut results);
+        }
     }
 
     Ok(results)
