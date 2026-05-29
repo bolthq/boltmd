@@ -26,7 +26,9 @@ export async function activate(ctx: PluginContext): Promise<void> {
     panel.setFilePath(currentFilePath)
 
     try {
-      lastSavedContent = await ctx.editor.getContent()
+      const content = await ctx.editor.getContent()
+      lastSavedContent = content
+      panel.setCurrentContent(content)
     } catch {
       lastSavedContent = null
     }
@@ -46,6 +48,7 @@ export async function activate(ctx: PluginContext): Promise<void> {
 
       if (saved) {
         lastSavedContent = content
+        panel.setCurrentContent(content)
         panel.refresh()
       }
     } catch (err) {

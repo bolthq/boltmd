@@ -94,6 +94,87 @@ var VersionStorage = class {
   }
 };
 
+// src/diff.ts
+function computeDiff(oldText, newText) {
+  const oldLines = oldText.split("\n");
+  const newLines = newText.split("\n");
+  const result = [];
+  let prefixLen = 0;
+  const minLen = Math.min(oldLines.length, newLines.length);
+  while (prefixLen < minLen && oldLines[prefixLen] === newLines[prefixLen]) {
+    prefixLen++;
+  }
+  let suffixLen = 0;
+  while (suffixLen < minLen - prefixLen && oldLines[oldLines.length - 1 - suffixLen] === newLines[newLines.length - 1 - suffixLen]) {
+    suffixLen++;
+  }
+  for (let i = 0; i < prefixLen; i++) {
+    result.push({ type: "same", text: oldLines[i], oldNum: i + 1, newNum: i + 1 });
+  }
+  const oldMiddle = oldLines.slice(prefixLen, oldLines.length - suffixLen);
+  const newMiddle = newLines.slice(prefixLen, newLines.length - suffixLen);
+  result.push(...lcsMiddleDiff(oldMiddle, newMiddle, prefixLen));
+  for (let i = 0; i < suffixLen; i++) {
+    const oldIdx = oldLines.length - suffixLen + i;
+    const newIdx = newLines.length - suffixLen + i;
+    result.push({ type: "same", text: oldLines[oldIdx], oldNum: oldIdx + 1, newNum: newIdx + 1 });
+  }
+  return result;
+}
+function lcsMiddleDiff(oldLines, newLines, offset) {
+  const m = oldLines.length;
+  const n = newLines.length;
+  if (m * n > 1e5) {
+    return simpleDiff(oldLines, newLines, offset);
+  }
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i2 = 1; i2 <= m; i2++) {
+    for (let j2 = 1; j2 <= n; j2++) {
+      if (oldLines[i2 - 1] === newLines[j2 - 1]) {
+        dp[i2][j2] = dp[i2 - 1][j2 - 1] + 1;
+      } else {
+        dp[i2][j2] = Math.max(dp[i2 - 1][j2], dp[i2][j2 - 1]);
+      }
+    }
+  }
+  const stack = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      stack.push({ type: "same", text: oldLines[i - 1], oldNum: offset + i, newNum: offset + j });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      stack.push({ type: "add", text: newLines[j - 1], newNum: offset + j });
+      j--;
+    } else {
+      stack.push({ type: "del", text: oldLines[i - 1], oldNum: offset + i });
+      i--;
+    }
+  }
+  stack.reverse();
+  return stack;
+}
+function simpleDiff(oldLines, newLines, offset) {
+  const result = [];
+  for (let i = 0; i < oldLines.length; i++) {
+    result.push({ type: "del", text: oldLines[i], oldNum: offset + i + 1 });
+  }
+  for (let i = 0; i < newLines.length; i++) {
+    result.push({ type: "add", text: newLines[i], newNum: offset + i + 1 });
+  }
+  return result;
+}
+function diffStats(lines) {
+  let additions = 0;
+  let deletions = 0;
+  for (const line of lines) {
+    if (line.type === "add") additions++;
+    if (line.type === "del") deletions++;
+  }
+  return { additions, deletions };
+}
+
 // src/ui.ts
 var STYLES = `
 .lh-panel {
@@ -165,6 +246,66 @@ var STYLES = `
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.lh-back-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--accent-color, #64b5f6);
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.lh-back-btn:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.05));
+}
+
+.lh-diff-header {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.lh-diff-stats {
+  font-size: 11px;
+}
+
+.lh-diff-stats .add { color: #81c784; }
+.lh-diff-stats .del { color: #e57373; }
+
+.lh-diff-panel {
+  flex: 1;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.lh-diff-line {
+  padding: 0 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.lh-diff-line.add {
+  background: rgba(129, 199, 132, 0.12);
+  color: #a5d6a7;
+}
+
+.lh-diff-line.del {
+  background: rgba(229, 115, 115, 0.12);
+  color: #ef9a9a;
+}
+
+.lh-diff-line .line-num {
+  display: inline-block;
+  width: 35px;
+  color: var(--text-secondary, #666);
+  user-select: none;
+}
 `;
 var stylesInjected = false;
 function injectStyles() {
@@ -196,6 +337,8 @@ var HistoryPanel = class {
   storage;
   container = null;
   currentFilePath = null;
+  currentContent = "";
+  viewingTimestamp = null;
   /** Callback when user clicks a version entry. Set by index.ts in later steps. */
   onVersionSelect = null;
   constructor(storage) {
@@ -203,7 +346,11 @@ var HistoryPanel = class {
   }
   setFilePath(path) {
     this.currentFilePath = path;
+    this.viewingTimestamp = null;
     this.render();
+  }
+  setCurrentContent(content) {
+    this.currentContent = content;
   }
   mount(container) {
     injectStyles();
@@ -227,6 +374,14 @@ var HistoryPanel = class {
       `;
       return;
     }
+    if (this.viewingTimestamp !== null) {
+      await this.renderDiff(this.viewingTimestamp);
+    } else {
+      await this.renderList();
+    }
+  }
+  async renderList() {
+    if (!this.container || !this.currentFilePath) return;
     const meta = await this.storage.loadMeta(this.currentFilePath);
     const versions = meta.versions;
     if (versions.length === 0) {
@@ -250,6 +405,65 @@ var HistoryPanel = class {
     this.container.innerHTML = "";
     this.container.appendChild(panel);
   }
+  async renderDiff(timestamp) {
+    if (!this.container || !this.currentFilePath) return;
+    let oldContent;
+    try {
+      oldContent = await this.storage.loadVersion(this.currentFilePath, timestamp);
+    } catch {
+      this.container.innerHTML = `
+        <div class="lh-panel">
+          <div class="lh-empty">Failed to load version</div>
+        </div>
+      `;
+      return;
+    }
+    const diffLines = computeDiff(oldContent, this.currentContent);
+    const stats = diffStats(diffLines);
+    const panel = document.createElement("div");
+    panel.className = "lh-panel";
+    const backBtn = document.createElement("div");
+    backBtn.className = "lh-back-btn";
+    backBtn.textContent = "\u2190 Back to list";
+    backBtn.addEventListener("click", () => {
+      this.viewingTimestamp = null;
+      this.render();
+    });
+    panel.appendChild(backBtn);
+    const header = document.createElement("div");
+    header.className = "lh-diff-header";
+    header.innerHTML = `
+      <div class="lh-diff-stats">
+        <span class="add">+${stats.additions}</span>
+        <span class="del"> -${stats.deletions}</span>
+      </div>
+    `;
+    panel.appendChild(header);
+    const diffPanel = document.createElement("div");
+    diffPanel.className = "lh-diff-panel";
+    this.renderDiffLines(diffPanel, diffLines);
+    panel.appendChild(diffPanel);
+    this.container.innerHTML = "";
+    this.container.appendChild(panel);
+  }
+  renderDiffLines(container, lines) {
+    const maxLines = 2e3;
+    const toRender = lines.slice(0, maxLines);
+    for (const line of toRender) {
+      const el = document.createElement("div");
+      el.className = `lh-diff-line ${line.type}`;
+      const prefix = line.type === "add" ? "+" : line.type === "del" ? "-" : " ";
+      const num = line.type === "del" ? line.oldNum : line.newNum;
+      el.innerHTML = `<span class="line-num">${num ?? ""}</span>${prefix} ${escapeHtml(line.text)}`;
+      container.appendChild(el);
+    }
+    if (lines.length > maxLines) {
+      const more = document.createElement("div");
+      more.className = "lh-diff-line";
+      more.textContent = `... ${lines.length - maxLines} more lines ...`;
+      container.appendChild(more);
+    }
+  }
   createVersionItem(version) {
     const item = document.createElement("div");
     item.className = "lh-item";
@@ -259,6 +473,8 @@ var HistoryPanel = class {
       <div class="lh-item-summary">${escapeHtml(version.summary)}</div>
     `;
     item.addEventListener("click", () => {
+      this.viewingTimestamp = version.timestamp;
+      this.render();
       if (this.onVersionSelect) {
         this.onVersionSelect(version.timestamp);
       }
@@ -279,7 +495,9 @@ async function activate(ctx) {
     currentFilePath = data.path;
     panel.setFilePath(currentFilePath);
     try {
-      lastSavedContent = await ctx.editor.getContent();
+      const content = await ctx.editor.getContent();
+      lastSavedContent = content;
+      panel.setCurrentContent(content);
     } catch {
       lastSavedContent = null;
     }
@@ -294,6 +512,7 @@ async function activate(ctx) {
       const saved = await storage.saveVersion(currentFilePath, content, lastSavedContent);
       if (saved) {
         lastSavedContent = content;
+        panel.setCurrentContent(content);
         panel.refresh();
       }
     } catch (err) {
