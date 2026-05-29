@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
-import { pluginSidebarPanels } from '../../core/plugins'
+import { pluginSidebarPanels, sidebarShowSignal } from '../../core/plugins'
 import type { PluginSidebarPanel } from '../../core/plugins'
 import { configService } from '../../core/services/ConfigService'
 
@@ -48,6 +48,12 @@ function onResizeStart(e: MouseEvent) {
 
 // --- Collapse / expand ---
 const collapsed = ref(false)
+
+// Watch for programmatic show requests from plugins (e.g. via sidebar.show()).
+watch(sidebarShowSignal, (signal) => {
+  if (signal.tick === 0) return
+  collapsed.value = !collapsed.value
+})
 
 // --- Panel mounting ---
 function mountPanel(panel: PluginSidebarPanel, el: HTMLElement) {

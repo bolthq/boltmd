@@ -25,6 +25,15 @@ export const pluginStatusBarItems: Ref<PluginStatusBarItem[]> = ref([])
 /** All sidebar panels registered by plugins. */
 export const pluginSidebarPanels: Ref<PluginSidebarPanel[]> = ref([])
 
+/** Signal to expand the sidebar and (optionally) switch to a specific panel.
+ *  Incremented to trigger watchers even if the same panel is requested. */
+export const sidebarShowSignal: Ref<{ panelId: string | null; tick: number }> = ref({ panelId: null, tick: 0 })
+
+/** Request the sidebar to expand (and optionally focus a panel). */
+export function showSidebarPanel(panelId?: string): void {
+  sidebarShowSignal.value = { panelId: panelId ?? null, tick: Date.now() }
+}
+
 /** All loaded plugin instances (for settings panel display). */
 export const pluginInstances: Ref<PluginInstance[]> = ref([])
 

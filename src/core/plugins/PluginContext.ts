@@ -30,6 +30,7 @@ import {
   removeStatusBarItem,
   registerSidebarPanel,
   unregisterSidebarPanel,
+  showSidebarPanel,
 } from './PluginManager'
 import {
   getContent,
@@ -230,6 +231,14 @@ export function createPluginContext(manifest: PluginManifest): PluginContext {
         ? panelId
         : `${manifest.id}.${panelId}`
       unregisterSidebarPanel(manifest.id, fullId)
+    },
+
+    show(panelId?: string) {
+      requirePermission('sidebar')
+      const fullId = panelId
+        ? (panelId.startsWith(`${manifest.id}.`) ? panelId : `${manifest.id}.${panelId}`)
+        : undefined
+      showSidebarPanel(fullId)
     },
   }
 

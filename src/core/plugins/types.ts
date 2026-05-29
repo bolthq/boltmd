@@ -200,6 +200,8 @@ export interface PluginSidebarAPI {
   registerPanel(panel: PluginSidebarPanel): void
   /** Unregister a sidebar panel. */
   unregisterPanel(panelId: string): void
+  /** Show (expand) the sidebar, optionally focusing a specific panel. */
+  show(panelId?: string): void
 }
 
 // ---------------------------------------------------------------------------
