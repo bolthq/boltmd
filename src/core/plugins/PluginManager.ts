@@ -97,8 +97,12 @@ export function unregisterSidebarPanel(_pluginId: string, panelId: string): void
 // Plugin instance state management
 // ---------------------------------------------------------------------------
 
-/** Store a plugin instance (called during loading phase). */
+/** Store a plugin instance (called during loading phase). Deduplicates by ID. */
 export function addPluginInstance(instance: PluginInstance): void {
+  // Skip if already registered (prevents duplicates from multiple scan sources or HMR).
+  if (pluginInstances.value.some(p => p.manifest.id === instance.manifest.id)) {
+    return
+  }
   pluginInstances.value = [...pluginInstances.value, instance]
 }
 

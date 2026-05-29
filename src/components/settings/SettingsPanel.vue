@@ -10,6 +10,7 @@ import type { EditorMode } from '../../core/editor/types'
 
 const emit = defineEmits<{
   close: []
+  togglePlugin: [pluginId: string, enabled: boolean]
 }>()
 
 const { t } = useI18n()
@@ -133,6 +134,7 @@ async function togglePlugin(pluginId: string, enabled: boolean) {
     disabledPlugins.value = [...disabledPlugins.value, pluginId]
   }
   await configService.set('disabledPlugins', disabledPlugins.value)
+  emit('togglePlugin', pluginId, enabled)
 }
 
 // 点击遮罩关闭

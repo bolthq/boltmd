@@ -546,6 +546,41 @@ async function deactivateAllPlugins(): Promise<void> {
   }
 }
 
+/** Deactivate a single plugin immediately. */
+async function deactivateSinglePlugin(pluginId: string): Promise<void> {
+  const instance = pluginInstances.value.find(p => p.manifest.id === pluginId)
+  if (!instance || instance.state !== 'active') return
+
+  const DEACTIVATE_TIMEOUT = 5_000
+  try {
+    if (instance.module?.deactivate) {
+      await Promise.race([
+        Promise.resolve(instance.module.deactivate()),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('deactivate() timed out')), DEACTIVATE_TIMEOUT)),
+      ])
+    }
+    if (instance.context) {
+      (instance.context as PluginContextInternal).__dispose()
+    }
+  } catch (err) {
+    console.error(`[Plugin] Error deactivating "${pluginId}":`, err)
+  }
+  cleanupPlugin(pluginId)
+  setPluginDeactivated(pluginId)
+}
+
+/** Toggle a plugin on/off immediately: deactivate or activate in place. */
+async function togglePlugin(pluginId: string, enabled: boolean): Promise<void> {
+  if (enabled) {
+    const instance = pluginInstances.value.find(p => p.manifest.id === pluginId)
+    if (instance && instance.state !== 'active') {
+      await activatePlugin(pluginId, instance.dirPath, instance.manifest.main)
+    }
+  } else {
+    await deactivateSinglePlugin(pluginId)
+  }
+}
+
 /** Reload all plugins (deactivate → reset → rescan → activate). */
 async function reloadAllPlugins(): Promise<void> {
   await deactivateAllPlugins()
@@ -797,13 +832,13 @@ onUnmounted(() => {
     <!-- 状态栏 -->
     <StatusBar v-show="!zenMode || zenShowBottom" />
     <!-- 设置面板 -->
-    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+    <SettingsPanel v-if="showSettings" @close="showSettings = false" @toggle-plugin="togglePlugin" />
     <!-- 命令面板 -->
     <CommandPalette v-if="showCommandPalette" :commands="paletteCommands" :placeholder="palettePlaceholder" @close="showCommandPalette = false" />
     <!-- 关于对话框 -->
     <AboutDialog v-if="showAbout" @close="showAbout = false" />
     <!-- 插件管理面板 -->
-    <PluginPanel v-if="showPlugins" @close="showPlugins = false" @reload-plugins="reloadAllPlugins()" />
+    <PluginPanel v-if="showPlugins" @close="showPlugins = false" @reload-plugins="reloadAllPlugins()" @toggle-plugin="togglePlugin" />
   </div>
 </template>
 

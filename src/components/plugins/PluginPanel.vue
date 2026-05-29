@@ -9,6 +9,7 @@ const { t } = useI18n()
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'reloadPlugins'): void
+  (e: 'togglePlugin', pluginId: string, enabled: boolean): void
 }>()
 
 // Active tab: 'installed' or 'available'
@@ -38,6 +39,7 @@ async function togglePlugin(pluginId: string, enabled: boolean) {
     disabledPlugins.value = [...disabledPlugins.value, pluginId]
   }
   await configService.set('disabledPlugins', disabledPlugins.value)
+  emit('togglePlugin', pluginId, enabled)
 }
 
 // ── Official plugins (available for future install) ───────────────────────────
