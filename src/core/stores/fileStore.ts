@@ -162,7 +162,10 @@ export async function saveFile(): Promise<boolean> {
   // 从编辑器获取最新内容
   const content = getContent()
 
-  const path = tab?.filePath ?? _path.value
+  // Only save directly if the ACTIVE TAB has a bound file path.
+  // Never fall back to the global _path ref — that belongs to whichever
+  // file was last opened/saved and may refer to a different tab.
+  const path = tab?.filePath ?? null
   if (path && tabId) {
     try {
       await fileWatcherService.suppress(path)
@@ -189,8 +192,9 @@ export async function saveFile(): Promise<boolean> {
 export async function saveFileAs(): Promise<boolean> {
   const tabId = activeTabId.value
   const content = getContent()
+  const defaultName = activeTab.value?.fileName ?? undefined
   try {
-    const newPath = await fileService.saveFileAs(content)
+    const newPath = await fileService.saveFileAs(content, defaultName)
     if (!newPath) return false
     const name = newPath.split(/[\\/]/).pop() ?? t('tabs.untitled')
     _path.value = newPath

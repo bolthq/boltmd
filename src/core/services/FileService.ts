@@ -8,7 +8,7 @@ export interface IFileService {
   openFiles(): Promise<FileInfo[]>
   openFilePath(path: string): Promise<FileInfo>
   saveFile(path: string, content: string): Promise<void>
-  saveFileAs(content: string): Promise<string | null>
+  saveFileAs(content: string, defaultName?: string): Promise<string | null>
   newFile(): FileInfo
 }
 
@@ -75,13 +75,13 @@ class FileServiceImpl implements IFileService {
   }
 
   /** 弹出另存为对话框，返回保存路径；用户取消返回 null */
-  async saveFileAs(content: string): Promise<string | null> {
+  async saveFileAs(content: string, defaultName?: string): Promise<string | null> {
     const path = await save({
       filters: [
         { name: t('fileDialog.markdown'), extensions: ['md'] },
         { name: t('fileDialog.allFiles'), extensions: ['*'] },
       ],
-      defaultPath: t('tabs.untitled'),
+      defaultPath: defaultName ?? t('tabs.untitled'),
     })
     if (!path) return null
     await this.saveFile(path, content)

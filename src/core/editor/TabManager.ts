@@ -7,19 +7,36 @@ function genId(): string {
   return `tab-${++tabIdCounter}-${Date.now()}`
 }
 
-function createDefaultTab(): TabState {
-  return {
-    id: genId(),
-    filePath: null,
-    fileName: t('tabs.untitled'),
-    content: '',
-    cleanContent: '',
-    dirty: false,
-    editorMode: 'wysiwyg',
-    cursorPosition: { line: 0, column: 0, offset: 0 },
-    scrollPosition: 0,
-    lastModified: Date.now(),
+/**
+ * Generate a unique untitled file name by checking existing tabs.
+ * Pattern: untitled.md, untitled-2.md, untitled-3.md, ...
+ * For zh-CN: 未命名.md, 未命名-2.md, 未命名-3.md, ...
+ */
+function generateUntitledName(existingTabs: TabState[]): string {
+  const base = t('tabs.untitled') // e.g. "untitled.md" or "未命名.md"
+  const dotIdx = base.lastIndexOf('.')
+  const stem = dotIdx > 0 ? base.slice(0, dotIdx) : base
+  const ext = dotIdx > 0 ? base.slice(dotIdx) : ''
+
+  // Collect all used numbers from existing untitled tabs.
+  const usedNumbers = new Set<number>()
+  const pattern = new RegExp(
+    `^${stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:-(\\d+))?${ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+  )
+
+  for (const tab of existingTabs) {
+    if (tab.filePath !== null) continue // bound to a real file, skip
+    const match = tab.fileName.match(pattern)
+    if (match) {
+      usedNumbers.add(match[1] ? parseInt(match[1], 10) : 1)
+    }
   }
+
+  // Find the first available number.
+  if (!usedNumbers.has(1)) return base // "untitled.md"
+  let n = 2
+  while (usedNumbers.has(n)) n++
+  return `${stem}-${n}${ext}`
 }
 
 /**
@@ -78,7 +95,18 @@ export class TabManager implements ITabManager {
 
   /** 新建空白标签 */
   createTab(): TabState {
-    const tab = createDefaultTab()
+    const tab: TabState = {
+      id: genId(),
+      filePath: null,
+      fileName: generateUntitledName(this.tabs),
+      content: '',
+      cleanContent: '',
+      dirty: false,
+      editorMode: 'wysiwyg',
+      cursorPosition: { line: 0, column: 0, offset: 0 },
+      scrollPosition: 0,
+      lastModified: Date.now(),
+    }
     this.tabs.push(tab)
     this.switchTab(tab.id)
     return tab
