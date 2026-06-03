@@ -138,13 +138,20 @@ function preserveExtraBlankLines(text: string): {
       continue
     }
 
-    if (line.trim() === '') {
+    // Treat lines that are empty OR contain only zero-width spaces as "blank".
+    // \u200B may leak into saved files from the sentinel mechanism; stripping
+    // it here ensures correct round-trip on subsequent loads.
+    const isBlankLine = line.trim() === '' || /^\u200B+$/.test(line)
+    if (isBlankLine) {
       consecutiveBlankLines++
       if (consecutiveBlankLines > 1) {
-        // Extra blank line — insert a sentinel paragraph
+        // Extra blank line — insert a sentinel paragraph.
+        // The sentinel MUST be followed by a blank line so that markdown-it
+        // treats it as its own paragraph (not merged with the next content).
         result.push(SENTINEL)
+        result.push('')
       } else {
-        result.push(line)
+        result.push('')
       }
     } else {
       consecutiveBlankLines = 0
