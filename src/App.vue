@@ -746,6 +746,16 @@ onMounted(async () => {
   setupPluginEventBridge()
   await bootstrapPlugins()
 
+  // Notify plugins of the currently active tab so they can initialize their
+  // state. Events emitted during session restore were missed because plugins
+  // had not been activated yet.
+  if (activeTab.value) {
+    eventBus.emit(AppEvent.TabSwitch, {
+      tabId: activeTab.value.id,
+      path: activeTab.value.filePath ?? null,
+    })
+  }
+
   // Intercept window close: persist session, warn about unsaved changes.
   getCurrentWindow().onCloseRequested(async (event) => {
     await saveSession()
