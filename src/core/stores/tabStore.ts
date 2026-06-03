@@ -43,15 +43,21 @@ export const activeTab = computed<TabState | null>(() =>
 // ── 动作（委托给 TabManager） ───────────────────────────────────────────────
 
 export function createTab(): TabState {
-  return tabManager.createTab()
+  const tab = tabManager.createTab()
+  eventBus.emit(AppEvent.TabSwitch, { tabId: tab.id, path: tab.filePath ?? null })
+  return tab
 }
 
 export function openTab(filePath: string, content: string): TabState {
-  return tabManager.openTab(filePath, content)
+  const tab = tabManager.openTab(filePath, content)
+  eventBus.emit(AppEvent.TabSwitch, { tabId: tab.id, path: tab.filePath ?? null })
+  return tab
 }
 
 export function openBundledDocTab(title: string, content: string): TabState {
-  return tabManager.openBundledDocTab(title, content)
+  const tab = tabManager.openBundledDocTab(title, content)
+  eventBus.emit(AppEvent.TabSwitch, { tabId: tab.id, path: tab.filePath ?? null })
+  return tab
 }
 
 export async function closeTab(tabId: string): Promise<boolean> {
@@ -76,13 +82,19 @@ export async function closeTab(tabId: string): Promise<boolean> {
   const result = await tabManager.closeTab(tabId)
   if (result) {
     eventBus.emit(AppEvent.TabClose, { tabId })
+    // After closing, a new tab became active — notify plugins.
+    const newActive = tabManager.getActiveTab()
+    if (newActive) {
+      eventBus.emit(AppEvent.TabSwitch, { tabId: newActive.id, path: newActive.filePath ?? null })
+    }
   }
   return result
 }
 
 export function switchTab(tabId: string): void {
   tabManager.switchTab(tabId)
-  eventBus.emit(AppEvent.TabSwitch, { tabId })
+  const tab = tabManager.getActiveTab()
+  eventBus.emit(AppEvent.TabSwitch, { tabId, path: tab?.filePath ?? null })
 }
 
 export function updateTabContent(tabId: string, content: string): void {

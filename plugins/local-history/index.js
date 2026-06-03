@@ -637,6 +637,25 @@ async function activate(ctx) {
       lastSavedContent = null;
     }
   });
+  ctx.events.on("tab:switch", async (...args) => {
+    const data = args[0];
+    if (!data) return;
+    currentFilePath = data.path;
+    panel.setFilePath(currentFilePath);
+    updateStatusBar();
+    if (currentFilePath) {
+      try {
+        const content = await ctx.editor.getContent();
+        lastSavedContent = content;
+        panel.setCurrentContent(content);
+      } catch {
+        lastSavedContent = null;
+      }
+    } else {
+      lastSavedContent = null;
+      panel.setCurrentContent("");
+    }
+  });
   ctx.events.on("file:saved", async (...args) => {
     const data = args[0];
     if (!data?.path) return;

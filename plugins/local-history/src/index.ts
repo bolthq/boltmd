@@ -34,6 +34,30 @@ export async function activate(ctx: PluginContext): Promise<void> {
     }
   })
 
+  // When a tab is switched, update the panel to show the new tab's history
+  // (or clear it for tabs without a saved file path).
+  ctx.events.on('tab:switch', async (...args: unknown[]) => {
+    const data = args[0] as { tabId: string; path: string | null } | undefined
+    if (!data) return
+
+    currentFilePath = data.path
+    panel.setFilePath(currentFilePath)
+    updateStatusBar()
+
+    if (currentFilePath) {
+      try {
+        const content = await ctx.editor.getContent()
+        lastSavedContent = content
+        panel.setCurrentContent(content)
+      } catch {
+        lastSavedContent = null
+      }
+    } else {
+      lastSavedContent = null
+      panel.setCurrentContent('')
+    }
+  })
+
   // When a file is saved, create a version snapshot if content changed.
   ctx.events.on('file:saved', async (...args: unknown[]) => {
     const data = args[0] as { path: string } | undefined
