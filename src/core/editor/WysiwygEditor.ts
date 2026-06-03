@@ -23,6 +23,7 @@ import { MathBlock } from './extensions/MathBlock'
 import { Frontmatter } from './extensions/Frontmatter'
 import { MermaidBlock } from './extensions/MermaidBlock'
 import { EmptyParagraphBackspace } from './extensions/EmptyParagraphBackspace'
+import { CursorBlinkReset } from './extensions/CursorBlinkReset'
 import { serializeMarkdown, pmOffsetToTextOffset, textOffsetToPmOffset } from './serializer/MarkdownSerializer'
 import { parseMarkdown } from './parser/MarkdownParser'
 import {
@@ -147,6 +148,7 @@ export function createWysiwygExtensions(): Extensions {
     SearchAndReplace,
     HeadingHighlight,
     EmptyParagraphBackspace,
+    CursorBlinkReset,
   ]
 }
 

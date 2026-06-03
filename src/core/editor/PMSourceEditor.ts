@@ -19,6 +19,7 @@ import { serializeMarkdown } from './serializer/MarkdownSerializer'
 import { parseMarkdown } from './parser/MarkdownParser'
 import { reportCursorLine, reportActiveHeadingIndex, getTiptapEditor } from './EditorManager'
 import { headingHighlightKey, createHighlightPlugin } from './extensions/HeadingHighlight'
+import { createCursorBlinkResetPlugin } from './extensions/CursorBlinkReset'
 
 // ---------------------------------------------------------------------------
 // Source-mode schema: a single codeBlock holding raw markdown text.
@@ -74,6 +75,7 @@ export class PMSourceEditor implements IEditor {
       }),
       keymap(baseKeymap),
       createHighlightPlugin(),
+      createCursorBlinkResetPlugin(),
     ]
     const state = EditorState.create({ doc, plugins })
 
