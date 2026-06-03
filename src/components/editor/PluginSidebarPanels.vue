@@ -47,7 +47,7 @@ function onResizeStart(e: MouseEvent) {
 }
 
 // --- Collapse / expand ---
-const collapsed = ref(false)
+const collapsed = ref(true)
 
 // Watch for programmatic show requests from plugins (e.g. via sidebar.show()).
 watch(sidebarShowSignal, (signal) => {
