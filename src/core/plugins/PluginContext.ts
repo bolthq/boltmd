@@ -17,10 +17,13 @@ import type {
   PluginConfigAPI,
   PluginEventsAPI,
   PluginFileSystemAPI,
+  PluginNetworkAPI,
   PluginCommandDefinition,
   PluginStatusBarItem,
   PluginSidebarPanel,
   PluginEventName,
+  HttpRequestOptions,
+  HttpResponse,
 } from './types'
 import {
   registerCommand,
@@ -359,6 +362,22 @@ export function createPluginContext(manifest: PluginManifest): PluginContext {
     },
   }
 
+  // --- Network API ---
+  const network: PluginNetworkAPI = {
+    async request(options: HttpRequestOptions): Promise<HttpResponse> {
+      requirePermission('network')
+      const result = await invoke<HttpResponse>('plugin_http_request', {
+        pluginId: manifest.id,
+        method: options.method,
+        url: options.url,
+        headers: options.headers ?? null,
+        body: options.body ?? null,
+        timeoutMs: options.timeout ?? null,
+      })
+      return result
+    },
+  }
+
   // --- Build the context object ---
   const ctx: PluginContext = {
     manifest: Object.freeze({ ...manifest }),
@@ -369,6 +388,7 @@ export function createPluginContext(manifest: PluginManifest): PluginContext {
     config,
     events,
     fs,
+    network,
   }
 
   // Attach dispose method (not part of the public PluginContext interface,

@@ -20,7 +20,7 @@ export type PluginPermission =
   | 'events'          // Subscribe to app events
   | 'fs:read'         // Read files (plugin data directory)
   | 'fs:write'        // Write files (plugin data directory)
-  | 'network'         // HTTP requests (future)
+  | 'network'         // HTTP requests (WebDAV, REST APIs, etc.)
 
 /** Plugin manifest (manifest.json in plugin directory). */
 export interface PluginManifest {
@@ -102,6 +102,9 @@ export interface PluginContext {
 
   /** File system access (requires 'fs:read' or 'fs:write' permission). */
   readonly fs: PluginFileSystemAPI
+
+  /** HTTP network requests (requires 'network' permission). */
+  readonly network: PluginNetworkAPI
 }
 
 // ---------------------------------------------------------------------------
@@ -259,4 +262,42 @@ export interface PluginFileSystemAPI {
   listDir(path: string): Promise<string[]>
   /** Get the plugin's private data directory absolute path. */
   getDataDir(): Promise<string>
+}
+
+// ---------------------------------------------------------------------------
+// Network API
+// ---------------------------------------------------------------------------
+
+/** HTTP method supported by the plugin network API. */
+export type HttpMethod =
+  | 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS'
+  | 'PROPFIND' | 'MKCOL' | 'COPY' | 'MOVE'
+
+/** Options for an HTTP request. */
+export interface HttpRequestOptions {
+  /** Full URL (must be http:// or https://). */
+  url: string
+  /** HTTP method. */
+  method: HttpMethod
+  /** Request headers. */
+  headers?: Record<string, string>
+  /** Request body (string). */
+  body?: string
+  /** Timeout in milliseconds. Default: 30000, max: 120000. */
+  timeout?: number
+}
+
+/** HTTP response returned by the network API. */
+export interface HttpResponse {
+  /** HTTP status code. */
+  status: number
+  /** Response headers (lowercase keys). */
+  headers: Record<string, string>
+  /** Response body as string. */
+  body: string
+}
+
+export interface PluginNetworkAPI {
+  /** Send an HTTP request. Requires 'network' permission. */
+  request(options: HttpRequestOptions): Promise<HttpResponse>
 }

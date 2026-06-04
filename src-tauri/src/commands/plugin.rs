@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -362,4 +363,125 @@ pub fn read_plugin_entry(dir_path: String, main: String) -> Result<String, Strin
 
     std::fs::read_to_string(&canonical_entry)
         .map_err(|e| format!("Cannot read plugin entry: {e}"))
+}
+
+// ---------------------------------------------------------------------------
+// Plugin HTTP request (network permission)
+// ---------------------------------------------------------------------------
+
+/// Response payload returned to the frontend.
+#[derive(serde::Serialize)]
+pub struct HttpResponsePayload {
+    pub status: u16,
+    pub headers: HashMap<String, String>,
+    pub body: String,
+}
+
+/// Execute an HTTP request on behalf of a plugin.
+/// The frontend is responsible for checking the 'network' permission before calling this.
+///
+/// Supported methods: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, PROPFIND, MKCOL, COPY, MOVE.
+/// URL must start with http:// or https://.
+/// Response body is capped at 10MB.
+/// Timeout is capped at 120 seconds (default 30s).
+#[tauri::command]
+pub async fn plugin_http_request(
+    plugin_id: String,
+    method: String,
+    url: String,
+    headers: Option<HashMap<String, String>>,
+    body: Option<String>,
+    timeout_ms: Option<u64>,
+) -> Result<HttpResponsePayload, String> {
+    // Validate plugin ID (basic sanity check).
+    validate_plugin_id(&plugin_id)?;
+
+    // Validate URL scheme.
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("URL must use http:// or https:// scheme".into());
+    }
+
+    // Validate and cap timeout.
+    let timeout = {
+        let ms = timeout_ms.unwrap_or(30_000).min(120_000);
+        std::time::Duration::from_millis(ms)
+    };
+
+    // Build the reqwest client.
+    let client = reqwest::Client::builder()
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+        .map_err(|e| format!("Cannot create HTTP client: {e}"))?;
+
+    // Parse method.
+    let req_method = match method.to_uppercase().as_str() {
+        "GET" => reqwest::Method::GET,
+        "POST" => reqwest::Method::POST,
+        "PUT" => reqwest::Method::PUT,
+        "DELETE" => reqwest::Method::DELETE,
+        "PATCH" => reqwest::Method::PATCH,
+        "HEAD" => reqwest::Method::HEAD,
+        "OPTIONS" => reqwest::Method::OPTIONS,
+        // WebDAV-specific methods
+        "PROPFIND" => reqwest::Method::from_bytes(b"PROPFIND").unwrap(),
+        "MKCOL" => reqwest::Method::from_bytes(b"MKCOL").unwrap(),
+        "COPY" => reqwest::Method::from_bytes(b"COPY").unwrap(),
+        "MOVE" => reqwest::Method::from_bytes(b"MOVE").unwrap(),
+        other => return Err(format!("Unsupported HTTP method: {other}")),
+    };
+
+    // Build the request.
+    let mut req_builder = client.request(req_method, &url);
+
+    // Add headers.
+    if let Some(hdrs) = headers {
+        for (key, value) in hdrs {
+            req_builder = req_builder.header(&key, &value);
+        }
+    }
+
+    // Add body.
+    if let Some(b) = body {
+        req_builder = req_builder.body(b);
+    }
+
+    // Execute the request.
+    let response = req_builder
+        .send()
+        .await
+        .map_err(|e| format!("HTTP request failed: {e}"))?;
+
+    // Extract status and headers.
+    let status = response.status().as_u16();
+    let mut resp_headers = HashMap::new();
+    for (key, value) in response.headers().iter() {
+        if let Ok(v) = value.to_str() {
+            resp_headers.insert(key.as_str().to_string(), v.to_string());
+        }
+    }
+
+    // Read body with size limit (10MB).
+    let body_bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Cannot read response body: {e}"))?;
+
+    const MAX_BODY_SIZE: usize = 10 * 1024 * 1024;
+    if body_bytes.len() > MAX_BODY_SIZE {
+        return Err(format!(
+            "Response body too large: {} bytes (max {})",
+            body_bytes.len(),
+            MAX_BODY_SIZE
+        ));
+    }
+
+    // Convert body to string (lossy for binary responses).
+    let body_str = String::from_utf8_lossy(&body_bytes).to_string();
+
+    Ok(HttpResponsePayload {
+        status,
+        headers: resp_headers,
+        body: body_str,
+    })
 }
