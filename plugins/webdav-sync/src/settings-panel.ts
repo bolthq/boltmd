@@ -77,6 +77,22 @@ const STYLES = `
   color: var(--text-muted, #666);
 }
 
+.wds-checkbox-field label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+}
+
+.wds-checkbox-field input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-primary, #64b5f6);
+  cursor: pointer;
+}
+
 .wds-actions {
   display: flex;
   gap: 8px;
@@ -209,6 +225,16 @@ export class SettingsPanel {
           <label>Password</label>
           <input type="password" data-field="password" placeholder="password" />
         </div>
+        <div class="wds-field wds-checkbox-field">
+          <label>
+            <input type="checkbox" data-field="autoSyncOnSave" />
+            Auto sync on save
+          </label>
+        </div>
+        <div class="wds-field">
+          <label>Draft sync interval (seconds, 0 = off)</label>
+          <input type="number" data-field="draftSyncIntervalSec" min="0" max="3600" placeholder="0" />
+        </div>
         <div class="wds-actions">
           <button class="wds-btn" data-action="test">Test</button>
           <button class="wds-btn primary" data-action="save">Save</button>
@@ -222,24 +248,37 @@ export class SettingsPanel {
     for (const input of inputs) {
       const field = input.dataset.field as keyof WebDAVConfig
       if (field && this.config[field] !== undefined) {
-        input.value = String(this.config[field])
+        if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+          input.checked = Boolean(this.config[field])
+        } else {
+          input.value = String(this.config[field])
+        }
       }
     }
 
     // Bind input changes.
     for (const input of inputs) {
-      input.addEventListener('input', () => {
-        const field = input.dataset.field as keyof WebDAVConfig
-        if (field === 'timeout') {
-          (this.config as Record<string, unknown>)[field] = parseInt(input.value, 10) || 30000
-        } else {
-          (this.config as Record<string, unknown>)[field] = input.value
-        }
-      })
-      input.addEventListener('change', () => {
-        const field = input.dataset.field as keyof WebDAVConfig
-        (this.config as Record<string, unknown>)[field] = input.value
-      })
+      const field = input.dataset.field as keyof WebDAVConfig
+      if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+        input.addEventListener('change', () => {
+          (this.config as Record<string, unknown>)[field] = input.checked
+        })
+      } else {
+        input.addEventListener('input', () => {
+          if (field === 'timeout' || field === 'draftSyncIntervalSec') {
+            (this.config as Record<string, unknown>)[field] = parseInt(input.value, 10) || 0
+          } else {
+            (this.config as Record<string, unknown>)[field] = input.value
+          }
+        })
+        input.addEventListener('change', () => {
+          if (field === 'timeout' || field === 'draftSyncIntervalSec') {
+            (this.config as Record<string, unknown>)[field] = parseInt(input.value, 10) || 0
+          } else {
+            (this.config as Record<string, unknown>)[field] = input.value
+          }
+        })
+      }
     }
 
     // Status container ref.
@@ -286,8 +325,15 @@ export class SettingsPanel {
     }
   }
 
+  private statusTimer: ReturnType<typeof setTimeout> | null = null
+
   private showStatus(type: 'success' | 'error' | 'info', message: string): void {
     if (!this.statusEl) return
     this.statusEl.innerHTML = `<div class="wds-status ${type}">${message}</div>`
+    if (this.statusTimer) clearTimeout(this.statusTimer)
+    this.statusTimer = setTimeout(() => {
+      if (this.statusEl) this.statusEl.innerHTML = ''
+      this.statusTimer = null
+    }, 3000)
   }
 }

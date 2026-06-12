@@ -18,6 +18,10 @@ export interface WebDAVConfig {
   authMethod: 'basic' | 'bearer'
   /** Request timeout in ms */
   timeout: number
+  /** Automatically upload on file save */
+  autoSyncOnSave: boolean
+  /** Auto-upload unsaved drafts every N seconds (0 = disabled) */
+  draftSyncIntervalSec: number
 }
 
 export class WebDAVClient {
@@ -67,6 +71,48 @@ export class WebDAVClient {
     // Filter out the directory entry itself (usually the first result).
     const dirPath = this.normalizePath(remotePath)
     return resources.filter(r => this.normalizePath(r.href) !== dirPath)
+  }
+
+  /**
+   * Upload a file to the server via PUT.
+   * Returns the ETag from the response (if provided by server).
+   */
+  async putFile(remotePath: string, content: string): Promise<{ etag: string | null }> {
+    const url = this.buildUrl(remotePath)
+    const resp = await this.network.request({
+      url,
+      method: 'PUT',
+      headers: {
+        ...this.authHeaders(),
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+      body: content,
+      timeout: this.config.timeout,
+    })
+    if (resp.status >= 200 && resp.status < 300) {
+      const etag = resp.headers['etag'] || resp.headers['ETag'] || null
+      return { etag }
+    }
+    throw new Error(`PUT failed: ${resp.status}`)
+  }
+
+  /**
+   * Ensure a remote directory exists (MKCOL).
+   * Ignores 405 (already exists) and 301 (redirect to existing).
+   */
+  async ensureDirectory(remotePath: string): Promise<void> {
+    const url = this.buildUrl(remotePath)
+    const resp = await this.network.request({
+      url,
+      method: 'MKCOL',
+      headers: this.authHeaders(),
+      timeout: this.config.timeout,
+    })
+    // 201 = created, 405 = already exists, both are fine.
+    if (resp.status === 201 || resp.status === 405 || resp.status === 301) return
+    if (resp.status >= 400) {
+      throw new Error(`MKCOL ${remotePath} failed: ${resp.status}`)
+    }
   }
 
   // -------------------------------------------------------------------------

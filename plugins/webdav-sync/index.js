@@ -85,6 +85,45 @@ var WebDAVClient = class {
     const dirPath = this.normalizePath(remotePath);
     return resources.filter((r) => this.normalizePath(r.href) !== dirPath);
   }
+  /**
+   * Upload a file to the server via PUT.
+   * Returns the ETag from the response (if provided by server).
+   */
+  async putFile(remotePath, content) {
+    const url = this.buildUrl(remotePath);
+    const resp = await this.network.request({
+      url,
+      method: "PUT",
+      headers: {
+        ...this.authHeaders(),
+        "Content-Type": "text/plain; charset=utf-8"
+      },
+      body: content,
+      timeout: this.config.timeout
+    });
+    if (resp.status >= 200 && resp.status < 300) {
+      const etag = resp.headers["etag"] || resp.headers["ETag"] || null;
+      return { etag };
+    }
+    throw new Error(`PUT failed: ${resp.status}`);
+  }
+  /**
+   * Ensure a remote directory exists (MKCOL).
+   * Ignores 405 (already exists) and 301 (redirect to existing).
+   */
+  async ensureDirectory(remotePath) {
+    const url = this.buildUrl(remotePath);
+    const resp = await this.network.request({
+      url,
+      method: "MKCOL",
+      headers: this.authHeaders(),
+      timeout: this.config.timeout
+    });
+    if (resp.status === 201 || resp.status === 405 || resp.status === 301) return;
+    if (resp.status >= 400) {
+      throw new Error(`MKCOL ${remotePath} failed: ${resp.status}`);
+    }
+  }
   // -------------------------------------------------------------------------
   // Internal
   // -------------------------------------------------------------------------
@@ -201,6 +240,22 @@ var STYLES = `
 
 .wds-field input::placeholder {
   color: var(--text-muted, #666);
+}
+
+.wds-checkbox-field label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+}
+
+.wds-checkbox-field input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-primary, #64b5f6);
+  cursor: pointer;
 }
 
 .wds-actions {
@@ -324,6 +379,16 @@ var SettingsPanel = class {
           <label>Password</label>
           <input type="password" data-field="password" placeholder="password" />
         </div>
+        <div class="wds-field wds-checkbox-field">
+          <label>
+            <input type="checkbox" data-field="autoSyncOnSave" />
+            Auto sync on save
+          </label>
+        </div>
+        <div class="wds-field">
+          <label>Draft sync interval (seconds, 0 = off)</label>
+          <input type="number" data-field="draftSyncIntervalSec" min="0" max="3600" placeholder="0" />
+        </div>
         <div class="wds-actions">
           <button class="wds-btn" data-action="test">Test</button>
           <button class="wds-btn primary" data-action="save">Save</button>
@@ -335,22 +400,35 @@ var SettingsPanel = class {
     for (const input of inputs) {
       const field = input.dataset.field;
       if (field && this.config[field] !== void 0) {
-        input.value = String(this.config[field]);
+        if (input instanceof HTMLInputElement && input.type === "checkbox") {
+          input.checked = Boolean(this.config[field]);
+        } else {
+          input.value = String(this.config[field]);
+        }
       }
     }
     for (const input of inputs) {
-      input.addEventListener("input", () => {
-        const field = input.dataset.field;
-        if (field === "timeout") {
-          this.config[field] = parseInt(input.value, 10) || 3e4;
-        } else {
-          this.config[field] = input.value;
-        }
-      });
-      input.addEventListener("change", () => {
-        const field = input.dataset.field;
-        this.config[field] = input.value;
-      });
+      const field = input.dataset.field;
+      if (input instanceof HTMLInputElement && input.type === "checkbox") {
+        input.addEventListener("change", () => {
+          this.config[field] = input.checked;
+        });
+      } else {
+        input.addEventListener("input", () => {
+          if (field === "timeout" || field === "draftSyncIntervalSec") {
+            this.config[field] = parseInt(input.value, 10) || 0;
+          } else {
+            this.config[field] = input.value;
+          }
+        });
+        input.addEventListener("change", () => {
+          if (field === "timeout" || field === "draftSyncIntervalSec") {
+            this.config[field] = parseInt(input.value, 10) || 0;
+          } else {
+            this.config[field] = input.value;
+          }
+        });
+      }
     }
     this.statusEl = panel.querySelector(".wds-status-container");
     panel.querySelector('[data-action="test"]').addEventListener("click", () => this.handleTest());
@@ -387,9 +465,15 @@ var SettingsPanel = class {
       btns?.forEach((b) => b.disabled = false);
     }
   }
+  statusTimer = null;
   showStatus(type, message) {
     if (!this.statusEl) return;
     this.statusEl.innerHTML = `<div class="wds-status ${type}">${message}</div>`;
+    if (this.statusTimer) clearTimeout(this.statusTimer);
+    this.statusTimer = setTimeout(() => {
+      if (this.statusEl) this.statusEl.innerHTML = "";
+      this.statusTimer = null;
+    }, 3e3);
   }
 };
 
@@ -401,9 +485,12 @@ var DEFAULT_CONFIG = {
   username: "",
   password: "",
   authMethod: "basic",
-  timeout: 3e4
+  timeout: 3e4,
+  autoSyncOnSave: true,
+  draftSyncIntervalSec: 0
 };
 var client = null;
+var draftTimer = null;
 async function activate(ctx) {
   const saved = await ctx.config.get(CONFIG_KEY);
   let config = saved ? { ...DEFAULT_CONFIG, ...saved } : { ...DEFAULT_CONFIG };
@@ -415,6 +502,7 @@ async function activate(ctx) {
       config = { ...newConfig };
       client.updateConfig(config);
       await ctx.config.set(CONFIG_KEY, config);
+      startDraftTimer();
       console.log("[webdav-sync] Config saved.");
     },
     // onTest
@@ -429,6 +517,70 @@ async function activate(ctx) {
     icon: "\u2601",
     // cloud icon
     mount: (container) => panel.mount(container)
+  });
+  let lastSavedFileName = null;
+  let lastUploadedContent = null;
+  ctx.events.on("file:saved", async (...args) => {
+    const payload = args[0];
+    if (!payload?.path || !client || !config.serverUrl || !config.autoSyncOnSave) return;
+    const filePath = payload.path;
+    const fileName = filePath.split(/[\\/]/).pop();
+    if (!fileName) return;
+    lastSavedFileName = fileName;
+    try {
+      const content = await ctx.editor.getContent();
+      if (content === lastUploadedContent) return;
+      const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + fileName;
+      const result = await client.putFile(remotePath, content);
+      lastUploadedContent = content;
+      console.log(`[webdav-sync] Uploaded "${fileName}" (etag: ${result.etag})`);
+    } catch (err) {
+      console.error(`[webdav-sync] Upload failed for "${fileName}":`, err);
+    }
+  });
+  function startDraftTimer() {
+    stopDraftTimer();
+    if (config.draftSyncIntervalSec <= 0 || !config.serverUrl) return;
+    draftTimer = setInterval(async () => {
+      if (!client || !lastSavedFileName) return;
+      try {
+        const content = await ctx.editor.getContent();
+        if (content === lastUploadedContent) return;
+        const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
+        const result = await client.putFile(remotePath, content);
+        lastUploadedContent = content;
+        console.log(`[webdav-sync] Draft sync: uploaded "${lastSavedFileName}" (etag: ${result.etag})`);
+      } catch (err) {
+        console.error(`[webdav-sync] Draft sync failed:`, err);
+      }
+    }, config.draftSyncIntervalSec * 1e3);
+  }
+  function stopDraftTimer() {
+    if (draftTimer) {
+      clearInterval(draftTimer);
+      draftTimer = null;
+    }
+  }
+  startDraftTimer();
+  ctx.commands.register({
+    id: "syncNow",
+    label: "WebDAV Sync: Sync Now",
+    async action() {
+      if (!client || !config.serverUrl) return;
+      if (!lastSavedFileName) {
+        console.warn("[webdav-sync] No file has been saved yet.");
+        return;
+      }
+      try {
+        const content = await ctx.editor.getContent();
+        const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
+        const result = await client.putFile(remotePath, content);
+        lastUploadedContent = content;
+        console.log(`[webdav-sync] Manual sync: uploaded "${lastSavedFileName}" (etag: ${result.etag})`);
+      } catch (err) {
+        console.error(`[webdav-sync] Manual sync failed:`, err);
+      }
+    }
   });
   ctx.commands.register({
     id: "testConnection",
@@ -469,6 +621,10 @@ async function activate(ctx) {
   console.log("[webdav-sync] Plugin activated.");
 }
 function deactivate() {
+  if (draftTimer) {
+    clearInterval(draftTimer);
+    draftTimer = null;
+  }
   client = null;
   console.log("[webdav-sync] Plugin deactivated");
 }
