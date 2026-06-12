@@ -1,0 +1,13 @@
+{
+  "name": "boltmd-plugin-webdav-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --outfile=index.js --target=es2022",
+    "watch": "esbuild src/index.ts --bundle --format=esm --outfile=index.js --target=es2022 --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
