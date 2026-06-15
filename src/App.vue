@@ -575,6 +575,15 @@ async function togglePlugin(pluginId: string, enabled: boolean): Promise<void> {
     const instance = pluginInstances.value.find(p => p.manifest.id === pluginId)
     if (instance && instance.state !== 'active') {
       await activatePlugin(pluginId, instance.dirPath, instance.manifest.main)
+
+      // Emit synthetic tab:switch so the re-activated plugin can pick up
+      // the currently active file (same as post-bootstrap initialization).
+      if (activeTab.value) {
+        emitPluginEvent('tab:switch', {
+          tabId: activeTab.value.id,
+          path: activeTab.value.filePath ?? null,
+        })
+      }
     }
   } else {
     await deactivateSinglePlugin(pluginId)
