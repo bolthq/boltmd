@@ -535,6 +535,81 @@ async function activate(ctx) {
   const saved = await ctx.config.get(CONFIG_KEY);
   let config = saved ? { ...DEFAULT_CONFIG, ...saved } : { ...DEFAULT_CONFIG };
   client = new WebDAVClient(ctx.network, config);
+  let currentState = config.serverUrl ? "idle" : "offline";
+  let conflictEtag = null;
+  let busyStartTime = 0;
+  let busyDelayTimer = null;
+  ctx.statusbar.addItem({
+    id: "sync-status",
+    text: stateText("offline"),
+    tooltip: "WebDAV Sync: not configured",
+    align: "right",
+    priority: 50,
+    onClick: () => ctx.sidebar.show("settings")
+  });
+  function setState(state, detail) {
+    if (busyDelayTimer) {
+      clearTimeout(busyDelayTimer);
+      busyDelayTimer = null;
+    }
+    if (state === "uploading" || state === "downloading") {
+      busyStartTime = Date.now();
+      applyState(state, detail);
+      return;
+    }
+    if (currentState === "uploading" || currentState === "downloading") {
+      const elapsed = Date.now() - busyStartTime;
+      const MIN_DISPLAY = 1e3;
+      if (elapsed < MIN_DISPLAY) {
+        busyDelayTimer = setTimeout(() => {
+          busyDelayTimer = null;
+          applyState(state, detail);
+        }, MIN_DISPLAY - elapsed);
+        return;
+      }
+    }
+    applyState(state, detail);
+  }
+  function applyState(state, detail) {
+    currentState = state;
+    ctx.statusbar.updateItem("sync-status", {
+      text: stateText(state),
+      tooltip: detail || stateTooltip(state)
+    });
+  }
+  function stateText(state) {
+    switch (state) {
+      case "idle":
+        return "\u21C5 Synced";
+      case "uploading":
+        return "\u2191 Uploading";
+      case "downloading":
+        return "\u2193 Downloading";
+      case "conflict":
+        return "\u26A0 Conflict";
+      case "error":
+        return "\u21C5 Error";
+      case "offline":
+        return "\u21C5 Offline";
+    }
+  }
+  function stateTooltip(state) {
+    switch (state) {
+      case "idle":
+        return "WebDAV Sync: up to date";
+      case "uploading":
+        return "WebDAV Sync: uploading...";
+      case "downloading":
+        return "WebDAV Sync: downloading...";
+      case "conflict":
+        return "WebDAV Sync: conflict detected \u2014 use Pull Remote or Sync Now to resolve";
+      case "error":
+        return "WebDAV Sync: last operation failed";
+      case "offline":
+        return "WebDAV Sync: not configured";
+    }
+  }
+  if (config.serverUrl) setState("idle");
   const panel = new SettingsPanel(
     config,
     // onSave
@@ -544,6 +619,7 @@ async function activate(ctx) {
       await ctx.config.set(CONFIG_KEY, config);
       startDraftTimer();
       startPollTimer();
+      setState(config.serverUrl ? "idle" : "offline");
       console.log("[webdav-sync] Config saved.");
     },
     // onTest
@@ -572,12 +648,16 @@ async function activate(ctx) {
     try {
       const content = await ctx.editor.getContent();
       if (content === lastUploadedContent) return;
+      setState("uploading");
       const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + fileName;
       const result = await client.putFile(remotePath, content);
       lastUploadedContent = content;
       lastKnownEtag = result.etag ? result.etag.replace(/"/g, "") : null;
+      conflictEtag = null;
+      setState("idle");
       console.log(`[webdav-sync] Uploaded "${fileName}" (etag: ${lastKnownEtag})`);
     } catch (err) {
+      setState("error", `Upload failed: ${err}`);
       console.error(`[webdav-sync] Upload failed for "${fileName}":`, err);
     }
   });
@@ -586,14 +666,19 @@ async function activate(ctx) {
     if (config.draftSyncIntervalSec <= 0 || !config.serverUrl) return;
     draftTimer = setInterval(async () => {
       if (!client || !lastSavedFileName) return;
+      if (currentState === "conflict") return;
       try {
         const content = await ctx.editor.getContent();
         if (content === lastUploadedContent) return;
+        setState("uploading");
         const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
         const result = await client.putFile(remotePath, content);
         lastUploadedContent = content;
-        console.log(`[webdav-sync] Draft sync: uploaded "${lastSavedFileName}" (etag: ${result.etag})`);
+        lastKnownEtag = result.etag ? result.etag.replace(/"/g, "") : null;
+        setState("idle");
+        console.log(`[webdav-sync] Draft sync: uploaded "${lastSavedFileName}" (etag: ${lastKnownEtag})`);
       } catch (err) {
+        setState("error", `Draft sync failed: ${err}`);
         console.error(`[webdav-sync] Draft sync failed:`, err);
       }
     }, config.draftSyncIntervalSec * 1e3);
@@ -610,6 +695,7 @@ async function activate(ctx) {
     if (config.pollIntervalSec <= 0 || !config.serverUrl) return;
     pollTimer = setInterval(async () => {
       if (!client || !lastSavedFileName) return;
+      if (currentState === "conflict") return;
       try {
         const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
         const info = await client.getFileInfo(remotePath);
@@ -618,15 +704,20 @@ async function activate(ctx) {
         const localContent = await ctx.editor.getContent();
         const hasLocalChanges = localContent !== lastUploadedContent;
         if (hasLocalChanges) {
-          console.warn(`[webdav-sync] Conflict: remote "${lastSavedFileName}" changed (etag: ${info.etag}) but local has unsaved edits. Skipping download.`);
+          conflictEtag = info.etag;
+          setState("conflict", `Remote "${lastSavedFileName}" changed (etag: ${info.etag}) but local has unsaved edits.`);
+          console.warn(`[webdav-sync] Conflict detected for "${lastSavedFileName}"`);
           return;
         }
+        setState("downloading");
         const { content, etag } = await client.getFile(remotePath);
         lastKnownEtag = etag;
         lastUploadedContent = content;
         await ctx.editor.setContent(content);
+        setState("idle");
         console.log(`[webdav-sync] Downloaded remote change for "${lastSavedFileName}" (etag: ${etag})`);
       } catch (err) {
+        setState("error", `Poll failed: ${err}`);
         console.error(`[webdav-sync] Poll failed:`, err);
       }
     }, config.pollIntervalSec * 1e3);
@@ -640,7 +731,7 @@ async function activate(ctx) {
   startPollTimer();
   ctx.commands.register({
     id: "syncNow",
-    label: "WebDAV Sync: Sync Now",
+    label: "WebDAV Sync: Sync Now (Push)",
     async action() {
       if (!client || !config.serverUrl) return;
       if (!lastSavedFileName) {
@@ -648,27 +739,18 @@ async function activate(ctx) {
         return;
       }
       try {
+        setState("uploading");
         const content = await ctx.editor.getContent();
         const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
         const result = await client.putFile(remotePath, content);
         lastUploadedContent = content;
         lastKnownEtag = result.etag ? result.etag.replace(/"/g, "") : null;
+        conflictEtag = null;
+        setState("idle");
         console.log(`[webdav-sync] Manual sync: uploaded "${lastSavedFileName}" (etag: ${lastKnownEtag})`);
       } catch (err) {
+        setState("error", `Manual sync failed: ${err}`);
         console.error(`[webdav-sync] Manual sync failed:`, err);
-      }
-    }
-  });
-  ctx.commands.register({
-    id: "testConnection",
-    label: "WebDAV Sync: Test Connection",
-    async action() {
-      if (!client) return;
-      const result = await client.testConnection();
-      if (result.ok) {
-        console.log("[webdav-sync] Connection successful!");
-      } else {
-        console.error("[webdav-sync] Connection failed:", result.error);
       }
     }
   });
@@ -682,14 +764,75 @@ async function activate(ctx) {
         return;
       }
       try {
+        setState("downloading");
         const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
         const { content, etag } = await client.getFile(remotePath);
         lastKnownEtag = etag;
         lastUploadedContent = content;
+        conflictEtag = null;
         await ctx.editor.setContent(content);
+        setState("idle");
         console.log(`[webdav-sync] Pulled remote "${lastSavedFileName}" (etag: ${etag})`);
       } catch (err) {
+        setState("error", `Pull failed: ${err}`);
         console.error(`[webdav-sync] Pull failed:`, err);
+      }
+    }
+  });
+  ctx.commands.register({
+    id: "resolveKeepLocal",
+    label: "WebDAV Sync: Resolve Conflict \u2014 Keep Local",
+    async action() {
+      if (!client || !config.serverUrl || currentState !== "conflict") return;
+      if (!lastSavedFileName) return;
+      try {
+        setState("uploading");
+        const content = await ctx.editor.getContent();
+        const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
+        const result = await client.putFile(remotePath, content);
+        lastUploadedContent = content;
+        lastKnownEtag = result.etag ? result.etag.replace(/"/g, "") : null;
+        conflictEtag = null;
+        setState("idle");
+        console.log(`[webdav-sync] Conflict resolved: kept local, pushed to remote (etag: ${lastKnownEtag})`);
+      } catch (err) {
+        setState("error", `Resolve failed: ${err}`);
+        console.error(`[webdav-sync] Resolve (keep local) failed:`, err);
+      }
+    }
+  });
+  ctx.commands.register({
+    id: "resolveKeepRemote",
+    label: "WebDAV Sync: Resolve Conflict \u2014 Keep Remote",
+    async action() {
+      if (!client || !config.serverUrl || currentState !== "conflict") return;
+      if (!lastSavedFileName) return;
+      try {
+        setState("downloading");
+        const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
+        const { content, etag } = await client.getFile(remotePath);
+        lastKnownEtag = etag;
+        lastUploadedContent = content;
+        conflictEtag = null;
+        await ctx.editor.setContent(content);
+        setState("idle");
+        console.log(`[webdav-sync] Conflict resolved: kept remote (etag: ${etag})`);
+      } catch (err) {
+        setState("error", `Resolve failed: ${err}`);
+        console.error(`[webdav-sync] Resolve (keep remote) failed:`, err);
+      }
+    }
+  });
+  ctx.commands.register({
+    id: "testConnection",
+    label: "WebDAV Sync: Test Connection",
+    async action() {
+      if (!client) return;
+      const result = await client.testConnection();
+      if (result.ok) {
+        console.log("[webdav-sync] Connection successful!");
+      } else {
+        console.error("[webdav-sync] Connection failed:", result.error);
       }
     }
   });
