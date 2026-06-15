@@ -222,6 +222,9 @@ onUnmounted(() => {
 
 .statusbar-item {
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
 .statusbar-clickable {
