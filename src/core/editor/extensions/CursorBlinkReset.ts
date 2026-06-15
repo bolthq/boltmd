@@ -38,9 +38,13 @@ export function createCursorBlinkResetPlugin(): Plugin {
             const domSel = document.getSelection()
             if (!domSel || domSel.rangeCount === 0) return
 
-            const range = domSel.getRangeAt(0).cloneRange()
+            // Use setBaseAndExtent to preserve selection direction.
+            // Range.cloneRange() would lose backward selections.
+            const { anchorNode, anchorOffset, focusNode, focusOffset } = domSel
+            if (!anchorNode || !focusNode) return
+
             domSel.removeAllRanges()
-            domSel.addRange(range)
+            domSel.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset)
           })
         },
       }
