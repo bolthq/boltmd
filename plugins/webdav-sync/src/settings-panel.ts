@@ -235,6 +235,10 @@ export class SettingsPanel {
           <label>Draft sync interval (seconds, 0 = off)</label>
           <input type="number" data-field="draftSyncIntervalSec" min="0" max="3600" placeholder="0" />
         </div>
+        <div class="wds-field">
+          <label>Poll remote interval (seconds, 0 = off)</label>
+          <input type="number" data-field="pollIntervalSec" min="0" max="3600" placeholder="0" />
+        </div>
         <div class="wds-actions">
           <button class="wds-btn" data-action="test">Test</button>
           <button class="wds-btn primary" data-action="save">Save</button>
@@ -265,14 +269,14 @@ export class SettingsPanel {
         })
       } else {
         input.addEventListener('input', () => {
-          if (field === 'timeout' || field === 'draftSyncIntervalSec') {
+          if (field === 'timeout' || field === 'draftSyncIntervalSec' || field === 'pollIntervalSec') {
             (this.config as Record<string, unknown>)[field] = parseInt(input.value, 10) || 0
           } else {
             (this.config as Record<string, unknown>)[field] = input.value
           }
         })
         input.addEventListener('change', () => {
-          if (field === 'timeout' || field === 'draftSyncIntervalSec') {
+          if (field === 'timeout' || field === 'draftSyncIntervalSec' || field === 'pollIntervalSec') {
             (this.config as Record<string, unknown>)[field] = parseInt(input.value, 10) || 0
           } else {
             (this.config as Record<string, unknown>)[field] = input.value

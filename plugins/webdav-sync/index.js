@@ -124,6 +124,40 @@ var WebDAVClient = class {
       throw new Error(`MKCOL ${remotePath} failed: ${resp.status}`);
     }
   }
+  /**
+   * Download a file from the server via GET.
+   * Returns the file content and ETag.
+   */
+  async getFile(remotePath) {
+    const url = this.buildUrl(remotePath);
+    const resp = await this.network.request({
+      url,
+      method: "GET",
+      headers: this.authHeaders(),
+      timeout: this.config.timeout
+    });
+    if (resp.status === 200) {
+      const etag = resp.headers["etag"] || resp.headers["ETag"] || null;
+      return { content: resp.body, etag: etag ? etag.replace(/"/g, "") : null };
+    }
+    if (resp.status === 404) {
+      throw new Error(`File not found: ${remotePath}`);
+    }
+    throw new Error(`GET failed: ${resp.status}`);
+  }
+  /**
+   * Get file metadata via PROPFIND Depth:0.
+   * Returns ETag and last modified time without downloading content.
+   */
+  async getFileInfo(remotePath) {
+    const resp = await this.propfind(remotePath, 0);
+    if (resp.status === 404) return null;
+    if (resp.status !== 207) {
+      throw new Error(`PROPFIND failed with status ${resp.status}`);
+    }
+    const resources = parseMultistatus(resp.body);
+    return resources.length > 0 ? resources[0] : null;
+  }
   // -------------------------------------------------------------------------
   // Internal
   // -------------------------------------------------------------------------
@@ -389,6 +423,10 @@ var SettingsPanel = class {
           <label>Draft sync interval (seconds, 0 = off)</label>
           <input type="number" data-field="draftSyncIntervalSec" min="0" max="3600" placeholder="0" />
         </div>
+        <div class="wds-field">
+          <label>Poll remote interval (seconds, 0 = off)</label>
+          <input type="number" data-field="pollIntervalSec" min="0" max="3600" placeholder="0" />
+        </div>
         <div class="wds-actions">
           <button class="wds-btn" data-action="test">Test</button>
           <button class="wds-btn primary" data-action="save">Save</button>
@@ -415,14 +453,14 @@ var SettingsPanel = class {
         });
       } else {
         input.addEventListener("input", () => {
-          if (field === "timeout" || field === "draftSyncIntervalSec") {
+          if (field === "timeout" || field === "draftSyncIntervalSec" || field === "pollIntervalSec") {
             this.config[field] = parseInt(input.value, 10) || 0;
           } else {
             this.config[field] = input.value;
           }
         });
         input.addEventListener("change", () => {
-          if (field === "timeout" || field === "draftSyncIntervalSec") {
+          if (field === "timeout" || field === "draftSyncIntervalSec" || field === "pollIntervalSec") {
             this.config[field] = parseInt(input.value, 10) || 0;
           } else {
             this.config[field] = input.value;
@@ -487,10 +525,12 @@ var DEFAULT_CONFIG = {
   authMethod: "basic",
   timeout: 3e4,
   autoSyncOnSave: true,
-  draftSyncIntervalSec: 0
+  draftSyncIntervalSec: 0,
+  pollIntervalSec: 0
 };
 var client = null;
 var draftTimer = null;
+var pollTimer = null;
 async function activate(ctx) {
   const saved = await ctx.config.get(CONFIG_KEY);
   let config = saved ? { ...DEFAULT_CONFIG, ...saved } : { ...DEFAULT_CONFIG };
@@ -503,6 +543,7 @@ async function activate(ctx) {
       client.updateConfig(config);
       await ctx.config.set(CONFIG_KEY, config);
       startDraftTimer();
+      startPollTimer();
       console.log("[webdav-sync] Config saved.");
     },
     // onTest
@@ -520,6 +561,7 @@ async function activate(ctx) {
   });
   let lastSavedFileName = null;
   let lastUploadedContent = null;
+  let lastKnownEtag = null;
   ctx.events.on("file:saved", async (...args) => {
     const payload = args[0];
     if (!payload?.path || !client || !config.serverUrl || !config.autoSyncOnSave) return;
@@ -533,7 +575,8 @@ async function activate(ctx) {
       const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + fileName;
       const result = await client.putFile(remotePath, content);
       lastUploadedContent = content;
-      console.log(`[webdav-sync] Uploaded "${fileName}" (etag: ${result.etag})`);
+      lastKnownEtag = result.etag ? result.etag.replace(/"/g, "") : null;
+      console.log(`[webdav-sync] Uploaded "${fileName}" (etag: ${lastKnownEtag})`);
     } catch (err) {
       console.error(`[webdav-sync] Upload failed for "${fileName}":`, err);
     }
@@ -562,6 +605,39 @@ async function activate(ctx) {
     }
   }
   startDraftTimer();
+  function startPollTimer() {
+    stopPollTimer();
+    if (config.pollIntervalSec <= 0 || !config.serverUrl) return;
+    pollTimer = setInterval(async () => {
+      if (!client || !lastSavedFileName) return;
+      try {
+        const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
+        const info = await client.getFileInfo(remotePath);
+        if (!info || !info.etag) return;
+        if (info.etag === lastKnownEtag) return;
+        const localContent = await ctx.editor.getContent();
+        const hasLocalChanges = localContent !== lastUploadedContent;
+        if (hasLocalChanges) {
+          console.warn(`[webdav-sync] Conflict: remote "${lastSavedFileName}" changed (etag: ${info.etag}) but local has unsaved edits. Skipping download.`);
+          return;
+        }
+        const { content, etag } = await client.getFile(remotePath);
+        lastKnownEtag = etag;
+        lastUploadedContent = content;
+        await ctx.editor.setContent(content);
+        console.log(`[webdav-sync] Downloaded remote change for "${lastSavedFileName}" (etag: ${etag})`);
+      } catch (err) {
+        console.error(`[webdav-sync] Poll failed:`, err);
+      }
+    }, config.pollIntervalSec * 1e3);
+  }
+  function stopPollTimer() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+  startPollTimer();
   ctx.commands.register({
     id: "syncNow",
     label: "WebDAV Sync: Sync Now",
@@ -576,7 +652,8 @@ async function activate(ctx) {
         const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
         const result = await client.putFile(remotePath, content);
         lastUploadedContent = content;
-        console.log(`[webdav-sync] Manual sync: uploaded "${lastSavedFileName}" (etag: ${result.etag})`);
+        lastKnownEtag = result.etag ? result.etag.replace(/"/g, "") : null;
+        console.log(`[webdav-sync] Manual sync: uploaded "${lastSavedFileName}" (etag: ${lastKnownEtag})`);
       } catch (err) {
         console.error(`[webdav-sync] Manual sync failed:`, err);
       }
@@ -592,6 +669,27 @@ async function activate(ctx) {
         console.log("[webdav-sync] Connection successful!");
       } else {
         console.error("[webdav-sync] Connection failed:", result.error);
+      }
+    }
+  });
+  ctx.commands.register({
+    id: "pullRemote",
+    label: "WebDAV Sync: Pull Remote",
+    async action() {
+      if (!client || !config.serverUrl) return;
+      if (!lastSavedFileName) {
+        console.warn("[webdav-sync] No file has been saved yet.");
+        return;
+      }
+      try {
+        const remotePath = config.remoteDir.replace(/\/$/, "") + "/" + lastSavedFileName;
+        const { content, etag } = await client.getFile(remotePath);
+        lastKnownEtag = etag;
+        lastUploadedContent = content;
+        await ctx.editor.setContent(content);
+        console.log(`[webdav-sync] Pulled remote "${lastSavedFileName}" (etag: ${etag})`);
+      } catch (err) {
+        console.error(`[webdav-sync] Pull failed:`, err);
       }
     }
   });
@@ -624,6 +722,10 @@ function deactivate() {
   if (draftTimer) {
     clearInterval(draftTimer);
     draftTimer = null;
+  }
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
   client = null;
   console.log("[webdav-sync] Plugin deactivated");

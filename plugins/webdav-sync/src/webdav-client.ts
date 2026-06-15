@@ -22,6 +22,8 @@ export interface WebDAVConfig {
   autoSyncOnSave: boolean
   /** Auto-upload unsaved drafts every N seconds (0 = disabled) */
   draftSyncIntervalSec: number
+  /** Poll remote for changes every N seconds (0 = disabled) */
+  pollIntervalSec: number
 }
 
 export class WebDAVClient {
@@ -113,6 +115,42 @@ export class WebDAVClient {
     if (resp.status >= 400) {
       throw new Error(`MKCOL ${remotePath} failed: ${resp.status}`)
     }
+  }
+
+  /**
+   * Download a file from the server via GET.
+   * Returns the file content and ETag.
+   */
+  async getFile(remotePath: string): Promise<{ content: string; etag: string | null }> {
+    const url = this.buildUrl(remotePath)
+    const resp = await this.network.request({
+      url,
+      method: 'GET',
+      headers: this.authHeaders(),
+      timeout: this.config.timeout,
+    })
+    if (resp.status === 200) {
+      const etag = resp.headers['etag'] || resp.headers['ETag'] || null
+      return { content: resp.body, etag: etag ? etag.replace(/"/g, '') : null }
+    }
+    if (resp.status === 404) {
+      throw new Error(`File not found: ${remotePath}`)
+    }
+    throw new Error(`GET failed: ${resp.status}`)
+  }
+
+  /**
+   * Get file metadata via PROPFIND Depth:0.
+   * Returns ETag and last modified time without downloading content.
+   */
+  async getFileInfo(remotePath: string): Promise<DavResource | null> {
+    const resp = await this.propfind(remotePath, 0)
+    if (resp.status === 404) return null
+    if (resp.status !== 207) {
+      throw new Error(`PROPFIND failed with status ${resp.status}`)
+    }
+    const resources = parseMultistatus(resp.body)
+    return resources.length > 0 ? resources[0] : null
   }
 
   // -------------------------------------------------------------------------

@@ -22,10 +22,12 @@ const DEFAULT_CONFIG: WebDAVConfig = {
   timeout: 30000,
   autoSyncOnSave: true,
   draftSyncIntervalSec: 0,
+  pollIntervalSec: 0,
 }
 
 let client: WebDAVClient | null = null
 let draftTimer: ReturnType<typeof setInterval> | null = null
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 export async function activate(ctx: PluginContext): Promise<void> {
   // Load connection config (if previously saved).
@@ -43,6 +45,7 @@ export async function activate(ctx: PluginContext): Promise<void> {
       client!.updateConfig(config)
       await ctx.config.set(CONFIG_KEY, config)
       startDraftTimer()
+      startPollTimer()
       console.log('[webdav-sync] Config saved.')
     },
     // onTest
@@ -62,6 +65,7 @@ export async function activate(ctx: PluginContext): Promise<void> {
   // --- Upload on save (always immediate) ---
   let lastSavedFileName: string | null = null
   let lastUploadedContent: string | null = null
+  let lastKnownEtag: string | null = null
 
   ctx.events.on('file:saved', async (...args: unknown[]) => {
     const payload = args[0] as { path?: string } | undefined
@@ -82,7 +86,8 @@ export async function activate(ctx: PluginContext): Promise<void> {
       const remotePath = config.remoteDir.replace(/\/$/, '') + '/' + fileName
       const result = await client.putFile(remotePath, content)
       lastUploadedContent = content
-      console.log(`[webdav-sync] Uploaded "${fileName}" (etag: ${result.etag})`)
+      lastKnownEtag = result.etag ? result.etag.replace(/"/g, '') : null
+      console.log(`[webdav-sync] Uploaded "${fileName}" (etag: ${lastKnownEtag})`)
     } catch (err) {
       console.error(`[webdav-sync] Upload failed for "${fileName}":`, err)
     }
@@ -117,6 +122,52 @@ export async function activate(ctx: PluginContext): Promise<void> {
 
   startDraftTimer()
 
+  // --- Poll remote for changes (downloads if remote is newer) ---
+  function startPollTimer() {
+    stopPollTimer()
+    if (config.pollIntervalSec <= 0 || !config.serverUrl) return
+    pollTimer = setInterval(async () => {
+      if (!client || !lastSavedFileName) return
+      try {
+        const remotePath = config.remoteDir.replace(/\/$/, '') + '/' + lastSavedFileName
+        const info = await client.getFileInfo(remotePath)
+        if (!info || !info.etag) return
+
+        // No change since our last upload/download.
+        if (info.etag === lastKnownEtag) return
+
+        // Remote has changed. Check if we have local unsaved changes.
+        const localContent = await ctx.editor.getContent()
+        const hasLocalChanges = localContent !== lastUploadedContent
+
+        if (hasLocalChanges) {
+          // Conflict: both local and remote have changed.
+          // For now, log a warning and skip (Unit 5 will handle conflict UI).
+          console.warn(`[webdav-sync] Conflict: remote "${lastSavedFileName}" changed (etag: ${info.etag}) but local has unsaved edits. Skipping download.`)
+          return
+        }
+
+        // No local changes — safe to download and apply.
+        const { content, etag } = await client.getFile(remotePath)
+        lastKnownEtag = etag
+        lastUploadedContent = content
+        await ctx.editor.setContent(content)
+        console.log(`[webdav-sync] Downloaded remote change for "${lastSavedFileName}" (etag: ${etag})`)
+      } catch (err) {
+        console.error(`[webdav-sync] Poll failed:`, err)
+      }
+    }, config.pollIntervalSec * 1000)
+  }
+
+  function stopPollTimer() {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  startPollTimer()
+
   // --- Commands ---
 
   ctx.commands.register({
@@ -133,7 +184,8 @@ export async function activate(ctx: PluginContext): Promise<void> {
         const remotePath = config.remoteDir.replace(/\/$/, '') + '/' + lastSavedFileName
         const result = await client.putFile(remotePath, content)
         lastUploadedContent = content
-        console.log(`[webdav-sync] Manual sync: uploaded "${lastSavedFileName}" (etag: ${result.etag})`)
+        lastKnownEtag = result.etag ? result.etag.replace(/"/g, '') : null
+        console.log(`[webdav-sync] Manual sync: uploaded "${lastSavedFileName}" (etag: ${lastKnownEtag})`)
       } catch (err) {
         console.error(`[webdav-sync] Manual sync failed:`, err)
       }
@@ -150,6 +202,28 @@ export async function activate(ctx: PluginContext): Promise<void> {
         console.log('[webdav-sync] Connection successful!')
       } else {
         console.error('[webdav-sync] Connection failed:', result.error)
+      }
+    },
+  })
+
+  ctx.commands.register({
+    id: 'pullRemote',
+    label: 'WebDAV Sync: Pull Remote',
+    async action() {
+      if (!client || !config.serverUrl) return
+      if (!lastSavedFileName) {
+        console.warn('[webdav-sync] No file has been saved yet.')
+        return
+      }
+      try {
+        const remotePath = config.remoteDir.replace(/\/$/, '') + '/' + lastSavedFileName
+        const { content, etag } = await client.getFile(remotePath)
+        lastKnownEtag = etag
+        lastUploadedContent = content
+        await ctx.editor.setContent(content)
+        console.log(`[webdav-sync] Pulled remote "${lastSavedFileName}" (etag: ${etag})`)
+      } catch (err) {
+        console.error(`[webdav-sync] Pull failed:`, err)
       }
     },
   })
@@ -186,6 +260,10 @@ export function deactivate(): void {
   if (draftTimer) {
     clearInterval(draftTimer)
     draftTimer = null
+  }
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
   }
   client = null
   console.log('[webdav-sync] Plugin deactivated')
