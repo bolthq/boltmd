@@ -696,7 +696,8 @@ async function activate(ctx) {
     text: "",
     tooltip: "Local History",
     align: "right",
-    priority: 200
+    priority: 200,
+    onClick: () => ctx.sidebar.show("panel")
   });
   async function updateStatusBar() {
     if (!currentFilePath) return;
@@ -704,7 +705,7 @@ async function activate(ctx) {
       const meta = await storage.loadMeta(currentFilePath);
       const count = meta.versions.length;
       ctx.statusbar.updateItem("local-history.status", {
-        text: count > 0 ? `${count} ver` : "",
+        text: count > 0 ? `History (${count})` : "",
         tooltip: count > 0 ? `Local History: ${count} version${count > 1 ? "s" : ""}` : "Local History: no versions yet"
       });
     } catch {
