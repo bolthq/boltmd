@@ -595,6 +595,14 @@ async function reloadAllPlugins(): Promise<void> {
   await deactivateAllPlugins()
   resetPluginRegistries()
   await bootstrapPlugins()
+
+  // Emit synthetic tab:switch so reloaded plugins can pick up the active file.
+  if (activeTab.value) {
+    emitPluginEvent('tab:switch', {
+      tabId: activeTab.value.id,
+      path: activeTab.value.filePath ?? null,
+    })
+  }
 }
 
 // Expose reloadAllPlugins for command palette (P15-8).

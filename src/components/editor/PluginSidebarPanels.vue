@@ -66,9 +66,14 @@ function onResizeStart(e: MouseEvent) {
 watch(sidebarShowSignal, (signal) => {
   if (signal.tick === 0) return
   if (signal.panelId) {
-    openPanel(signal.panelId)
+    // Toggle: if requesting the already-active panel, close it.
+    if (activePanelId.value === signal.panelId) {
+      closePanel()
+    } else {
+      openPanel(signal.panelId)
+    }
   } else {
-    // Toggle: if open, close; if closed, open first panel.
+    // No specific panel: if open, close; if closed, open first panel.
     if (activePanelId.value) {
       closePanel()
     } else if (pluginSidebarPanels.value.length > 0) {
