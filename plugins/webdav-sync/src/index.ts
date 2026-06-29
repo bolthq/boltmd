@@ -11,7 +11,7 @@
 
 import type { PluginContext } from './types'
 import { WebDAVClient, type WebDAVConfig } from './webdav-client'
-import { SettingsPanel } from './settings-panel'
+import { SettingsPanel, type SyncLogEntry } from './settings-panel'
 
 const CONFIG_KEY = 'connection'
 
@@ -34,12 +34,50 @@ let client: WebDAVClient | null = null
 let draftTimer: ReturnType<typeof setInterval> | null = null
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
+// Sync operation log (persisted to disk).
+const MAX_LOG_ENTRIES = 200
+const syncLog: SyncLogEntry[] = []
+const LOG_FILE = 'sync-log.json'
+
+let logFs: PluginContext['fs'] | null = null
+
+async function loadLog(fs: PluginContext['fs']): Promise<void> {
+  logFs = fs
+  try {
+    const exists = await fs.exists(LOG_FILE)
+    if (!exists) return
+    const raw = await fs.readFile(LOG_FILE)
+    const entries = JSON.parse(raw) as SyncLogEntry[]
+    syncLog.push(...entries.slice(-MAX_LOG_ENTRIES))
+  } catch {
+    // Corrupted or missing — start fresh.
+  }
+}
+
+async function saveLog(): Promise<void> {
+  if (!logFs) return
+  try {
+    await logFs.writeFile(LOG_FILE, JSON.stringify(syncLog))
+  } catch {
+    // Silently ignore write failures.
+  }
+}
+
+function addLog(direction: SyncLogEntry['direction'], file: string, message: string): void {
+  syncLog.push({ timestamp: Date.now(), direction, file, message })
+  if (syncLog.length > MAX_LOG_ENTRIES) syncLog.splice(0, syncLog.length - MAX_LOG_ENTRIES)
+  saveLog()
+}
+
 export async function activate(ctx: PluginContext): Promise<void> {
   // Load connection config (if previously saved).
   const saved = await ctx.config.get<WebDAVConfig>(CONFIG_KEY)
   let config = saved ? { ...DEFAULT_CONFIG, ...saved } : { ...DEFAULT_CONFIG }
 
   client = new WebDAVClient(ctx.network, config)
+
+  // Load persisted sync log from disk.
+  await loadLog(ctx.fs)
 
   // --- Status bar ---
   let currentState: SyncState = config.serverUrl ? 'idle' : 'offline'
@@ -135,7 +173,10 @@ export async function activate(ctx: PluginContext): Promise<void> {
     async (testConfig) => {
       const tempClient = new WebDAVClient(ctx.network, testConfig)
       return tempClient.testConnection()
-    }
+    },
+    syncLog,
+    // onClearLog
+    () => { saveLog() },
   )
 
   ctx.sidebar.registerPanel({
@@ -173,9 +214,13 @@ export async function activate(ctx: PluginContext): Promise<void> {
       lastKnownEtag = result.etag ? result.etag.replace(/"/g, '') : null
       conflictEtag = null
       setState('idle')
+      addLog('upload', fileName, 'Uploaded on save')
+      panel.refreshLog()
       console.log(`[webdav-sync] Uploaded "${fileName}" (etag: ${lastKnownEtag})`)
     } catch (err) {
       setState('error', `Upload failed: ${err}`)
+      addLog('error', fileName, `Upload failed: ${err}`)
+      panel.refreshLog()
       console.error(`[webdav-sync] Upload failed for "${fileName}":`, err)
     }
   })
@@ -197,9 +242,13 @@ export async function activate(ctx: PluginContext): Promise<void> {
         lastUploadedContent = content
         lastKnownEtag = result.etag ? result.etag.replace(/"/g, '') : null
         setState('idle')
+        addLog('upload', lastSavedFileName!, 'Draft sync')
+        panel.refreshLog()
         console.log(`[webdav-sync] Draft sync: uploaded "${lastSavedFileName}" (etag: ${lastKnownEtag})`)
       } catch (err) {
         setState('error', `Draft sync failed: ${err}`)
+        addLog('error', lastSavedFileName!, `Draft sync failed: ${err}`)
+        panel.refreshLog()
         console.error(`[webdav-sync] Draft sync failed:`, err)
       }
     }, config.draftSyncIntervalSec * 1000)
@@ -237,6 +286,8 @@ export async function activate(ctx: PluginContext): Promise<void> {
           // Conflict: both local and remote have changed.
           conflictEtag = info.etag
           setState('conflict', `Remote "${lastSavedFileName}" changed (etag: ${info.etag}) but local has unsaved edits.`)
+          addLog('conflict', lastSavedFileName!, `Remote changed while local has edits`)
+          panel.refreshLog()
           console.warn(`[webdav-sync] Conflict detected for "${lastSavedFileName}"`)
           return
         }
@@ -248,9 +299,13 @@ export async function activate(ctx: PluginContext): Promise<void> {
         lastUploadedContent = content
         await ctx.editor.setContent(content)
         setState('idle')
+        addLog('download', lastSavedFileName!, 'Downloaded remote change')
+        panel.refreshLog()
         console.log(`[webdav-sync] Downloaded remote change for "${lastSavedFileName}" (etag: ${etag})`)
       } catch (err) {
         setState('error', `Poll failed: ${err}`)
+        addLog('error', lastSavedFileName!, `Poll failed: ${err}`)
+        panel.refreshLog()
         console.error(`[webdav-sync] Poll failed:`, err)
       }
     }, config.pollIntervalSec * 1000)
@@ -285,9 +340,13 @@ export async function activate(ctx: PluginContext): Promise<void> {
         lastKnownEtag = result.etag ? result.etag.replace(/"/g, '') : null
         conflictEtag = null
         setState('idle')
+        addLog('upload', lastSavedFileName!, 'Manual sync (push)')
+        panel.refreshLog()
         console.log(`[webdav-sync] Manual sync: uploaded "${lastSavedFileName}" (etag: ${lastKnownEtag})`)
       } catch (err) {
         setState('error', `Manual sync failed: ${err}`)
+        addLog('error', lastSavedFileName!, `Manual sync failed: ${err}`)
+        panel.refreshLog()
         console.error(`[webdav-sync] Manual sync failed:`, err)
       }
     },
@@ -311,9 +370,13 @@ export async function activate(ctx: PluginContext): Promise<void> {
         conflictEtag = null
         await ctx.editor.setContent(content)
         setState('idle')
+        addLog('download', lastSavedFileName!, 'Pulled from remote')
+        panel.refreshLog()
         console.log(`[webdav-sync] Pulled remote "${lastSavedFileName}" (etag: ${etag})`)
       } catch (err) {
         setState('error', `Pull failed: ${err}`)
+        addLog('error', lastSavedFileName!, `Pull failed: ${err}`)
+        panel.refreshLog()
         console.error(`[webdav-sync] Pull failed:`, err)
       }
     },
@@ -334,9 +397,13 @@ export async function activate(ctx: PluginContext): Promise<void> {
         lastKnownEtag = result.etag ? result.etag.replace(/"/g, '') : null
         conflictEtag = null
         setState('idle')
+        addLog('upload', lastSavedFileName!, 'Conflict resolved: kept local')
+        panel.refreshLog()
         console.log(`[webdav-sync] Conflict resolved: kept local, pushed to remote (etag: ${lastKnownEtag})`)
       } catch (err) {
         setState('error', `Resolve failed: ${err}`)
+        addLog('error', lastSavedFileName!, `Resolve (keep local) failed: ${err}`)
+        panel.refreshLog()
         console.error(`[webdav-sync] Resolve (keep local) failed:`, err)
       }
     },
@@ -357,9 +424,13 @@ export async function activate(ctx: PluginContext): Promise<void> {
         conflictEtag = null
         await ctx.editor.setContent(content)
         setState('idle')
+        addLog('download', lastSavedFileName!, 'Conflict resolved: kept remote')
+        panel.refreshLog()
         console.log(`[webdav-sync] Conflict resolved: kept remote (etag: ${etag})`)
       } catch (err) {
         setState('error', `Resolve failed: ${err}`)
+        addLog('error', lastSavedFileName!, `Resolve (keep remote) failed: ${err}`)
+        panel.refreshLog()
         console.error(`[webdav-sync] Resolve (keep remote) failed:`, err)
       }
     },
@@ -417,5 +488,7 @@ export function deactivate(): void {
     pollTimer = null
   }
   client = null
+  logFs = null
+  syncLog.length = 0
   console.log('[webdav-sync] Plugin deactivated')
 }
