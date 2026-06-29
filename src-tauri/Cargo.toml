@@ -1,6 +1,6 @@
 [package]
 name = "boltmd"
-version = "1.0.0"
+version = "1.2.0"
 description = "BoltMD - Lightning-fast Markdown editor"
 authors = ["Dio"]
 edition = "2021"
