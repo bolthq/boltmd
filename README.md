@@ -58,7 +58,7 @@ All three modes share a **unified undo/redo stack** — edits made in any mode c
 
 ### Full Markdown Support
 
-Headings, bold, italic, strikethrough, inline code, ordered/unordered lists, task lists (clickable checkboxes), tables, blockquotes, horizontal rules, code blocks with syntax highlighting (150+ languages), links (click to open in browser), and images with inline preview. Raw HTML blocks rendered as-is.
+Headings, bold, italic, strikethrough, inline code, ordered/unordered lists, task lists (clickable checkboxes), tables, blockquotes, horizontal rules, code blocks with syntax highlighting (150+ languages), links (click to open in browser), images with inline preview, **math formulas** (KaTeX, inline `$...$` and block `$$...$$`), **YAML frontmatter** display, and raw HTML blocks rendered as-is.
 
 ### Image Paste & Drop
 
@@ -143,7 +143,7 @@ Configurable debounce delay, toggle on/off in settings. Never lose work.
 - Extension points: commands, status bar items, sidebar panels, keyboard shortcuts
 - Event bridge: plugins subscribe to editor/file/config events
 - Sandboxed filesystem access per-plugin directory
-- Official plugins (coming soon): Local History, KaTeX Math, Global Search, Minimap, YAML Frontmatter
+- Official plugins: Local History (version control), WebDAV Sync (cloud sync)
 
 ### Other
 
@@ -252,8 +252,9 @@ See [docs/01-architecture.md](docs/01-architecture.md) for details.
 - [x] Export PDF / HTML
 - [x] Auto-update detection (silent background check, configurable)
 - [x] Plugin system (architecture + management panel)
-- [ ] Local version history (plugin)
-- [ ] Cloud sync (plugin, self-hostable)
+- [x] Local version history (plugin)
+- [x] Cloud sync (plugin, self-hostable WebDAV)
+- [ ] AI-assisted writing (plugin)
 - [ ] Cross-platform (Linux, macOS, mobile)
 
 See [TASKS.md](TASKS.md) for the full breakdown.
@@ -275,6 +276,7 @@ See [TASKS.md](TASKS.md) for the full breakdown.
 | `Ctrl+R` | Recent files search |
 | `Ctrl+Shift+P` | Command palette |
 | `Ctrl+Shift+O` | Quick jump to heading |
+| `Ctrl+Shift+H` | Local version history |
 | `Ctrl+P` | Export PDF |
 | `F11` | Toggle Zen mode |
 | `Ctrl+B` | Bold |
