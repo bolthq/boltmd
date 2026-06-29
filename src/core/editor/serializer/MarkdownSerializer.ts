@@ -831,7 +831,7 @@ function serializeParagraph(node: PMNode, state: SerializeState): void {
   // Output an extra newline so consecutive empty paragraphs produce multiple blank lines.
   // Also treat paragraphs containing only zero-width spaces (\u200B) as empty —
   // these are sentinel markers from the parser that should not leak into saved files.
-  if (node.childCount === 0 || (node.textContent === '' && !node.firstChild) || /^[\u200B\s]*$/.test(node.textContent)) {
+  if (node.childCount === 0 || (node.textContent === '' && !node.firstChild) || (node.textContent !== '' && /^[\u200B\s]*$/.test(node.textContent))) {
     state.write('\n')
     state.markBlockWritten()
     return
