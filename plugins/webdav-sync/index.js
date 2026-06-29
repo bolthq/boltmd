@@ -370,6 +370,22 @@ var STYLES = `
   color: #90caf9;
 }
 
+.wds-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(144, 202, 249, 0.3);
+  border-top-color: #90caf9;
+  border-radius: 50%;
+  animation: wds-spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes wds-spin {
+  to { transform: rotate(360deg); }
+}
+
 .wds-log-list {
   flex: 1;
   overflow-y: auto;
@@ -485,6 +501,21 @@ function logIcon(direction) {
 }
 function escapeHtml(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timed out after ${ms / 1e3}s`)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      }
+    );
+  });
 }
 var SettingsPanel = class {
   container = null;
@@ -689,7 +720,7 @@ var SettingsPanel = class {
     this.showStatus("info", "Testing connection...");
     this.setButtonsDisabled(true);
     try {
-      const result = await this.onTest(this.config);
+      const result = await withTimeout(this.onTest(this.config), 15e3);
       if (result.ok) {
         this.showStatus("success", "Connection successful!");
       } else {
@@ -704,7 +735,7 @@ var SettingsPanel = class {
   async handleSave() {
     this.setButtonsDisabled(true);
     try {
-      await this.onSave(this.config);
+      await withTimeout(this.onSave(this.config), 15e3);
       this.showStatus("success", "Settings saved.");
     } catch (err) {
       this.showStatus("error", `Save failed: ${err}`);
@@ -718,12 +749,16 @@ var SettingsPanel = class {
   statusTimer = null;
   showStatus(type, message) {
     if (!this.statusEl) return;
-    this.statusEl.innerHTML = `<div class="wds-status ${type}">${message}</div>`;
+    const spinner = type === "info" ? '<span class="wds-spinner"></span>' : "";
+    this.statusEl.innerHTML = `<div class="wds-status ${type}">${spinner}${message}</div>`;
     if (this.statusTimer) clearTimeout(this.statusTimer);
-    this.statusTimer = setTimeout(() => {
-      if (this.statusEl) this.statusEl.innerHTML = "";
-      this.statusTimer = null;
-    }, 4e3);
+    this.statusTimer = null;
+    if (type === "success") {
+      this.statusTimer = setTimeout(() => {
+        if (this.statusEl) this.statusEl.innerHTML = "";
+        this.statusTimer = null;
+      }, 3e3);
+    }
   }
 };
 

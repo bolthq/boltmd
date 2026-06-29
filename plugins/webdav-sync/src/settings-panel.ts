@@ -183,6 +183,22 @@ const STYLES = `
   color: #90caf9;
 }
 
+.wds-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(144, 202, 249, 0.3);
+  border-top-color: #90caf9;
+  border-radius: 50%;
+  animation: wds-spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes wds-spin {
+  to { transform: rotate(360deg); }
+}
+
 .wds-log-list {
   flex: 1;
   overflow-y: auto;
@@ -306,6 +322,17 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+}
+
+/** Wrap a promise with a timeout. Rejects if not settled within `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timed out after ${ms / 1000}s`)), ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) },
+    )
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -546,7 +573,7 @@ export class SettingsPanel {
     this.setButtonsDisabled(true)
 
     try {
-      const result = await this.onTest(this.config)
+      const result = await withTimeout(this.onTest(this.config), 15000)
       if (result.ok) {
         this.showStatus('success', 'Connection successful!')
       } else {
@@ -563,7 +590,7 @@ export class SettingsPanel {
     this.setButtonsDisabled(true)
 
     try {
-      await this.onSave(this.config)
+      await withTimeout(this.onSave(this.config), 15000)
       this.showStatus('success', 'Settings saved.')
     } catch (err) {
       this.showStatus('error', `Save failed: ${err}`)
@@ -582,11 +609,16 @@ export class SettingsPanel {
 
   private showStatus(type: 'success' | 'error' | 'info', message: string): void {
     if (!this.statusEl) return
-    this.statusEl.innerHTML = `<div class="wds-status ${type}">${message}</div>`
+    const spinner = type === 'info' ? '<span class="wds-spinner"></span>' : ''
+    this.statusEl.innerHTML = `<div class="wds-status ${type}">${spinner}${message}</div>`
     if (this.statusTimer) clearTimeout(this.statusTimer)
-    this.statusTimer = setTimeout(() => {
-      if (this.statusEl) this.statusEl.innerHTML = ''
-      this.statusTimer = null
-    }, 4000)
+    this.statusTimer = null
+    // Only auto-clear success messages; info and error stay until replaced.
+    if (type === 'success') {
+      this.statusTimer = setTimeout(() => {
+        if (this.statusEl) this.statusEl.innerHTML = ''
+        this.statusTimer = null
+      }, 3000)
+    }
   }
 }
